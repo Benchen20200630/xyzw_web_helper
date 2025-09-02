@@ -6,72 +6,72 @@ const routes = [
     path: '/',
     name: 'Home',
     component: () => import('@/views/Home.vue'),
-    meta: { 
+    meta: {
       title: '首页',
-      requiresToken: false 
+      requiresToken: false
     }
   },
   {
     path: '/tokens',
     name: 'TokenImport',
     component: () => import('@/views/TokenImport.vue'),
-    meta: { 
+    meta: {
       title: 'Token管理',
-      requiresToken: false 
+      requiresToken: false
     }
   },
   {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/Dashboard.vue'),
-    meta: { 
+    meta: {
       title: '控制台',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/Profile.vue'),
-    meta: { 
+    meta: {
       title: '个人设置',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   {
     path: '/daily-tasks',
     name: 'DailyTasks',
     component: () => import('@/views/DailyTasks.vue'),
-    meta: { 
+    meta: {
       title: '日常任务',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   {
     path: '/game-features',
     name: 'GameFeatures',
     component: () => import('@/views/GameFeatures.vue'),
-    meta: { 
+    meta: {
       title: '游戏功能',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   {
     path: '/message-test',
     name: 'MessageTest',
     component: () => import('@/components/MessageTester.vue'),
-    meta: { 
+    meta: {
       title: '消息测试',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   {
     path: '/websocket-test',
     name: 'WebSocketTest',
     component: () => import('@/components/WebSocketTester.vue'),
-    meta: { 
+    meta: {
       title: 'WebSocket测试',
-      requiresToken: true 
+      requiresToken: true
     }
   },
   // 兼容旧路由，重定向到新的token管理页面
@@ -91,8 +91,8 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFound.vue'),
-    meta: { 
-      title: '页面不存在' 
+    meta: {
+      title: '页面不存在'
     }
   }
 ]
@@ -112,10 +112,10 @@ const router = createRouter({
 // 导航守卫
 router.beforeEach((to, from, next) => {
   const tokenStore = useTokenStore()
-  
+
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - XYZW 游戏管理系统` : 'XYZW 游戏管理系统'
-  
+
   // 检查是否需要Token
   if (to.meta.requiresToken && !tokenStore.hasTokens) {
     next('/tokens')

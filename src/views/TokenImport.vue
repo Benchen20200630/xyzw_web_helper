@@ -4,13 +4,30 @@
       <!-- 页面头部 -->
       <div class="page-header">
         <div class="header-content">
-          <img
-            src="/icons/xiaoyugan.png"
-            alt="XYZW"
-            class="brand-logo"
-          >
+          <div class="header-top">
+            <img
+              src="/icons/xiaoyugan.png"
+              alt="XYZW"
+              class="brand-logo"
+            >
+            <!-- 主题切换按钮 -->
+            <n-button 
+              circle 
+              size="small" 
+              @click="toggleTheme"
+              class="theme-toggle"
+            >
+              <template #icon>
+                <n-icon v-if="isDarkTheme">
+                  <Sunny />
+                </n-icon>
+                <n-icon v-else>
+                  <Moon />
+                </n-icon>
+              </template>
+            </n-button>
+          </div>
           <h1>游戏Token管理</h1>
-          <p>导入您的游戏Token开始自动化任务管理</p>
         </div>
       </div>
 
@@ -23,56 +40,65 @@
           <div class="card-header">
             <h2>
               <n-icon><Add /></n-icon>
-              导入游戏Token
+              添加游戏Token
             </h2>
-            <p>支持Base64编码的Token字符串导入</p>
-            <div class="help-info">
-              <n-alert
-                type="info"
-                size="small"
-                :show-icon="false"
-              >
-                <strong>WebSocket连接：</strong>系统会自动将解码后的Token带入到固定地址：<br>
-                <code>wss://xxz-xyzw.hortorgames.com/agent?p=[您的Token]&e=x&lang=chinese</code>
-              </n-alert>
-            </div>
+            
+            <!-- 导入方式选择 -->
+            <n-radio-group
+              v-model:value="importMethod"
+              class="import-method-tabs"
+              size="small"
+            >
+              <n-radio-button value="manual">
+                手动输入
+              </n-radio-button>
+              <n-radio-button value="url">
+                URL获取
+              </n-radio-button>
+            </n-radio-group>
+            
           </div>
 
+          <!-- 手动输入表单 -->
           <n-form
+            v-if="importMethod === 'manual'"
             ref="importFormRef"
             :model="importForm"
             :rules="importRules"
-            label-placement="top"
-            size="large"
+            :label-placement="'top'"
+            :size="'large'"
+            :show-label="true"
           >
             <n-form-item
-              label="Token名称"
-              path="name"
+              :label="'游戏角色名称'"
+              :path="'name'"
+              :show-label="true"
             >
               <n-input
                 v-model:value="importForm.name"
-                placeholder="为这个Token起个名字，例如：主号战士"
+                placeholder="例如：主号战士"
                 clearable
               />
             </n-form-item>
 
             <n-form-item
-              label="Base64 Token"
-              path="base64Token"
+              :label="'Token字符串'"
+              :path="'base64Token'"
+              :show-label="true"
             >
               <n-input
                 v-model:value="importForm.base64Token"
                 type="textarea"
-                :rows="4"
-                placeholder="粘贴您的Base64编码Token字符串..."
+                :rows="3"
+                placeholder="粘贴Token字符串..."
                 clearable
               />
             </n-form-item>
 
-            <!-- 可选信息 -->
+            <!-- 角色详情 -->
             <n-collapse>
               <n-collapse-item
-                title="可选信息"
+                title="角色详情 (可选)"
                 name="optional"
               >
                 <div class="optional-fields">
@@ -83,37 +109,16 @@
                     />
                   </n-form-item>
 
-                  <n-form-item label="等级">
-                    <n-input-number
-                      v-model:value="importForm.level"
-                      :min="1"
-                      :max="200"
-                      placeholder="角色等级"
-                    />
-                  </n-form-item>
-
-                  <n-form-item label="职业">
-                    <n-select
-                      v-model:value="importForm.profession"
-                      :options="professionOptions"
-                      placeholder="选择职业"
-                    />
-                  </n-form-item>
-
-                  <n-form-item label="WebSocket URL (可选)">
+                  <n-form-item label="自定义连接地址">
                     <n-input
                       v-model:value="importForm.wsUrl"
-                      placeholder="留空将使用默认地址: wss://xxz-xyzw.hortorgames.com/agent"
+                      placeholder="留空使用默认连接"
                     />
-                    <template #feedback>
-                      <span style="color: var(--text-tertiary); font-size: 12px;">
-                        默认会自动使用游戏服务器地址，一般情况下无需填写
-                      </span>
-                    </template>
                   </n-form-item>
                 </div>
               </n-collapse-item>
             </n-collapse>
+
 
             <div class="form-actions">
               <n-button
@@ -126,7 +131,92 @@
                 <template #icon>
                   <n-icon><CloudUpload /></n-icon>
                 </template>
-                导入Token
+                添加Token
+              </n-button>
+
+              <n-button
+                v-if="tokenStore.hasTokens"
+                size="large"
+                block
+                @click="showImportForm = false"
+              >
+                取消
+              </n-button>
+            </div>
+          </n-form>
+
+          <!-- URL获取表单 -->
+          <n-form
+            v-if="importMethod === 'url'"
+            ref="urlFormRef"
+            :model="urlForm"
+            :rules="urlRules"
+            label-placement="top"
+            size="large"
+          >
+            <n-form-item
+              label="游戏角色名称"
+              path="name"
+            >
+              <n-input
+                v-model:value="urlForm.name"
+                placeholder="例如：主号战士"
+                clearable
+              />
+            </n-form-item>
+
+            <n-form-item
+              label="Token获取地址"
+              path="url"
+            >
+              <n-input
+                v-model:value="urlForm.url"
+                placeholder="输入API接口地址..."
+                clearable
+              />
+              <template #feedback>
+                <span class="form-tip">
+                  接口应返回包含token字段的JSON数据
+                </span>
+              </template>
+            </n-form-item>
+
+            <!-- 角色详情 -->
+            <n-collapse>
+              <n-collapse-item
+                title="角色详情 (可选)"
+                name="optional"
+              >
+                <div class="optional-fields">
+                  <n-form-item label="服务器">
+                    <n-input
+                      v-model:value="urlForm.server"
+                      placeholder="服务器名称"
+                    />
+                  </n-form-item>
+
+                  <n-form-item label="自定义连接地址">
+                    <n-input
+                      v-model:value="urlForm.wsUrl"
+                      placeholder="留空使用默认连接"
+                    />
+                  </n-form-item>
+                </div>
+              </n-collapse-item>
+            </n-collapse>
+
+            <div class="form-actions">
+              <n-button
+                type="primary"
+                size="large"
+                block
+                :loading="isImporting"
+                @click="handleUrlImport"
+              >
+                <template #icon>
+                  <n-icon><CloudUpload /></n-icon>
+                </template>
+                获取并添加Token
               </n-button>
 
               <n-button
@@ -196,14 +286,6 @@
                     v-if="token.server"
                     class="meta-item"
                   >{{ token.server }}</span>
-                  <span
-                    v-if="token.level"
-                    class="meta-item"
-                  >Lv.{{ token.level }}</span>
-                  <span
-                    v-if="token.profession"
-                    class="meta-item"
-                  >{{ token.profession }}</span>
                 </div>
               </div>
 
@@ -238,13 +320,28 @@
                   </span>
                 </div>
 
-                <n-button
-                  size="small"
-                  :type="getConnectionStatus(token.id) === 'connected' ? 'warning' : 'primary'"
-                  @click.stop="toggleConnection(token)"
-                >
-                  {{ getConnectionStatus(token.id) === 'connected' ? '断开' : '连接' }}
-                </n-button>
+                <div class="connection-actions">
+                  <n-button
+                    v-if="token.sourceUrl"
+                    size="small"
+                    type="default"
+                    :loading="refreshingTokens.has(token.id)"
+                    @click.stop="refreshToken(token)"
+                  >
+                    <template #icon>
+                      <n-icon><Refresh /></n-icon>
+                    </template>
+                    刷新
+                  </n-button>
+                  
+                  <n-button
+                    size="small"
+                    :type="getConnectionStatus(token.id) === 'connected' ? 'warning' : 'primary'"
+                    @click.stop="toggleConnection(token)"
+                  >
+                    {{ getConnectionStatus(token.id) === 'connected' ? '断开' : '连接' }}
+                  </n-button>
+                </div>
               </div>
 
               <div class="token-timestamps">
@@ -325,20 +422,7 @@
         <n-form-item label="服务器">
           <n-input v-model:value="editForm.server" />
         </n-form-item>
-        <n-form-item label="等级">
-          <n-input-number
-            v-model:value="editForm.level"
-            :min="1"
-            :max="200"
-          />
-        </n-form-item>
-        <n-form-item label="职业">
-          <n-select
-            v-model:value="editForm.profession"
-            :options="professionOptions"
-          />
-        </n-form-item>
-        <n-form-item label="WebSocket">
+        <n-form-item label="WebSocket地址">
           <n-input v-model:value="editForm.wsUrl" />
         </n-form-item>
       </n-form>
@@ -361,7 +445,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
@@ -370,7 +454,10 @@ import {
   CloudUpload,
   Menu,
   EllipsisHorizontal,
-  Key
+  Key,
+  Refresh,
+  Sunny,
+  Moon
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -383,16 +470,44 @@ const showImportForm = ref(false)
 const isImporting = ref(false)
 const showEditModal = ref(false)
 const importFormRef = ref(null)
+const urlFormRef = ref(null)
 const editFormRef = ref(null)
 const editingToken = ref(null)
+const importMethod = ref('manual')
+const refreshingTokens = ref(new Set())
+
+// 主题控制
+const isDarkTheme = computed(() => {
+  return document.documentElement.classList.contains('dark')
+})
+
+const toggleTheme = () => {
+  const isDark = document.documentElement.classList.contains('dark')
+  if (isDark) {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
+  } else {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('theme', 'dark')
+  }
+  
+  // 触发全局主题更新
+  window.location.reload()
+}
 
 // 导入表单
 const importForm = reactive({
   name: '',
   base64Token: '',
   server: '',
-  level: 1,
-  profession: '',
+  wsUrl: ''
+})
+
+// URL表单
+const urlForm = reactive({
+  name: '',
+  url: '',
+  server: '',
   wsUrl: ''
 })
 
@@ -400,8 +515,6 @@ const importForm = reactive({
 const editForm = reactive({
   name: '',
   server: '',
-  level: 1,
-  profession: '',
   wsUrl: ''
 })
 
@@ -415,21 +528,22 @@ const importRules = {
   ]
 }
 
+const urlRules = {
+  name: [
+    { required: true, message: '请输入Token名称', trigger: 'blur' }
+  ],
+  url: [
+    { required: true, message: '请输入Token获取地址', trigger: 'blur' },
+    { type: 'url', message: '请输入有效的URL地址', trigger: 'blur' }
+  ]
+}
+
 const editRules = {
   name: [
     { required: true, message: '请输入Token名称', trigger: 'blur' }
   ]
 }
 
-// 选项数据
-const professionOptions = [
-  { label: '战士', value: '战士' },
-  { label: '法师', value: '法师' },
-  { label: '道士', value: '道士' },
-  { label: '刺客', value: '刺客' },
-  { label: '弓手', value: '弓手' },
-  { label: '牧师', value: '牧师' }
-]
 
 const bulkOptions = [
   { label: '导出所有Token', key: 'export' },
@@ -452,8 +566,6 @@ const handleImport = async () => {
       importForm.base64Token,
       {
         server: importForm.server,
-        level: importForm.level,
-        profession: importForm.profession,
         wsUrl: importForm.wsUrl
       }
     )
@@ -472,13 +584,107 @@ const handleImport = async () => {
   }
 }
 
+// URL获取Token
+const handleUrlImport = async () => {
+  if (!urlFormRef.value) return
+
+  try {
+    await urlFormRef.value.validate()
+    isImporting.value = true
+
+    // 获取Token数据
+    const response = await fetch(urlForm.url)
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status} ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    
+    // 检查返回数据是否包含token
+    if (!data.token) {
+      throw new Error('返回数据中未找到token字段')
+    }
+
+    // 使用获取到的token创建新的token记录
+    const result = tokenStore.importBase64Token(
+      urlForm.name,
+      data.token,
+      {
+        server: urlForm.server || data.server,
+        wsUrl: urlForm.wsUrl,
+        sourceUrl: urlForm.url // 保存源URL用于刷新
+      }
+    )
+
+    if (result.success) {
+      message.success(result.message)
+      resetUrlForm()
+      showImportForm.value = false
+    } else {
+      message.error(result.error || result.message)
+    }
+  } catch (error) {
+    console.error('URL获取Token失败:', error)
+    message.error(error.message || 'URL获取Token失败')
+  } finally {
+    isImporting.value = false
+  }
+}
+
+// 刷新Token
+const refreshToken = async (token) => {
+  if (!token.sourceUrl) {
+    message.warning('该Token未配置刷新地址')
+    return
+  }
+
+  refreshingTokens.value.add(token.id)
+  
+  try {
+    const response = await fetch(token.sourceUrl)
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status} ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    
+    if (!data.token) {
+      throw new Error('返回数据中未找到token字段')
+    }
+
+    // 更新token信息
+    tokenStore.updateToken(token.id, {
+      token: data.token,
+      server: data.server || token.server,
+      lastRefreshed: Date.now()
+    })
+
+    // 如果当前token有连接，需要重新连接
+    if (tokenStore.getWebSocketStatus(token.id) === 'connected') {
+      tokenStore.closeWebSocketConnection(token.id)
+      setTimeout(() => {
+        tokenStore.createWebSocketConnection(token.id, data.token, token.wsUrl)
+      }, 500)
+    }
+
+    message.success('Token刷新成功')
+  } catch (error) {
+    console.error('刷新Token失败:', error)
+    message.error(error.message || 'Token刷新失败')
+  } finally {
+    refreshingTokens.value.delete(token.id)
+  }
+}
+
 const resetImportForm = () => {
   Object.keys(importForm).forEach(key => {
-    if (key === 'level') {
-      importForm[key] = 1
-    } else {
-      importForm[key] = ''
-    }
+    importForm[key] = ''
+  })
+}
+
+const resetUrlForm = () => {
+  Object.keys(urlForm).forEach(key => {
+    urlForm[key] = ''
   })
 }
 
@@ -543,8 +749,6 @@ const editToken = (token) => {
   Object.assign(editForm, {
     name: token.name,
     server: token.server || '',
-    level: token.level || 1,
-    profession: token.profession || '',
     wsUrl: token.wsUrl || ''
   })
   showEditModal.value = true
@@ -559,8 +763,6 @@ const saveEdit = async () => {
     tokenStore.updateToken(editingToken.value.id, {
       name: editForm.name,
       server: editForm.server,
-      level: editForm.level,
-      profession: editForm.profession,
       wsUrl: editForm.wsUrl
     })
 
@@ -744,6 +946,23 @@ onMounted(() => {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  position: relative;
+  width: 100%;
+  justify-content: center;
+}
+
+.theme-toggle {
+  position: absolute;
+  right: 0;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
 .brand-logo {
   width: 64px;
   height: 64px;
@@ -798,19 +1017,84 @@ onMounted(() => {
     margin: 0 0 var(--spacing-md) 0;
   }
 
-  .help-info {
-    margin-top: var(--spacing-md);
-    text-align: left;
-
-    code {
-      background: rgba(24, 160, 88, 0.1);
-      color: var(--success-color);
-      padding: 2px 4px;
-      border-radius: 4px;
-      font-size: 12px;
-      word-break: break-all;
-    }
+  .subtitle {
+    font-size: var(--font-size-md);
+    color: var(--text-tertiary);
+    margin: 0;
+    font-weight: var(--font-weight-normal);
   }
+
+  .import-method-tabs {
+    margin-top: var(--spacing-md);
+    display: flex;
+    justify-content: center;
+  }
+}
+
+.form-tip {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.connection-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+/* 深色主题强制覆盖 */
+.dark .n-form-item-label,
+.dark .n-form-item-label__text {
+  color: #ffffff !important;
+}
+
+.dark .n-input__input,
+.dark .n-input__textarea {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .n-input__placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.dark .n-card {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.dark .import-card {
+  background: rgba(45, 55, 72, 0.9) !important;
+  color: #ffffff !important;
+}
+
+.dark .import-card h2 {
+  color: #ffffff !important;
+}
+
+.dark .import-card .subtitle {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.dark .n-collapse-item__header {
+  color: #ffffff !important;
+}
+
+.dark .n-collapse-item__content-wrapper {
+  background-color: transparent !important;
+}
+
+.dark .n-radio-button {
+  color: #ffffff !important;
+}
+
+.dark .n-radio-button--checked {
+  background-color: rgba(16, 185, 129, 0.8) !important;
+  color: #ffffff !important;
+}
+
+.dark .form-tip {
+  color: rgba(255, 255, 255, 0.6) !important;
 }
 
 .optional-fields {

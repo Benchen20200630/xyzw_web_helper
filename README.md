@@ -21,10 +21,12 @@
 ## ✨ 核心特性
 
 ### 🔐 Token管理系统
+- **双重导入方式**：支持手动输入和URL接口获取两种Token导入方式
 - **Base64解码支持**：自动识别和解析多种Base64格式的游戏Token
 - **多角色管理**：同时管理多个游戏账号，支持角色信息展示
 - **本地存储**：安全的本地数据存储，无需后端服务器
 - **Token验证**：自动验证Token有效性和格式完整性
+- **自动刷新**：支持URL获取的Token自动刷新功能
 
 ### 🌐 WebSocket通信
 - **BON协议支持**：内置Binary Object Notation协议编解码
@@ -147,10 +149,12 @@ npm run format   # 代码格式化
 
 ### 1. Token导入与管理
 
-#### 支持的Token格式
+#### 支持的导入方式
+
+##### 方式一：手动输入
+支持多种Base64格式的Token字符串：
+
 ```javascript
-
-
 // 纯Base64格式
 "eyJ0b2tlbiI6ImFiY2QxMjM0In0="
 
@@ -158,12 +162,31 @@ npm run format   # 代码格式化
 "token:eyJ0b2tlbiI6ImFiY2QxMjM0In0="
 ```
 
+##### 方式二：URL接口获取
+通过API接口自动获取Token，支持定时刷新：
+
+```javascript
+// API接口返回格式
+{
+  "token": "eyJ0b2tlbiI6ImFiY2QxMjM0In0=",  // 必需字段
+  "server": "风云服"                        // 可选字段
+}
+```
+
 #### 导入步骤
 1. 进入 **Token管理** 页面
-2. 选择导入方式（文件上传/文本粘贴/手动输入）
+2. 选择导入方式：
+   - **手动输入**：粘贴Base64编码的Token字符串
+   - **URL获取**：输入Token获取接口地址
 3. 系统自动解析和验证Token格式
 4. 设置角色名称和基本信息
 5. 保存到本地存储
+
+#### Token刷新功能
+- 通过URL方式导入的Token支持一键刷新
+- 刷新时会重新请求原API接口获取最新Token
+- 自动重新建立WebSocket连接
+- 保持角色信息和配置不变
 
 ### 2. WebSocket连接配置
 
@@ -444,6 +467,21 @@ git push origin feature/new-feature
 
 ---
 
+## 🗓️ 版本更新计划
+
+### v2.1.0 (计划中 - Q4 2025)
+- 🎯 **自动化增强**
+  - [ ] 智能任务调度系统
+  - [ ] 增加账号批量管理界面
+  - [ ] 界面已有bug修复
+
+- 🔧 **功能扩展**
+  - [ ] 支持每日任务一件完成
+  - [x] 支持远端获取Token（URL接口方式）
+  - [x] 支持Token自动刷新功能
+  - [ ] 支持定时任务抢购符咒
+  - [ ] 支持自定义脚本生成
+
 ## 📄 许可证
 
 本项目基于 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](LICENSE) 许可证。
@@ -461,7 +499,7 @@ git push origin feature/new-feature
 
 - **项目主页**：[GitHub Repository](https://github.com/w1249178256/xyzw_web_helper)
 - **问题反馈**：[GitHub Issues](https://github.com/w1249178256/xyzw_web_helper/issues)
-- **联系邮箱**：[MAIL](stevefeng59@gmail.com)
+- **联系邮箱**：[发邮件给我](mailto:stevefeng59@gmail.com)
 
 ---
 

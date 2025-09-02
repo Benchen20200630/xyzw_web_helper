@@ -26,6 +26,11 @@ export const useTokenStore = defineStore('tokens', () => {
   const selectedToken = computed(() =>
     gameTokens.value.find(token => token.id === selectedTokenId.value)
   )
+  
+  // 获取当前选中token的角色信息
+  const selectedTokenRoleInfo = computed(() => {
+    return gameData.value.roleInfo
+  })
 
   // Token管理
   const addToken = (tokenData) => {
@@ -118,7 +123,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
   // 辅助函数：尝试解析队伍数据
   const tryParseTeamData = (data, cmd) => {
-    console.log(`👥 尝试解析队伍数据 [${cmd}]:`, data)
+    // 静默解析，不打印详细日志
     
     // 查找队伍相关字段
     const teamFields = []
@@ -164,7 +169,7 @@ export const useTokenStore = defineStore('tokens', () => {
         }
       })
     } else {
-      console.log(`👥 未找到明显的队伍字段，完整数据结构:`, analyzeDataStructure(data))
+      // 未找到队伍数据
     }
   }
 
@@ -182,46 +187,28 @@ export const useTokenStore = defineStore('tokens', () => {
                    message.decodedBody !== undefined ? message.decodedBody :
                    message.body
 
-      console.log(`📋 处理消息 [${tokenId}] ${cmd}:`, {
-        hasRawData: message.rawData !== undefined,
-        hasDecodedBody: message.decodedBody !== undefined,
-        hasBody: message.body !== undefined,
-        bodyType: body ? typeof body : 'undefined',
-        bodyContent: body,
-        originalCmd: message.cmd,
-        fullMessage: message
-      })
-      
-      // 记录所有消息的原始命令名
-      console.log(`📨 收到消息 [${tokenId}] 原始cmd: "${message.cmd}", 处理cmd: "${cmd}"`)
-
-      // 特别记录所有包含tower的消息
-      if (cmd && cmd.includes('tower')) {
-        console.log(`🗼 发现塔相关消息 [${tokenId}] ${cmd}:`, message)
+      // 简化消息处理日志（移除详细结构信息）
+      if (cmd !== '_sys/ack') { // 过滤心跳消息
+        console.log(`📋 处理 [${tokenId}] ${cmd}`, body ? '✓' : '✗')
       }
+
+      // 过滤塔相关消息的详细打印
 
       // 处理角色信息 - 支持多种可能的响应命令
       if (cmd === 'role_getroleinfo' || cmd === 'role_getroleinforesp' || cmd.includes('role') && cmd.includes('info')) {
-        console.log(`📊 匹配到角色信息命令: ${cmd}`)
+        console.log(`📊 角色信息 [${tokenId}]`)
           
         if (body) {
           gameData.value.roleInfo = body
           gameData.value.lastUpdated = new Date().toISOString()
-          console.log('📊 角色信息已更新:', body)
-          console.log('📊 角色信息类型:', typeof body)
-          console.log('📊 角色信息内容概览:', Object.keys(body || {}))
+          console.log('📊 角色信息已更新')
 
-          // 特别检查塔信息
+          // 检查塔信息
           if (body.role?.tower) {
-            console.log('🗼 在角色信息中找到塔信息:', body.role.tower)
-          } else if (body.tower) {
-            console.log('🗼 在响应根级别找到塔信息:', body.tower)
-          } else {
-            console.log('🗼 未找到塔信息在角色数据中')
-            console.log('📊 角色数据结构:', body.role ? Object.keys(body.role) : '没有role对象')
+            // 塔信息已更新
           }
         } else {
-          console.log('📊 角色信息响应body为空')
+          console.log('📊 角色信息响应为空')
         }
       }
 
@@ -229,7 +216,7 @@ export const useTokenStore = defineStore('tokens', () => {
       else if (cmd === 'legion_getinfo') {
         if (body) {
           gameData.value.legionInfo = body
-          console.log('🏛️ 军团信息已更新:', body)
+          console.log('🏛️ 军团信息已更新')
         }
       }
 
@@ -239,7 +226,7 @@ export const useTokenStore = defineStore('tokens', () => {
                cmd === 'presetteam_saveteam' || cmd === 'presetteam_saveteamresp' ||
                cmd === 'role_gettargetteam' || cmd === 'role_gettargetteamresp' ||
                (cmd && cmd.includes('presetteam')) || (cmd && cmd.includes('team'))) {
-        console.log(`👥 匹配到队伍信息命令: ${cmd}`)
+        console.log(`👥 队伍信息 [${tokenId}] ${cmd}`)
         
         if (body) {
           // 更新队伍数据
@@ -268,67 +255,133 @@ export const useTokenStore = defineStore('tokens', () => {
           }
           
           gameData.value.lastUpdated = new Date().toISOString()
-          console.log('👥 队伍信息已更新:', {
-            cmd: cmd,
-            updatedData: gameData.value.presetTeam,
-            bodyKeys: Object.keys(body),
-            bodyContent: body
-          })
+          console.log('👥 队伍信息已更新')
           
-          // 详细日志队伍数据结构
+          // 简化队伍数据结构日志
           if (gameData.value.presetTeam.presetTeamInfo) {
-            console.log('👥 队伍详细结构:', {
-              teamCount: Object.keys(gameData.value.presetTeam.presetTeamInfo).length,
-              teamIds: Object.keys(gameData.value.presetTeam.presetTeamInfo),
-              useTeamId: gameData.value.presetTeam.presetTeamInfo.useTeamId,
-              sampleTeam: gameData.value.presetTeam.presetTeamInfo[1] || gameData.value.presetTeam.presetTeamInfo[Object.keys(gameData.value.presetTeam.presetTeamInfo)[0]]
-            })
+            const teamCount = Object.keys(gameData.value.presetTeam.presetTeamInfo).length
+            console.log(`👥 队伍数量: ${teamCount}`)
           }
         } else {
-          console.log('👥 队伍信息响应body为空')
+          console.log('👥 队伍信息响应为空')
         }
       }
 
-      // 处理爬塔响应
+      // 处理爬塔响应（静默处理，保持功能）
       else if (cmd === 'fight_starttower' || cmd === 'fight_starttowerresp') {
         if (body) {
-          console.log('🗼 爬塔响应:', body)
+          // 判断爬塔结果
+          const battleData = body.battleData
+          if (battleData) {
+            const curHP = battleData.result?.sponsor?.ext?.curHP
+            const isSuccess = curHP > 0
+            
+            // 保存爬塔结果到gameData中，供组件使用
+            if (!gameData.value.towerResult) {
+              gameData.value.towerResult = {}
+            }
+            gameData.value.towerResult = {
+              success: isSuccess,
+              curHP: curHP,
+              towerId: battleData.options?.towerId,
+              timestamp: Date.now()
+            }
+            gameData.value.lastUpdated = new Date().toISOString()
+            
+            if (isSuccess) {
+              // 检查是否需要自动领取奖励
+              const towerId = battleData.options?.towerId
+              if (towerId !== undefined) {
+                const layer = towerId % 10
+                const floor = Math.floor(towerId / 10)
+                
+                // 如果是新层数的第一层(layer=0)，检查是否有奖励可领取
+                if (layer === 0) {
+                  setTimeout(() => {
+                    const connection = wsConnections.value[tokenId]
+                    if (connection && connection.status === 'connected' && connection.client) {
+                      // 检查角色信息中的奖励状态
+                      const roleInfo = gameData.value.roleInfo
+                      const towerRewards = roleInfo?.role?.tower?.reward
+                      
+                      if (towerRewards && !towerRewards[floor]) {
+                        // 保存奖励信息
+                        gameData.value.towerResult.autoReward = true
+                        gameData.value.towerResult.rewardFloor = floor
+                        connection.client.send('tower_claimreward', { rewardId: floor })
+                      }
+                    }
+                  }, 1500)
+                }
+              }
+            }
+          }
+          
           // 爬塔后立即更新角色信息和塔信息
           setTimeout(() => {
-            console.log('🗼 爬塔后自动更新数据')
             try {
               const connection = wsConnections.value[tokenId]
               if (connection && connection.status === 'connected' && connection.client) {
-                // 获取最新角色信息
-                console.log('🗼 正在请求角色信息...')
                 connection.client.send('role_getroleinfo', {})
-              } else {
-                console.warn('🗼 WebSocket未连接，无法更新数据')
               }
             } catch (error) {
-              console.warn('爬塔后更新数据失败:', error)
+              // 忽略更新数据错误
             }
           }, 1000)
         }
       }
 
-      // 处理心跳响应
+      // 处理奖励领取响应（静默处理）
+      else if (cmd === 'tower_claimreward' || cmd === 'tower_claimrewardresp') {
+        if (body) {
+          // 奖励领取成功后更新角色信息
+          setTimeout(() => {
+            const connection = wsConnections.value[tokenId]
+            if (connection && connection.status === 'connected' && connection.client) {
+              connection.client.send('role_getroleinfo', {})
+            }
+          }, 500)
+        }
+      }
+
+      // 处理加钟相关响应
+      else if (cmd === 'system_mysharecallback' || cmd === 'syncresp' || cmd === 'system_claimhangupreward' || cmd === 'system_claimhanguprewardresp') {
+        console.log(`🕐 加钟/挂机 [${tokenId}] ${cmd}`)
+        
+        // 加钟操作完成后，延迟更新角色信息
+        if (cmd === 'syncresp' || cmd === 'system_mysharecallback') {
+          setTimeout(() => {
+            const connection = wsConnections.value[tokenId]
+            if (connection && connection.status === 'connected' && connection.client) {
+              connection.client.send('role_getroleinfo', {})
+            }
+          }, 800)
+        }
+        
+        // 挂机奖励领取完成后更新角色信息
+        if (cmd === 'system_claimhanguprewardresp') {
+          setTimeout(() => {
+            const connection = wsConnections.value[tokenId]
+            if (connection && connection.status === 'connected' && connection.client) {
+              connection.client.send('role_getroleinfo', {})
+            }
+          }, 500)
+        }
+      }
+
+      // 处理心跳响应（静默处理，不打印日志）
       else if (cmd === '_sys/ack') {
-        console.log(`💗 心跳响应 [${tokenId}]`)
+        // 心跳响应 - 静默处理
+        return
       }
 
       // 处理其他消息
       else {
-        console.log(`📋 收到游戏消息 [${tokenId}] ${cmd}:`, body)
+        console.log(`📋 游戏消息 [${tokenId}] ${cmd}`)
         
         // 特别关注队伍相关的未处理消息
         if (cmd && (cmd.includes('team') || cmd.includes('preset') || cmd.includes('formation'))) {
-          console.log(`👥 未处理的队伍相关消息 [${tokenId}] ${cmd}:`, {
-            originalMessage: message,
-            parsedBody: body,
-            messageKeys: Object.keys(message || {}),
-            bodyStructure: body ? analyzeDataStructure(body) : null
-          })
+          console.log(`👥 未处理队伍消息 [${tokenId}] ${cmd}`)
           
           // 尝试自动解析队伍数据
           if (body && typeof body === 'object') {
@@ -336,42 +389,74 @@ export const useTokenStore = defineStore('tokens', () => {
           }
         }
         
-        // 特别关注塔相关的未处理消息
+        // 特别关注塔相关的未处理消息（静默处理）
         if (cmd && cmd.includes('tower')) {
-          console.log(`🗼 未处理的塔相关消息 [${tokenId}] ${cmd}:`, {
-            originalMessage: message,
-            parsedBody: body,
-            messageKeys: Object.keys(message || {})
-          })
+          // 未处理塔消息
         }
       }
 
     } catch (error) {
-      console.error('处理游戏消息失败:', error)
+      console.error(`处理消息失败 [${tokenId}]:`, error.message)
     }
   }
 
-  // Base64解析功能
+  // 验证token有效性
+  const validateToken = (token) => {
+    if (!token) return false
+    if (typeof token !== 'string') return false
+    if (token.trim().length === 0) return false
+    // 简单检查：token应该至少有一定长度
+    if (token.trim().length < 10) return false
+    return true
+  }
+
+  // Base64解析功能（增强版）
   const parseBase64Token = (base64String) => {
     try {
+      // 输入验证
+      if (!base64String || typeof base64String !== 'string') {
+        throw new Error('Token字符串无效')
+      }
+
       // 移除可能的前缀和空格
       const cleanBase64 = base64String.replace(/^data:.*base64,/, '').trim()
+      
+      if (cleanBase64.length === 0) {
+        throw new Error('Token字符串为空')
+      }
 
       // 解码base64
-      const decoded = atob(cleanBase64)
+      let decoded
+      try {
+        decoded = atob(cleanBase64)
+      } catch (decodeError) {
+        // 如果不是有效的Base64，作为纯文本token处理
+        decoded = base64String.trim()
+      }
 
       // 尝试解析为JSON
       let tokenData
       try {
         tokenData = JSON.parse(decoded)
       } catch {
-        // 如果不是JSON，当作纯token字符串处理
+        // 不是JSON格式，作为纯token处理
         tokenData = { token: decoded }
+      }
+
+      // 提取实际token
+      const actualToken = tokenData.token || tokenData.gameToken || decoded
+
+      // 验证token有效性
+      if (!validateToken(actualToken)) {
+        throw new Error(`提取的token无效: "${actualToken}"`)
       }
 
       return {
         success: true,
-        data: tokenData
+        data: {
+          ...tokenData,
+          actualToken // 添加提取出的实际token
+        }
       }
     } catch (error) {
       return {
@@ -385,22 +470,41 @@ export const useTokenStore = defineStore('tokens', () => {
     const parseResult = parseBase64Token(base64String)
 
     if (!parseResult.success) {
-      return parseResult
+      return {
+        success: false,
+        error: parseResult.error,
+        message: `Token "${name}" 导入失败: ${parseResult.error}`
+      }
     }
 
     const tokenData = {
       name,
-      token: parseResult.data.token || parseResult.data.gameToken || base64String,
+      token: parseResult.data.actualToken, // 使用验证过的实际token
       ...additionalInfo,
       ...parseResult.data // 解析出的数据覆盖手动输入
     }
 
-    const newToken = addToken(tokenData)
+    try {
+      const newToken = addToken(tokenData)
+      
+      // 添加更多验证信息到成功消息
+      const tokenInfo = parseResult.data.actualToken
+      const displayToken = tokenInfo.length > 20 ? 
+        `${tokenInfo.substring(0, 10)}...${tokenInfo.substring(tokenInfo.length - 6)}` : 
+        tokenInfo
 
-    return {
-      success: true,
-      data: newToken,
-      message: `Token "${name}" 导入成功`
+      return {
+        success: true,
+        data: newToken,
+        message: `Token "${name}" 导入成功`,
+        details: `实际Token: ${displayToken}`
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: `Token "${name}" 添加失败: ${error.message}`
+      }
     }
   }
 
@@ -411,25 +515,21 @@ export const useTokenStore = defineStore('tokens', () => {
     }
 
     try {
-      // 解析Base64获取实际Token
-      let actualToken = base64Token
-
-      // 尝试解析Base64获取实际token
-      try {
-        const cleanBase64 = base64Token.replace(/^data:.*base64,/, '').trim()
-        const decoded = atob(cleanBase64)
-
-        // 尝试解析为JSON获取token字段
-        try {
-          const tokenData = JSON.parse(decoded)
-          actualToken = tokenData.token || tokenData.gameToken || decoded
-        } catch {
-          // 如果不是JSON，直接使用解码后的字符串
-          actualToken = decoded
+      // 使用统一的token解析逻辑
+      const parseResult = parseBase64Token(base64Token)
+      
+      let actualToken
+      if (parseResult.success) {
+        actualToken = parseResult.data.actualToken
+        // Token解析成功
+      } else {
+        // Token解析失败，使用原始token
+        // 如果解析失败，尝试直接使用原始token
+        if (validateToken(base64Token)) {
+          actualToken = base64Token
+        } else {
+          throw new Error(`Token无效: ${parseResult.error}`)
         }
-      } catch (error) {
-        console.warn('Base64解析失败，使用原始token:', error.message)
-        actualToken = base64Token
       }
 
       // 使用固定的WebSocket基础地址，将token带入占位符
@@ -498,13 +598,17 @@ export const useTokenStore = defineStore('tokens', () => {
 
       // 设置消息监听
       wsClient.setMessageListener((message) => {
-        console.log(`📨 收到消息 [${tokenId}]:`, message)
+        // 只打印消息命令，不打印完整结构
+        const cmd = message?.cmd || 'unknown'
+        if (cmd !== '_sys/ack') { // 过滤心跳消息
+          console.log(`📨 [${tokenId}] ${cmd}`)
+        }
 
         // 更新连接状态中的最后接收消息
         if (wsConnections.value[tokenId]) {
           wsConnections.value[tokenId].lastMessage = {
             timestamp: new Date().toISOString(),
-            data: message
+            data: { cmd: message?.cmd } // 只保存命令名
           }
         }
 
@@ -541,6 +645,26 @@ export const useTokenStore = defineStore('tokens', () => {
   const getWebSocketClient = (tokenId) => {
     return wsConnections.value[tokenId]?.client || null
   }
+  
+  // 设置消息监听器
+  const setMessageListener = (listener) => {
+    if (selectedToken.value) {
+      const connection = wsConnections.value[selectedToken.value.id]
+      if (connection && connection.client) {
+        connection.client.setMessageListener(listener)
+      }
+    }
+  }
+  
+  // 设置是否显示消息
+  const setShowMsg = (show) => {
+    if (selectedToken.value) {
+      const connection = wsConnections.value[selectedToken.value.id]
+      if (connection && connection.client) {
+        connection.client.setShowMsg(show)
+      }
+    }
+  }
 
 
   // 发送消息到WebSocket
@@ -559,11 +683,11 @@ export const useTokenStore = defineStore('tokens', () => {
       }
 
       client.send(cmd, params, options)
-      console.log(`📤 发送消息 [${tokenId}]: ${cmd}`, params)
+      console.log(`📤 [${tokenId}] ${cmd}`)
 
       return true
     } catch (error) {
-      console.error(`❌ 发送消息失败 [${tokenId}]:`, error)
+      console.error(`❌ 发送失败 [${tokenId}] ${cmd}:`, error.message)
       return false
     }
   }
@@ -641,7 +765,7 @@ export const useTokenStore = defineStore('tokens', () => {
       // 可能的塔层数字段（根据实际数据结构调整）
       const level = tower.level || tower.currentLevel || tower.floor || tower.stage
 
-      console.log('🗼 当前塔层数:', level, '塔信息:', tower)
+      // 当前塔层数
       return level
     } catch (error) {
       console.error('❌ 获取塔层数失败:', error)
@@ -729,7 +853,7 @@ export const useTokenStore = defineStore('tokens', () => {
       try {
         gameTokens.value = JSON.parse(savedTokens)
       } catch (error) {
-        console.error('解析Token数据失败:', error)
+        console.error('解析Token数据失败:', error.message)
         gameTokens.value = []
       }
     }
@@ -752,6 +876,7 @@ export const useTokenStore = defineStore('tokens', () => {
     // 计算属性
     hasTokens,
     selectedToken,
+    selectedTokenRoleInfo,
 
     // Token管理方法
     addToken,
@@ -770,6 +895,8 @@ export const useTokenStore = defineStore('tokens', () => {
     getWebSocketClient,
     sendMessage,
     sendMessageWithPromise,
+    setMessageListener,
+    setShowMsg,
     sendHeartbeat,
     sendGetRoleInfo,
     sendGetDataBundleVersion,
@@ -787,6 +914,20 @@ export const useTokenStore = defineStore('tokens', () => {
 
     // 塔信息方法
     getCurrentTowerLevel,
-    getTowerInfo
+    getTowerInfo,
+
+    // 调试工具方法
+    validateToken,
+    debugToken: (tokenString) => {
+      console.log('🔍 Token调试信息:')
+      console.log('原始Token:', tokenString)
+      const parseResult = parseBase64Token(tokenString)
+      console.log('解析结果:', parseResult)
+      if (parseResult.success) {
+        console.log('实际Token:', parseResult.data.actualToken)
+        console.log('Token有效性:', validateToken(parseResult.data.actualToken))
+      }
+      return parseResult
+    }
   }
 })

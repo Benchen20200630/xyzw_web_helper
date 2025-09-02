@@ -87,6 +87,7 @@ export function registerDefaultCommands(reg) {
     .register("system_buygold", { buyNum: 1 })
     .register("system_claimhangupreward")
     .register("system_signinreward")
+    .register("system_mysharecallback", { isSkipShareCard: true, type: 2 })
 
     // 任务相关
     .register("task_claimdailypoint", { taskId: 1 })
@@ -107,6 +108,7 @@ export function registerDefaultCommands(reg) {
     // 商店
     .register("store_goodslist", { storeId: 1 })
     .register("store_buy", { goodsId: 1 })
+    .register("store_purchase", { goodsId: 1 })
     .register("store_refresh", { storeId: 1 })
 
     // 军团
@@ -141,15 +143,24 @@ export function registerDefaultCommands(reg) {
 
     // 神器抽奖
     .register("artifact_lottery", { lotteryNumber: 1, newFree: true, type: 1 })
+    
+    // 灯神相关
+    .register("genie_sweep", { genieId: 1 })
+    .register("genie_buysweep")
+    
+    // 礼包相关
+    .register("discount_claimreward", { discountId: 1 })
+    .register("card_claimreward", { cardId: 1 })
 
     // 爬塔相关
     .register("tower_getinfo")
     .register("tower_claimreward")
 
     // 队伍相关
+    .register("presetteam_getinfo")
     .register("presetteam_getteam")
     .register("presetteam_setteam")
-    .register("presetteam_saveteam")
+    .register("presetteam_saveteam", { teamId: 1 })
     .register("role_gettargetteam")
 
     // 排名相关
@@ -184,12 +195,7 @@ export class XyzwWebSocketClient {
     this.promises = Object.create(null)
     this.registry = registerDefaultCommands(new CommandRegistry(this.utils, this.enc))
 
-    console.log('🔧 WebSocket客户端初始化:', {
-      url: this.url,
-      hasUtils: !!this.utils,
-      hasEnc: !!this.enc,
-      hasEncoder: !!this.utils?.encode
-    })
+    // WebSocket客户端初始化
 
     // 状态回调
     this.onConnect = null
@@ -199,16 +205,16 @@ export class XyzwWebSocketClient {
 
   /** 初始化连接 */
   init() {
-    console.log(`🔗 连接 WebSocket: ${this.url}`)
+    console.log(`🔗 连接: ${this.url.split('?')[0]}`)
 
     this.socket = new WebSocket(this.url)
 
     this.socket.onopen = () => {
-      console.log(`✅ WebSocket 连接成功`)
+      console.log(`✅ 连接成功`)
       this.connected = true
-      console.log(`🔄 启动心跳机制，间隔: ${this.heartbeatInterval}ms`)
+      // 启动心跳机制
       this._setupHeartbeat()
-      console.log(`🔄 启动消息队列处理`)
+      // 启动消息队列处理
       this._processQueueLoop()
       if (this.onConnect) this.onConnect()
     }
@@ -223,32 +229,32 @@ export class XyzwWebSocketClient {
           packet = this.utils?.parse ? this.utils.parse(evt.data, "auto") : evt.data
         } else if (evt.data instanceof Blob) {
           // 处理Blob数据
-          console.log('📦 收到Blob数据, 大小:', evt.data.size)
+          // 收到Blob数据
           evt.data.arrayBuffer().then(buffer => {
             try {
               packet = this.utils?.parse ? this.utils.parse(buffer, "auto") : buffer
-              console.log('📦 Blob解析结果:', packet)
+              // Blob解析完成
               
               // 处理消息体解码（ProtoMsg会自动解码）
               if (packet instanceof Object && packet.rawData !== undefined) {
-                console.log('✅ ProtoMsg消息，使用rawData:', packet.rawData)
+                // ProtoMsg消息
               } else if (packet.body && packet.body instanceof Uint8Array) {
                 try {
                   if (this.utils && this.utils.bon && this.utils.bon.decode) {
                     const decodedBody = this.utils.bon.decode(packet.body)
-                    console.log('✅ 手动解码消息体成功:', decodedBody)
+                    // 手动解码成功
                     // 不修改packet.body，而是创建一个新的属性存储解码后的数据
                     packet.decodedBody = decodedBody
                   } else {
-                    console.warn('⚠️ BON解码器不可用:', this.utils)
+                    // BON解码器不可用
                   }
                 } catch (error) {
-                  console.warn('❌ 消息体解码失败:', error)
+                  // 消息体解码失败
                 }
               }
               
               if (this.showMsg) {
-                console.log(`📨 收到消息(Blob解析后):`, packet)
+                // 收到Blob消息
               }
               
               // 回调处理
@@ -260,7 +266,7 @@ export class XyzwWebSocketClient {
               this._handlePromiseResponse(packet)
               
             } catch (error) {
-              console.error('❌ Blob解析失败:', error)
+              console.error('Blob解析失败:', error.message)
             }
           })
           return // 异步处理，直接返回
@@ -280,14 +286,14 @@ export class XyzwWebSocketClient {
           try {
             if (this.utils && this.utils.bon && this.utils.bon.decode) {
               const decodedBody = this.utils.bon.decode(packet.body)
-              console.log('✅ 手动解码消息体成功:', decodedBody)
+              // 手动解码成功
               // 不修改packet.body，而是创建一个新的属性存储解码后的数据
               packet.decodedBody = decodedBody
             } else {
-              console.warn('⚠️ BON解码器不可用:', this.utils)
+              // BON解码器不可用
             }
           } catch (error) {
-            console.warn('❌ 消息体解码失败:', error)
+            // 消息体解码失败
           }
         }
 
@@ -300,7 +306,7 @@ export class XyzwWebSocketClient {
         this._handlePromiseResponse(packet)
 
       } catch (error) {
-        console.error(`❌ 消息处理失败:`, error)
+        console.error(`消息处理失败:`, error.message)
       }
     }
 

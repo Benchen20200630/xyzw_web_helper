@@ -14,8 +14,8 @@
             <n-button 
               circle 
               size="small" 
-              @click="toggleTheme"
               class="theme-toggle"
+              @click="toggleTheme"
             >
               <template #icon>
                 <n-icon v-if="isDarkTheme">
@@ -56,7 +56,6 @@
                 URL获取
               </n-radio-button>
             </n-radio-group>
-            
           </div>
 
           <!-- 手动输入表单 -->
@@ -175,9 +174,14 @@
                 clearable
               />
               <template #feedback>
-                <span class="form-tip">
-                  接口应返回包含token字段的JSON数据
-                </span>
+                <div class="form-tips">
+                  <span class="form-tip">
+                    接口应返回包含token字段的JSON数据
+                  </span>
+                  <span class="form-tip cors-tip">
+                    注意：如果是跨域URL，服务器需要支持CORS，否则会被浏览器阻止
+                  </span>
+                </div>
               </template>
             </n-form-item>
 
@@ -240,6 +244,17 @@
         <div class="section-header">
           <h2>我的Token列表 ({{ tokenStore.gameTokens.length }}个)</h2>
           <div class="header-actions">
+            <n-button
+              v-if="tokenStore.selectedToken"
+              type="success"
+              @click="goToDashboard"
+            >
+              <template #icon>
+                <n-icon><Home /></n-icon>
+              </template>
+              返回控制台
+            </n-button>
+
             <n-button
               v-if="!showImportForm"
               type="primary"
@@ -386,15 +401,6 @@
               <Key />
             </n-icon>
           </template>
-          <template #extra>
-            <n-button
-              type="primary"
-              size="large"
-              @click="showImportForm = true"
-            >
-              导入第一个Token
-            </n-button>
-          </template>
         </n-empty>
       </div>
     </div>
@@ -457,7 +463,8 @@ import {
   Key,
   Refresh,
   Sunny,
-  Moon
+  Moon,
+  Home
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -572,10 +579,20 @@ const handleImport = async () => {
 
     if (result.success) {
       message.success(result.message)
+      // 显示token详情信息（如果有）
+      if (result.details) {
+        console.log('Token导入详情:', result.details)
+      }
       resetImportForm()
       showImportForm.value = false
     } else {
-      message.error(result.error || result.message)
+      const errorMsg = result.error || result.message || 'Token导入失败'
+      message.error(errorMsg)
+      console.error('Token导入错误详情:', {
+        error: result.error,
+        message: result.message,
+        originalToken: importForm.base64Token?.substring(0, 50) + '...'
+      })
     }
   } catch (error) {
     // 表单验证失败
@@ -592,8 +609,33 @@ const handleUrlImport = async () => {
     await urlFormRef.value.validate()
     isImporting.value = true
 
-    // 获取Token数据
-    const response = await fetch(urlForm.url)
+    // 获取Token数据 - 处理跨域问题
+    let response
+    
+    // 检查是否为本地或相同域名的URL
+    const isLocalUrl = urlForm.url.startsWith(window.location.origin) || 
+                      urlForm.url.startsWith('/') ||
+                      urlForm.url.startsWith('http://localhost') ||
+                      urlForm.url.startsWith('http://127.0.0.1')
+    
+    if (isLocalUrl) {
+      // 本地URL直接请求
+      response = await fetch(urlForm.url)
+    } else {
+      // 跨域URL - 尝试CORS请求
+      try {
+        response = await fetch(urlForm.url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors'
+        })
+      } catch (corsError) {
+        throw new Error(`跨域请求被阻止。请确保目标服务器支持CORS，或使用浏览器扩展/代理服务器。错误详情: ${corsError.message}`)
+      }
+    }
+
     if (!response.ok) {
       throw new Error(`请求失败: ${response.status} ${response.statusText}`)
     }
@@ -618,10 +660,21 @@ const handleUrlImport = async () => {
 
     if (result.success) {
       message.success(result.message)
+      // 显示token详情信息（如果有）
+      if (result.details) {
+        console.log('URL Token导入详情:', result.details)
+      }
       resetUrlForm()
       showImportForm.value = false
     } else {
-      message.error(result.error || result.message)
+      const errorMsg = result.error || result.message || 'URL Token导入失败'
+      message.error(errorMsg)
+      console.error('URL Token导入错误详情:', {
+        error: result.error,
+        message: result.message,
+        sourceUrl: urlForm.url,
+        receivedToken: data?.token?.substring(0, 50) + '...'
+      })
     }
   } catch (error) {
     console.error('URL获取Token失败:', error)
@@ -641,7 +694,30 @@ const refreshToken = async (token) => {
   refreshingTokens.value.add(token.id)
   
   try {
-    const response = await fetch(token.sourceUrl)
+    // 使用与导入相同的跨域处理逻辑
+    let response
+    
+    const isLocalUrl = token.sourceUrl.startsWith(window.location.origin) || 
+                      token.sourceUrl.startsWith('/') ||
+                      token.sourceUrl.startsWith('http://localhost') ||
+                      token.sourceUrl.startsWith('http://127.0.0.1')
+    
+    if (isLocalUrl) {
+      response = await fetch(token.sourceUrl)
+    } else {
+      try {
+        response = await fetch(token.sourceUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors'
+        })
+      } catch (corsError) {
+        throw new Error(`跨域请求被阻止。请确保目标服务器支持CORS。错误详情: ${corsError.message}`)
+      }
+    }
+
     if (!response.ok) {
       throw new Error(`请求失败: ${response.status} ${response.statusText}`)
     }
@@ -1031,9 +1107,20 @@ onMounted(() => {
   }
 }
 
+.form-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
 .form-tip {
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
+}
+
+.cors-tip {
+  color: var(--warning-color);
+  font-weight: var(--font-weight-medium);
 }
 
 .connection-actions {

@@ -94,7 +94,7 @@
                 type="warning"
                 @click="regenerateToken(roleId)"
               >
-                重生成
+                刷新Token
               </n-button>
               <n-button 
                 size="tiny" 
@@ -240,20 +240,85 @@ const toggleWebSocket = (roleId, tokenData) => {
 }
 
 const regenerateToken = (roleId) => {
+  const oldTokenData = localTokenStore.getGameToken(roleId)
+  if (!oldTokenData) {
+    message.error('找不到对应的Token数据')
+    return
+  }
+
+  // 检查是否有源URL可以重新获取
+  if (!oldTokenData.sourceUrl) {
+    message.warning('该Token没有配置源地址，无法重新生成。请手动重新导入Token。')
+    return
+  }
+
   dialog.info({
-    title: '重新生成Token',
-    content: '确定要为此角色重新生成游戏Token吗？',
+    title: '重新获取Token', 
+    content: '确定要从源地址重新获取此角色的Token吗？',
     positiveText: '确定',
     negativeText: '取消',
-    onPositiveClick: () => {
-      const oldTokenData = localTokenStore.getGameToken(roleId)
-      if (oldTokenData) {
-        const newToken = 'game_token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 16)
+    onPositiveClick: async () => {
+      try {
+        // 显示加载状态
+        const loadingMsg = message.loading('正在重新获取Token...', { duration: 0 })
+        
+        // 从源URL重新获取token
+        let response
+        const sourceUrl = oldTokenData.sourceUrl
+        
+        // 使用与TokenImport相同的跨域处理逻辑
+        const isLocalUrl = sourceUrl.startsWith(window.location.origin) || 
+                          sourceUrl.startsWith('/') ||
+                          sourceUrl.startsWith('http://localhost') ||
+                          sourceUrl.startsWith('http://127.0.0.1')
+        
+        if (isLocalUrl) {
+          response = await fetch(sourceUrl)
+        } else {
+          try {
+            response = await fetch(sourceUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+              mode: 'cors'
+            })
+          } catch (corsError) {
+            throw new Error(`跨域请求被阻止。请确保目标服务器支持CORS。错误详情: ${corsError.message}`)
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(`请求失败: ${response.status} ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        
+        if (!data.token) {
+          throw new Error('返回数据中未找到token字段')
+        }
+
+        // 更新token
         localTokenStore.updateGameToken(roleId, {
-          token: newToken,
-          regeneratedAt: new Date().toISOString()
+          token: data.token,
+          server: data.server || oldTokenData.server,
+          regeneratedAt: new Date().toISOString(),
+          lastRefreshed: new Date().toISOString()
         })
-        message.success('Token已重新生成')
+
+        // 如果当前token有连接，需要重新连接
+        if (localTokenStore.getWebSocketStatus(roleId) === 'connected') {
+          localTokenStore.closeWebSocketConnection(roleId)
+          setTimeout(() => {
+            localTokenStore.createWebSocketConnection(roleId, data.token, oldTokenData.wsUrl)
+          }, 500)
+        }
+
+        loadingMsg.destroy()
+        message.success('Token已成功重新获取')
+      } catch (error) {
+        console.error('重新获取Token失败:', error)
+        message.error(error.message || 'Token重新获取失败')
       }
     }
   })

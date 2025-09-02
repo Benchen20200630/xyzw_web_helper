@@ -2,14 +2,22 @@
   <div class="tower-status-card">
     <div class="card-header">
       <div class="header-info">
-        <img src="/icons/1733492491706148.png" alt="爬塔图标" class="tower-icon">
+        <img
+          src="/icons/1733492491706148.png"
+          alt="爬塔图标"
+          class="tower-icon"
+        >
         <div class="tower-info">
           <h3>咸将塔</h3>
           <p>一个不小心就过了</p>
         </div>
       </div>
       <div class="energy-display">
-        <img src="/icons/xiaoyugan.png" alt="小鱼干" class="energy-icon">
+        <img
+          src="/icons/xiaoyugan.png"
+          alt="小鱼干"
+          class="energy-icon"
+        >
         <span class="energy-count">{{ towerEnergy }}</span>
       </div>
     </div>
@@ -33,7 +41,16 @@
         :disabled="!canClimb"
         @click="startTowerClimb"
       >
-        开始爬塔
+        {{ isClimbing.value ? '爬塔中...' : '开始爬塔' }}
+      </button>
+      
+      <!-- 调试用的重置按钮，只在开发环境显示 -->
+      <button
+        v-if="isClimbing.value"
+        class="reset-button"
+        @click="resetClimbingState"
+      >
+        重置状态
       </button>
     </div>
   </div>
@@ -49,6 +66,8 @@ const message = useMessage()
 
 // 响应式数据
 const isClimbing = ref(false)
+const climbTimeout = ref(null) // 用于超时重置状态
+const lastClimbResult = ref(null) // 最后一次爬塔结果
 
 // 计算属性 - 从gameData中获取塔相关信息
 const roleInfo = computed(() => {
@@ -97,11 +116,22 @@ const towerEnergy = computed(() => {
 })
 
 const canClimb = computed(() => {
-  return towerEnergy.value > 0 && !isClimbing.value
+  const hasEnergy = towerEnergy.value > 0
+  const notClimbing = !isClimbing.value
+  console.log(`🗼 canClimb 计算: hasEnergy=${hasEnergy}, notClimbing=${notClimbing}, result=${hasEnergy && notClimbing}`)
+  return hasEnergy && notClimbing
 })
 
 // 方法
 const startTowerClimb = async () => {
+  console.log('🗼 开始爬塔按钮被点击')
+  console.log('🗼 当前状态:', { 
+    canClimb: canClimb.value, 
+    isClimbing: isClimbing.value, 
+    towerEnergy: towerEnergy.value,
+    hasSelectedToken: !!tokenStore.selectedToken
+  })
+
   if (!tokenStore.selectedToken) {
     message.warning('请先选择Token')
     return
@@ -112,15 +142,34 @@ const startTowerClimb = async () => {
     return
   }
 
+  // 清除之前的超时
+  if (climbTimeout.value) {
+    clearTimeout(climbTimeout.value)
+    climbTimeout.value = null
+  }
+
+  // 确保在操作开始前设置状态
+  console.log('🗼 设置爬塔状态为true')
+  isClimbing.value = true
+
+  // 设置超时保护，15秒后自动重置状态
+  climbTimeout.value = setTimeout(() => {
+    console.log('🗼 超时保护触发，自动重置爬塔状态')
+    isClimbing.value = false
+    climbTimeout.value = null
+  }, 15000)
+
   try {
-    isClimbing.value = true
     const tokenId = tokenStore.selectedToken.id
+    console.log('🗼 使用Token ID:', tokenId)
 
     message.info('开始爬塔挑战...')
 
     // 发送爬塔命令
+    console.log('🗼 发送爬塔命令...')
     await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 10000)
 
+    console.log('🗼 爬塔命令发送成功')
     message.success('爬塔命令已发送')
 
     // 立即查询塔信息以获取最新状态
@@ -131,14 +180,42 @@ const startTowerClimb = async () => {
     setTimeout(async () => {
       console.log('🗼 延迟查询塔信息')
       await getTowerInfo()
+      
+      // 清除超时并重置状态
+      if (climbTimeout.value) {
+        clearTimeout(climbTimeout.value)
+        climbTimeout.value = null
+      }
+      console.log('🗼 延迟查询完成，重置爬塔状态')
+      isClimbing.value = false
     }, 3000)
 
   } catch (error) {
-    console.error('爬塔失败:', error)
+    console.error('🗼 爬塔失败:', error)
     message.error('爬塔失败: ' + (error.message || '未知错误'))
-  } finally {
+    
+    // 发生错误时立即重置状态
+    if (climbTimeout.value) {
+      clearTimeout(climbTimeout.value)
+      climbTimeout.value = null
+    }
+    console.log('🗼 发生错误，立即重置爬塔状态')
     isClimbing.value = false
   }
+
+  // 注意：不要在这里设置 isClimbing.value = false
+  // 因为我们要等待延迟查询完成后再重置状态
+}
+
+// 重置爬塔状态的方法
+const resetClimbingState = () => {
+  console.log('🗼 用户手动重置爬塔状态')
+  if (climbTimeout.value) {
+    clearTimeout(climbTimeout.value)
+    climbTimeout.value = null
+  }
+  isClimbing.value = falsexian1xian
+  message.info('爬塔状态已重置')
 }
 
 const getTowerInfo = async () => {
@@ -217,6 +294,36 @@ watch(() => tokenStore.selectedToken, (newToken, oldToken) => {
     }
   }
 })
+
+// 监听爬塔结果
+watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
+  if (newResult && newResult.timestamp !== oldResult?.timestamp) {
+    console.log('🗼 收到新的爬塔结果:', newResult)
+    
+    // 显示爬塔结果消息
+    if (newResult.success) {
+      message.success('咸将塔挑战成功！')
+      
+      if (newResult.autoReward) {
+        setTimeout(() => {
+          message.success(`自动领取第${newResult.rewardFloor}层奖励`)
+        }, 1000)
+      }
+    } else {
+      message.error('咸将塔挑战失败')
+    }
+    
+    // 重置爬塔状态
+    setTimeout(() => {
+      console.log('🗼 爬塔结果处理完成，重置状态')
+      if (climbTimeout.value) {
+        clearTimeout(climbTimeout.value)
+        climbTimeout.value = null
+      }
+      isClimbing.value = false
+    }, 2000)
+  }
+}, { deep: true })
 
 // 生命周期
 onMounted(() => {
@@ -346,6 +453,9 @@ onMounted(() => {
 
 .card-actions {
   margin-top: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 
@@ -372,6 +482,24 @@ onMounted(() => {
     background: var(--bg-secondary);
     color: var(--text-tertiary);
     cursor: not-allowed;
+  }
+}
+
+.reset-button {
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--warning-color);
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--warning-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--warning-color);
+    color: white;
   }
 }
 

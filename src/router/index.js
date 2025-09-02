@@ -119,9 +119,6 @@ router.beforeEach((to, from, next) => {
   // 检查是否需要Token
   if (to.meta.requiresToken && !tokenStore.hasTokens) {
     next('/tokens')
-  } else if (to.name === 'TokenImport' && tokenStore.hasTokens && tokenStore.selectedToken) {
-    // 如果已有token且已选择，重定向到控制台
-    next('/dashboard')
   } else if (to.path === '/' && tokenStore.hasTokens) {
     // 首页重定向逻辑
     if (tokenStore.selectedToken) {

@@ -30,8 +30,7 @@
     <div
       v-if="showFeedback"
       class="feedback-section"
-    >
-    </div>
+    />
 
     <!-- 功能模块网格 -->
     <div class="features-grid-section">

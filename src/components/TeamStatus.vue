@@ -1,7 +1,11 @@
 <template>
   <div class="team-status-card">
     <div class="card-header">
-      <img src="/icons/Ob7pyorzmHiJcbab2c25af264d0758b527bc1b61cc3b.png" alt="队伍图标" class="team-icon">
+      <img
+        src="/icons/Ob7pyorzmHiJcbab2c25af264d0758b527bc1b61cc3b.png"
+        alt="队伍图标"
+        class="team-icon"
+      >
       <div class="team-info">
         <h3>队伍阵容</h3>
         <p>当前使用的战斗阵容</p>
@@ -10,18 +14,18 @@
         <button
           v-for="teamId in availableTeams"
           :key="teamId"
-          @click="selectTeam(teamId)"
           :class="[
             'team-button',
             { active: currentTeam === teamId }
           ]"
+          @click="selectTeam(teamId)"
         >
           {{ teamId }}
         </button>
         <button
-          @click="refreshTeamData"
           class="team-button refresh-button"
           title="刷新队伍数据"
+          @click="refreshTeamData"
         >
           🔄
         </button>
@@ -58,7 +62,10 @@
             </div>
           </div>
           
-          <div v-if="!currentTeamHeroes.length" class="empty-team">
+          <div
+            v-if="!currentTeamHeroes.length"
+            class="empty-team"
+          >
             <p>暂无队伍信息</p>
           </div>
         </div>

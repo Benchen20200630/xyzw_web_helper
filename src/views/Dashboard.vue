@@ -101,7 +101,7 @@
               </n-button>
               <n-button
                 size="large"
-                @click="router.push('/tokens')"
+                @click="handleManageTokens"
               >
                 管理Token
               </n-button>
@@ -366,13 +366,30 @@ const handleUserAction = (key) => {
   }
 }
 
+const handleManageTokens = () => {
+  console.log('🔘 点击管理Token按钮')
+  console.log('📊 当前Token状态:', {
+    hasTokens: tokenStore.hasTokens,
+    selectedToken: tokenStore.selectedToken?.name,
+    tokenCount: tokenStore.gameTokens.length
+  })
+  
+  try {
+    router.push('/tokens')
+    console.log('✅ 成功导航到 /tokens')
+  } catch (error) {
+    console.error('❌ 导航失败:', error)
+    message.error('导航到Token管理页面失败')
+  }
+}
+
 const handleQuickAction = (action) => {
   switch (action.action) {
     case 'game-features':
       router.push('/game-features')
       break
     case 'add-token':
-      router.push('/tokens')
+      handleManageTokens()
       break
     case 'execute-tasks':
       router.push('/game-features')

@@ -13,13 +13,20 @@
     <!-- 盐罐机器人状态 -->
     <div class="status-card bottle-helper">
       <div class="card-header">
-        <img src="/icons/173746572831736.png" alt="盐罐图标" class="status-icon">
+        <img
+          src="/icons/173746572831736.png"
+          alt="盐罐图标"
+          class="status-icon"
+        >
         <div class="status-info">
           <h3>盐罐机器人</h3>
           <p>剩余时间</p>
         </div>
-        <div class="status-badge" :class="{ active: bottleHelper.isRunning }">
-          <div class="status-dot"></div>
+        <div
+          class="status-badge"
+          :class="{ active: bottleHelper.isRunning }"
+        >
+          <div class="status-dot" />
           <span>{{ bottleHelper.isRunning ? '运行中' : '已停止' }}</span>
         </div>
       </div>
@@ -40,13 +47,20 @@
     <!-- 挂机状态 -->
     <div class="status-card hang-up">
       <div class="card-header">
-        <img src="/icons/174061875626614.png" alt="挂机图标" class="status-icon">
+        <img
+          src="/icons/174061875626614.png"
+          alt="挂机图标"
+          class="status-icon"
+        >
         <div class="status-info">
           <h3>挂机时间</h3>
           <p>已挂机：{{ formatTime(hangUp.elapsedTime) }}</p>
         </div>
-        <div class="status-badge" :class="{ active: hangUp.isActive }">
-          <div class="status-dot"></div>
+        <div
+          class="status-badge"
+          :class="{ active: hangUp.isActive }"
+        >
+          <div class="status-dot" />
           <span>{{ hangUp.isActive ? '挂机中' : '已完成' }}</span>
         </div>
       </div>
@@ -55,11 +69,49 @@
           {{ formatTime(hangUp.remainingTime) }}
         </div>
         <div class="action-row">
-          <button class="action-button secondary" @click="extendHangUp">
-            加钟
+          <button 
+            class="action-button secondary" 
+            :disabled="hangUp.isExtending"
+            @click="extendHangUp"
+          >
+            <span
+              v-if="hangUp.isExtending"
+              class="loading-text"
+            >
+              <svg
+                class="loading-icon"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="currentColor"
+                  d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
+                />
+              </svg>
+              加钟中...
+            </span>
+            <span v-else>加钟</span>
           </button>
-          <button class="action-button primary" @click="claimHangUpReward">
-            领取奖励
+          <button 
+            class="action-button primary" 
+            :disabled="hangUp.isClaiming"
+            @click="claimHangUpReward"
+          >
+            <span
+              v-if="hangUp.isClaiming"
+              class="loading-text"
+            >
+              <svg
+                class="loading-icon"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="currentColor"
+                  d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
+                />
+              </svg>
+              领取中...
+            </span>
+            <span v-else>领取奖励</span>
           </button>
         </div>
       </div>
@@ -68,13 +120,20 @@
     <!-- 俱乐部排位 -->
     <div class="status-card legion-match">
       <div class="card-header">
-        <img src="/icons/1733492491706152.png" alt="俱乐部图标" class="status-icon">
+        <img
+          src="/icons/1733492491706152.png"
+          alt="俱乐部图标"
+          class="status-icon"
+        >
         <div class="status-info">
           <h3>俱乐部排位</h3>
           <p>赛事状态</p>
         </div>
-        <div class="status-badge" :class="{ active: legionMatch.isRegistered }">
-          <div class="status-dot"></div>
+        <div
+          class="status-badge"
+          :class="{ active: legionMatch.isRegistered }"
+        >
+          <div class="status-dot" />
           <span>{{ legionMatch.isRegistered ? '已报名' : '未报名' }}</span>
         </div>
       </div>
@@ -96,22 +155,35 @@
     <!-- 俱乐部签到 -->
     <div class="status-card legion-signin">
       <div class="card-header">
-        <img src="/icons/1733492491706148.png" alt="签到图标" class="status-icon">
+        <img
+          src="/icons/1733492491706148.png"
+          alt="签到图标"
+          class="status-icon"
+        >
         <div class="status-info">
           <h3>俱乐部签到</h3>
           <p>每日签到状态</p>
         </div>
-        <div class="status-badge" :class="{ active: legionSignin.isSignedIn }">
-          <div class="status-dot"></div>
+        <div
+          class="status-badge"
+          :class="{ active: legionSignin.isSignedIn }"
+        >
+          <div class="status-dot" />
           <span>{{ legionSignin.isSignedIn ? '已签到' : '待签到' }}</span>
         </div>
       </div>
       <div class="card-content">
-        <p class="club-name" v-if="legionSignin.clubName">
+        <p
+          v-if="legionSignin.clubName"
+          class="club-name"
+        >
           当前俱乐部<br>
           <strong>{{ legionSignin.clubName }}</strong>
         </p>
-        <p class="description" v-else>
+        <p
+          v-else
+          class="description"
+        >
           尚未加入任何俱乐部
         </p>
         <button 
@@ -127,13 +199,17 @@
     <!-- 咸鱼大冲关 -->
     <div class="status-card study">
       <div class="card-header">
-        <img src="/icons/1736425783912140.png" alt="学习图标" class="status-icon">
+        <img
+          src="/icons/1736425783912140.png"
+          alt="学习图标"
+          class="status-icon"
+        >
         <div class="status-info">
           <h3>咸鱼大冲关</h3>
           <p>每日知识挑战</p>
         </div>
         <div class="status-badge weekly">
-          <div class="status-dot"></div>
+          <div class="status-dot" />
           <span>每周任务</span>
         </div>
       </div>
@@ -146,9 +222,18 @@
           :disabled="study.isAnswering"
           @click="startStudy"
         >
-          <span v-if="study.isAnswering" class="loading-text">
-            <svg class="loading-icon" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"/>
+          <span
+            v-if="study.isAnswering"
+            class="loading-text"
+          >
+            <svg
+              class="loading-icon"
+              viewBox="0 0 24 24"
+            >
+              <path
+                fill="currentColor"
+                d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
+              />
             </svg>
             答题中...
           </span>
@@ -156,7 +241,6 @@
         </button>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -183,7 +267,9 @@ const hangUp = ref({
   remainingTime: 0,
   elapsedTime: 0,
   lastTime: 0,
-  hangUpTime: 0
+  hangUpTime: 0,
+  isExtending: false, // 加钟状态
+  isClaiming: false   // 领取奖励状态
 })
 
 const legionMatch = ref({
@@ -333,40 +419,108 @@ const handleBottleHelper = () => {
   message.info(bottleHelper.value.isRunning ? '重启盐罐机器人' : '启动盐罐机器人')
 }
 
-// 挂机操作
-const extendHangUp = () => {
-  if (!tokenStore.selectedToken) return
+// 挂机操作 - 参考HangUpStatus逻辑优化
+const extendHangUp = async () => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择Token')
+    return
+  }
   
   const tokenId = tokenStore.selectedToken.id
   
-  // 发送4次分享回调请求来加钟
-  for (let i = 0; i < 4; i++) {
+  try {
+    console.log('🕐 开始加钟操作...')
+    hangUp.value.isExtending = true
+    message.info('正在加钟...')
+    
+    // 按照参考代码的逻辑，发送4次分享回调请求
+    const promises = []
+    for (let i = 0; i < 4; i++) {
+      const promise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.log(`🕐 发送第${i+1}次加钟请求`)
+          const result = tokenStore.sendMessage(tokenId, 'system_mysharecallback', {
+            isSkipShareCard: true,
+            type: 2
+          })
+          resolve(result)
+        }, i * 300) // 增加间隔时间确保稳定性
+      })
+      promises.push(promise)
+    }
+    
+    // 等待所有请求完成
+    await Promise.all(promises)
+    
+    console.log('🕐 所有加钟请求已发送')
+    
+    // 延迟获取最新角色信息
+    setTimeout(() => {
+      console.log('🕐 加钟后获取最新角色信息')
+      tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+    }, 1500)
+    
+    // 延迟显示完成消息和重置状态
+    setTimeout(() => {
+      message.success('加钟操作已完成，请查看挂机剩余时间')
+      hangUp.value.isExtending = false
+    }, 2500)
+    
+  } catch (error) {
+    console.error('🕐 加钟操作失败:', error)
+    message.error('加钟操作失败: ' + (error.message || '未知错误'))
+    hangUp.value.isExtending = false
+  }
+}
+
+const claimHangUpReward = async () => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择Token')
+    return
+  }
+  
+  const tokenId = tokenStore.selectedToken.id
+  
+  try {
+    console.log('🎁 开始领取挂机奖励...')
+    hangUp.value.isClaiming = true
+    message.info('正在领取挂机奖励...')
+    
+    // 参考HangUpStatus的S函数逻辑
+    // 1. 发送初始分享回调
+    tokenStore.sendMessage(tokenId, 'system_mysharecallback')
+    
+    // 2. 领取挂机奖励
+    setTimeout(() => {
+      tokenStore.sendMessage(tokenId, 'system_claimhangupreward')
+    }, 200)
+    
+    // 3. 发送跳过分享卡片的回调
     setTimeout(() => {
       tokenStore.sendMessage(tokenId, 'system_mysharecallback', {
         isSkipShareCard: true,
         type: 2
       })
-    }, i * 200)
+    }, 400)
+    
+    // 4. 获取最新角色信息
+    setTimeout(() => {
+      tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+    }, 600)
+    
+    // 5. 显示完成消息并重置状态
+    setTimeout(() => {
+      message.success('挂机奖励领取完成')
+      hangUp.value.isClaiming = false
+    }, 1200)
+    
+    console.log('🎁 挂机奖励领取操作序列已启动')
+    
+  } catch (error) {
+    console.error('🎁 领取挂机奖励失败:', error)
+    message.error('领取挂机奖励失败: ' + (error.message || '未知错误'))
+    hangUp.value.isClaiming = false
   }
-  
-  message.info('正在加钟...')
-}
-
-const claimHangUpReward = () => {
-  if (!tokenStore.selectedToken) return
-  
-  const tokenId = tokenStore.selectedToken.id
-  
-  // 领取挂机奖励
-  tokenStore.sendMessage(tokenId, 'system_mysharecallback')
-  tokenStore.sendMessage(tokenId, 'system_claimhangupreward')
-  tokenStore.sendMessage(tokenId, 'system_mysharecallback', {
-    isSkipShareCard: true,
-    type: 2
-  })
-  tokenStore.sendMessage(tokenId, 'role_getroleinfo')
-  
-  message.info('领取挂机奖励')
 }
 
 // 俱乐部排位报名

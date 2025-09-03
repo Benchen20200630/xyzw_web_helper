@@ -243,6 +243,11 @@ const handleRegister = async () => {
   padding: var(--spacing-lg);
 }
 
+/* 深色主题下背景 */
+[data-theme="dark"] .register-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 .register-container {
   max-width: 500px;
   width: 100%;
@@ -255,6 +260,12 @@ const handleRegister = async () => {
   padding: var(--spacing-2xl);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 深色主题下注册卡片 */
+[data-theme="dark"] .register-card {
+  background: rgba(17, 24, 39, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .card-header {

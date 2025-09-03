@@ -362,7 +362,7 @@ onMounted(() => {
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   margin-bottom: var(--spacing-md);
-  background: linear-gradient(45deg, #fff, #e6f7ff);
+  background: linear-gradient(45deg, var(--bg-primary), var(--primary-color-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -434,7 +434,7 @@ onMounted(() => {
 // 功能特性区域
 .features-section {
   padding: var(--spacing-2xl) 0;
-  background: white;
+  background: var(--bg-primary);
 }
 
 .section-header {
@@ -503,6 +503,10 @@ onMounted(() => {
 .stats-section {
   padding: var(--spacing-2xl) 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+/* 深色主题下统计区背景 */
+[data-theme="dark"] .stats-section {
+  background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
 }
 
 .stats-grid {

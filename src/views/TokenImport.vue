@@ -488,23 +488,18 @@ const editingToken = ref(null)
 const importMethod = ref('manual')
 const refreshingTokens = ref(new Set())
 
-// 主题控制
-const isDarkTheme = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
+// 主题控制（使用 data-theme 与全局变量匹配）
+const isDarkTheme = computed(() => document.documentElement.getAttribute('data-theme') === 'dark')
 
 const toggleTheme = () => {
-  const isDark = document.documentElement.classList.contains('dark')
-  if (isDark) {
-    document.documentElement.classList.remove('dark')
+  const current = document.documentElement.getAttribute('data-theme') === 'dark'
+  if (current) {
+    document.documentElement.removeAttribute('data-theme')
     localStorage.setItem('theme', 'light')
   } else {
-    document.documentElement.classList.add('dark')
+    document.documentElement.setAttribute('data-theme', 'dark')
     localStorage.setItem('theme', 'dark')
   }
-  
-  // 触发全局主题更新
-  window.location.reload()
 }
 
 // 导入表单
@@ -1056,6 +1051,11 @@ onMounted(() => {
   padding: var(--spacing-xl) 0;
 }
 
+/* 深色主题下的页面背景 */
+[data-theme="dark"] .token-import-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -1120,7 +1120,7 @@ onMounted(() => {
 }
 
 .import-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-2xl);
   box-shadow: var(--shadow-large);
@@ -1183,58 +1183,58 @@ onMounted(() => {
   align-items: center;
 }
 
-/* 深色主题强制覆盖 */
-.dark .n-form-item-label,
-.dark .n-form-item-label__text {
+/* 深色主题强制覆盖（与全局 data-theme 保持一致） */
+[data-theme="dark"] .n-form-item-label,
+[data-theme="dark"] .n-form-item-label__text {
   color: #ffffff !important;
 }
 
-.dark .n-input__input,
-.dark .n-input__textarea {
+[data-theme="dark"] .n-input__input,
+[data-theme="dark"] .n-input__textarea {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.dark .n-input__placeholder {
+[data-theme="dark"] .n-input__placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
-.dark .n-card {
+[data-theme="dark"] .n-card {
   background-color: rgba(255, 255, 255, 0.1) !important;
   color: #ffffff !important;
 }
 
-.dark .import-card {
+[data-theme="dark"] .import-card {
   background: rgba(45, 55, 72, 0.9) !important;
   color: #ffffff !important;
 }
 
-.dark .import-card h2 {
+[data-theme="dark"] .import-card h2 {
   color: #ffffff !important;
 }
 
-.dark .import-card .subtitle {
+[data-theme="dark"] .import-card .subtitle {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-.dark .n-collapse-item__header {
+[data-theme="dark"] .n-collapse-item__header {
   color: #ffffff !important;
 }
 
-.dark .n-collapse-item__content-wrapper {
+[data-theme="dark"] .n-collapse-item__content-wrapper {
   background-color: transparent !important;
 }
 
-.dark .n-radio-button {
+[data-theme="dark"] .n-radio-button {
   color: #ffffff !important;
 }
 
-.dark .n-radio-button--checked {
+[data-theme="dark"] .n-radio-button--checked {
   background-color: rgba(16, 185, 129, 0.8) !important;
   color: #ffffff !important;
 }
 
-.dark .form-tip {
+[data-theme="dark"] .form-tip {
   color: rgba(255, 255, 255, 0.6) !important;
 }
 
@@ -1252,10 +1252,16 @@ onMounted(() => {
 }
 
 .tokens-section {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-xl);
   box-shadow: var(--shadow-medium);
+}
+
+/* 深色主题下的列表区域背景 */
+[data-theme="dark"] .tokens-section {
+  background: rgba(45, 55, 72, 0.9);
+  color: #ffffff;
 }
 
 .section-header {
@@ -1432,7 +1438,7 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   min-height: 400px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   box-shadow: var(--shadow-medium);
 }

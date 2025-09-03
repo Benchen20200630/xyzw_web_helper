@@ -479,7 +479,7 @@ onMounted(async () => {
 
 // 导航栏
 .dashboard-nav {
-  background: white;
+  background: var(--bg-primary);
   border-bottom: 1px solid var(--border-light);
   padding: 0 var(--spacing-lg);
   position: sticky;
@@ -621,7 +621,7 @@ onMounted(async () => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-light);
@@ -689,7 +689,7 @@ onMounted(async () => {
 }
 
 .action-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-light);
@@ -731,7 +731,7 @@ onMounted(async () => {
 
 // 最近活动区域
 .recent-activity-section {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-xl);
   box-shadow: var(--shadow-light);

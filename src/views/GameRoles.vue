@@ -435,7 +435,7 @@ onMounted(async () => {
 }
 
 .role-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   box-shadow: var(--shadow-light);
   overflow: hidden;

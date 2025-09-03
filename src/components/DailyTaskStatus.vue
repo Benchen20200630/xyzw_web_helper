@@ -973,7 +973,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .daily-task-container {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -1137,7 +1137,7 @@ onBeforeUnmount(() => {
   padding: var(--spacing-xs) var(--spacing-sm);
   border: 1px solid var(--border-light);
   border-radius: var(--border-radius-medium);
-  background: white;
+  background: var(--bg-primary);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;

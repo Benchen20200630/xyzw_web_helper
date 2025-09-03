@@ -295,7 +295,7 @@ onMounted(() => {
 <style scoped lang="scss">
 
 .tower-status-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

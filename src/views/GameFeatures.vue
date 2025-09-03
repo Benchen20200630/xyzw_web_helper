@@ -279,9 +279,14 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
+/* 深色主题下背景 */
+[data-theme="dark"] .game-features-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 // 页面头部
 .page-header {
-  background: white;
+  background: var(--bg-primary);
   border-bottom: 1px solid var(--border-light);
   padding: var(--spacing-lg) 0;
 }
@@ -348,7 +353,7 @@ onUnmounted(() => {
 }
 
 .feature-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -482,7 +487,7 @@ onUnmounted(() => {
 }
 
 .ws-status-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-lg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);

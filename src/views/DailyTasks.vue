@@ -678,10 +678,20 @@ watch(() => gameRolesStore.selectedRole, (newRole) => {
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
+/* 深色主题下背景 */
+[data-theme="dark"] .daily-tasks-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 .page-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: var(--spacing-xl) 0;
   color: white;
+}
+
+/* 深色主题下头部渐变 */
+[data-theme="dark"] .page-header {
+  background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
 }
 
 .header-content {
@@ -713,7 +723,7 @@ watch(() => gameRolesStore.selectedRole, (newRole) => {
 }
 
 .role-selector-section {
-  background: white;
+  background: var(--bg-primary);
   padding: var(--spacing-lg) 0;
   border-bottom: 1px solid var(--border-light);
 }
@@ -754,7 +764,7 @@ watch(() => gameRolesStore.selectedRole, (newRole) => {
 }
 
 .filter-section {
-  background: white;
+  background: var(--bg-primary);
   padding: var(--spacing-md) 0;
   border-bottom: 1px solid var(--border-light);
 }

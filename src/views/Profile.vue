@@ -341,7 +341,16 @@ const savePreferences = () => {
 
 const updateTheme = (theme) => {
   preferences.theme = theme
-  // 这里可以实际应用主题变更
+  localStorage.setItem('theme', theme)
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else if (theme === 'light') {
+    document.documentElement.removeAttribute('data-theme')
+  } else {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark')
+    else document.documentElement.removeAttribute('data-theme')
+  }
 }
 
 const changeAvatar = () => {
@@ -434,7 +443,7 @@ onMounted(() => {
 }
 
 .info-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-xl);
   box-shadow: var(--shadow-light);

@@ -315,7 +315,7 @@ watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTe
 
 <style scoped lang="scss">
 .team-status-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -445,8 +445,8 @@ watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTe
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid var(--border-color, #e5e5e5);
-  background: white;
+  border: 2px solid var(--border-light);
+  background: var(--bg-primary);
 }
 
 .hero-avatar {

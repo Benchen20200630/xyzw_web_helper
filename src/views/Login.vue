@@ -283,6 +283,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* 深色主题下背景 */
+[data-theme="dark"] .login-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 .login-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -299,6 +304,12 @@ onMounted(() => {
   padding: var(--spacing-2xl);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 深色主题下登录卡片 */
+[data-theme="dark"] .login-card {
+  background: rgba(17, 24, 39, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .card-header {

@@ -55,6 +55,11 @@ const router = useRouter()
   padding: var(--spacing-lg);
 }
 
+/* 深色主题下背景 */
+[data-theme="dark"] .not-found-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+}
+
 .error-content {
   text-align: center;
   color: white;

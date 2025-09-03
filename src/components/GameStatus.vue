@@ -596,7 +596,7 @@ onUnmounted(() => {
 }
 
 .status-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -684,16 +684,16 @@ onUnmounted(() => {
   .time-display {
     font-size: 1.5rem; /* text-2xl */
     font-weight: 700; /* font-bold */
-    color: #111827; /* text-gray-900 */
+    color: var(--text-primary);
     text-align: center;
     margin-bottom: var(--spacing-md);
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
     letter-spacing: 0.1em;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background: var(--bg-tertiary);
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-light);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
     transition: all 0.2s ease-in-out;
     

@@ -143,11 +143,11 @@ export function registerDefaultCommands(reg) {
 
     // 神器抽奖
     .register("artifact_lottery", { lotteryNumber: 1, newFree: true, type: 1 })
-    
+
     // 灯神相关
     .register("genie_sweep", { genieId: 1 })
     .register("genie_buysweep")
-    
+
     // 礼包相关
     .register("discount_claimreward", { discountId: 1 })
     .register("card_claimreward", { cardId: 1 })
@@ -165,7 +165,7 @@ export function registerDefaultCommands(reg) {
 
     // 排名相关
     .register("rank_getroleinfo")
-    
+
     // 梦魇相关
     .register("nightmare_getroleinfo")
 }
@@ -234,7 +234,7 @@ export class XyzwWebSocketClient {
             try {
               packet = this.utils?.parse ? this.utils.parse(buffer, "auto") : buffer
               // Blob解析完成
-              
+
               // 处理消息体解码（ProtoMsg会自动解码）
               if (packet instanceof Object && packet.rawData !== undefined) {
                 // ProtoMsg消息
@@ -252,19 +252,19 @@ export class XyzwWebSocketClient {
                   // 消息体解码失败
                 }
               }
-              
+
               if (this.showMsg) {
                 // 收到Blob消息
               }
-              
+
               // 回调处理
               if (this.messageListener) {
                 this.messageListener(packet)
               }
-              
+
               // Promise 响应处理
               this._handlePromiseResponse(packet)
-              
+
             } catch (error) {
               console.error('Blob解析失败:', error.message)
             }
@@ -382,27 +382,29 @@ export class XyzwWebSocketClient {
 
   /** Promise 版发送 */
   sendWithPromise(cmd, params = {}, timeoutMs = 5000) {
-    const respKey = `${cmd}_${this.seq + 1}`
-
     return new Promise((resolve, reject) => {
       if (!this.connected && !this.socket) {
         return reject(new Error("WebSocket 连接已关闭"))
       }
 
+      // 生成唯一的请求ID
+      const requestId = `${cmd}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
       // 设置 Promise 状态
-      this.promises[respKey] = { resolve, reject }
+      this.promises[requestId] = { resolve, reject, originalCmd: cmd }
 
       // 超时处理
       const timer = setTimeout(() => {
-        delete this.promises[respKey]
+        delete this.promises[requestId]
         reject(new Error(`请求超时: ${cmd} (${timeoutMs}ms)`))
       }, timeoutMs)
 
       // 发送消息
       this.send(cmd, params, {
-        respKey,
+        respKey: requestId,
         onSent: () => {
-          clearTimeout(timer)
+          // 消息发送成功后，不要清除超时器，让它继续等待响应
+          // 只有在收到响应或超时时才清除
         }
       })
     })
@@ -445,7 +447,7 @@ export class XyzwWebSocketClient {
         this.sendHeartbeat()
       }
     }, 3000)
-    
+
     // 设置定期心跳
     this.heartbeatTimer = setInterval(() => {
       if (this.connected && this.socket?.readyState === WebSocket.OPEN) {
@@ -513,13 +515,11 @@ export class XyzwWebSocketClient {
 
     // 命令到响应的映射 - 处理响应命令与原始命令不匹配的情况
     const responseToCommandMap = {
+      // 1:1 响应映射（优先级高）
       'role_getroleinforesp': 'role_getroleinfo',
-      'system_signinrewardresp': 'system_signinreward',
       'hero_recruitresp': 'hero_recruit',
       'friend_batchresp': 'friend_batch',
       'system_claimhanguprewardresp': 'system_claimhangupreward',
-      'task_claimdailyrewardresp': 'task_claimdailyreward',
-      'task_claimweekrewardresp': 'task_claimweekreward',
       'item_openboxresp': 'item_openbox',
       'bottlehelper_claimresp': 'bottlehelper_claim',
       'bottlehelper_startresp': 'bottlehelper_start',
@@ -532,23 +532,46 @@ export class XyzwWebSocketClient {
       'arena_getareatargetresp': 'arena_getareatarget',
       'presetteam_getinforesp': 'presetteam_getinfo',
       'presetteam_saveteamresp': 'presetteam_saveteam',
+      'presetteam_getteamresp': 'presetteam_getteam',
       'mail_claimallattachmentresp': 'mail_claimallattachment',
-      'store_buyresp': 'store_purchase'
+      'store_buyresp': 'store_purchase',
+      'system_getdatabundleverresp': 'system_getdatabundlever',
+      'tower_claimrewardresp': 'tower_claimreward',
+      'fight_starttowerresp': 'fight_starttower',
+
+      // 特殊响应映射 - 有些命令有独立响应，有些用同步响应
+      'task_claimdailyrewardresp': 'task_claimdailyreward',
+      'task_claimweekrewardresp': 'task_claimweekreward',
+
+      // 同步响应映射（优先级低）
+      'syncresp': ['system_mysharecallback', 'task_claimdailypoint'],
+      'syncrewardresp': ['system_buygold', 'discount_claimreward', 'card_claimreward',
+                        'artifact_lottery', 'genie_sweep', 'genie_buysweep','system_signinreward']
     }
 
-    // 获取原始命令名
-    const originalCmd = responseToCommandMap[cmd] || cmd
+    // 获取原始命令名（支持一对一和一对多映射）
+    let originalCmds = responseToCommandMap[cmd]
+    if (!originalCmds) {
+      originalCmds = [cmd] // 如果没有映射，使用响应命令本身
+    } else if (typeof originalCmds === 'string') {
+      originalCmds = [originalCmds] // 转换为数组
+    }
 
-    // 查找对应的 Promise
-    for (const [key, promise] of Object.entries(this.promises)) {
-      // 检查是否匹配原始命令或响应命令
-      if (key.startsWith(originalCmd) || key.startsWith(cmd) || cmd === key) {
-        delete this.promises[key]
+    // 查找对应的 Promise - 遍历所有等待中的 Promise
+    for (const [requestId, promiseData] of Object.entries(this.promises)) {
+      // 检查 Promise 是否匹配当前响应的任一原始命令
+      if (originalCmds.includes(promiseData.originalCmd)) {
+        delete this.promises[requestId]
+
+        // 获取响应数据，优先使用 rawData（ProtoMsg 自动解码），然后 decodedBody（手动解码），最后 body
+        const responseBody = packet.rawData !== undefined ? packet.rawData :
+                           packet.decodedBody !== undefined ? packet.decodedBody :
+                           packet.body
 
         if (packet.code === 0 || packet.code === undefined) {
-          promise.resolve(packet.body || packet)
+          promiseData.resolve(responseBody || packet)
         } else {
-          promise.reject(new Error(`服务器错误: ${packet.code} - ${packet.hint || '未知错误'}`))
+          promiseData.reject(new Error(`服务器错误: ${packet.code} - ${packet.hint || '未知错误'}`))
         }
         break
       }

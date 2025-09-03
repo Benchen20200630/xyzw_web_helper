@@ -43,7 +43,7 @@
       >
         {{ isClimbing.value ? '爬塔中...' : '开始爬塔' }}
       </button>
-      
+
       <!-- 调试用的重置按钮，只在开发环境显示 -->
       <button
         v-if="isClimbing.value"
@@ -57,9 +57,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useTokenStore } from '@/stores/tokenStore'
-import { useMessage } from 'naive-ui'
+import {computed, onMounted, ref, watch} from 'vue'
+import {useTokenStore} from '@/stores/tokenStore'
+import {useMessage} from 'naive-ui'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
@@ -72,66 +72,43 @@ const lastClimbResult = ref(null) // 最后一次爬塔结果
 // 计算属性 - 从gameData中获取塔相关信息
 const roleInfo = computed(() => {
   const data = tokenStore.gameData?.roleInfo || null
-  console.log('🗼 TowerStatus roleInfo 计算属性更新:', data)
-  if (data?.role?.tower) {
-    console.log('🗼 TowerStatus 发现tower数据:', data.role.tower)
-  } else {
-    console.log('🗼 TowerStatus 没有找到tower数据, gameData:', tokenStore.gameData)
-  }
   return data
 })
 
 const currentFloor = computed(() => {
   const tower = roleInfo.value?.role?.tower
-  console.log('🗼 TowerStatus currentFloor 计算属性更新')
-  console.log('🗼 TowerStatus 输入的tower数据:', tower)
-  console.log('🗼 TowerStatus 完整的roleInfo:', roleInfo.value)
+
 
   if (!tower) {
-    console.log('🗼 没有tower对象，显示默认值')
     return "0 - 0"
   }
 
   if (!tower.id && tower.id !== 0) {
-    console.log('🗼 没有塔ID或ID无效，显示默认值, tower.id:', tower.id)
     return "0 - 0"
   }
 
   const towerId = tower.id
   const floor = Math.floor(towerId / 10) + 1
   const layer = towerId % 10 + 1
-  const result = `${floor} - ${layer}`
-  console.log(`🗼 计算层数: towerId=${towerId} -> floor=${floor}, layer=${layer} -> ${result}`)
-  return result
+  return `${floor} - ${layer}`
 })
 
 const towerEnergy = computed(() => {
   const tower = roleInfo.value?.role?.tower
-  console.log('🗼 TowerStatus towerEnergy 计算属性更新')
-  console.log('🗼 TowerStatus tower对象:', tower)
-  
+
+
   const energy = tower?.energy || 0
-  console.log('🗼 TowerStatus 计算出的energy:', energy)
   return energy
 })
 
 const canClimb = computed(() => {
   const hasEnergy = towerEnergy.value > 0
   const notClimbing = !isClimbing.value
-  console.log(`🗼 canClimb 计算: hasEnergy=${hasEnergy}, notClimbing=${notClimbing}, result=${hasEnergy && notClimbing}`)
   return hasEnergy && notClimbing
 })
 
 // 方法
 const startTowerClimb = async () => {
-  console.log('🗼 开始爬塔按钮被点击')
-  console.log('🗼 当前状态:', { 
-    canClimb: canClimb.value, 
-    isClimbing: isClimbing.value, 
-    towerEnergy: towerEnergy.value,
-    hasSelectedToken: !!tokenStore.selectedToken
-  })
-
   if (!tokenStore.selectedToken) {
     message.warning('请先选择Token')
     return
@@ -149,57 +126,45 @@ const startTowerClimb = async () => {
   }
 
   // 确保在操作开始前设置状态
-  console.log('🗼 设置爬塔状态为true')
   isClimbing.value = true
 
   // 设置超时保护，15秒后自动重置状态
   climbTimeout.value = setTimeout(() => {
-    console.log('🗼 超时保护触发，自动重置爬塔状态')
     isClimbing.value = false
     climbTimeout.value = null
   }, 15000)
 
   try {
     const tokenId = tokenStore.selectedToken.id
-    console.log('🗼 使用Token ID:', tokenId)
-
-    message.info('开始爬塔挑战...')
 
     // 发送爬塔命令
-    console.log('🗼 发送爬塔命令...')
     await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 10000)
 
-    console.log('🗼 爬塔命令发送成功')
     message.success('爬塔命令已发送')
 
     // 立即查询塔信息以获取最新状态
-    console.log('🗼 爬塔完成，立即查询塔信息')
     await getTowerInfo()
 
     // 再延迟查询一次确保数据同步
     setTimeout(async () => {
-      console.log('🗼 延迟查询塔信息')
       await getTowerInfo()
-      
+
       // 清除超时并重置状态
       if (climbTimeout.value) {
         clearTimeout(climbTimeout.value)
         climbTimeout.value = null
       }
-      console.log('🗼 延迟查询完成，重置爬塔状态')
       isClimbing.value = false
-    }, 3000)
+    }, 2000)
 
   } catch (error) {
-    console.error('🗼 爬塔失败:', error)
     message.error('爬塔失败: ' + (error.message || '未知错误'))
-    
+
     // 发生错误时立即重置状态
     if (climbTimeout.value) {
       clearTimeout(climbTimeout.value)
       climbTimeout.value = null
     }
-    console.log('🗼 发生错误，立即重置爬塔状态')
     isClimbing.value = false
   }
 
@@ -209,12 +174,11 @@ const startTowerClimb = async () => {
 
 // 重置爬塔状态的方法
 const resetClimbingState = () => {
-  console.log('🗼 用户手动重置爬塔状态')
   if (climbTimeout.value) {
     clearTimeout(climbTimeout.value)
     climbTimeout.value = null
   }
-  isClimbing.value = falsexian1xian
+  isClimbing.value = false
   message.info('爬塔状态已重置')
 }
 
@@ -226,36 +190,19 @@ const getTowerInfo = async () => {
 
   try {
     const tokenId = tokenStore.selectedToken.id
-    console.log('🗼 getTowerInfo: 开始获取塔信息, tokenId:', tokenId)
-
     // 检查WebSocket连接状态
     const wsStatus = tokenStore.getWebSocketStatus(tokenId)
-    console.log('🗼 getTowerInfo: WebSocket状态:', wsStatus)
-    
+
     if (wsStatus !== 'connected') {
-      console.warn('🗼 getTowerInfo: WebSocket未连接，无法获取数据')
       return
     }
-
     // 首先获取角色信息，这包含了塔的数据
-    console.log('🗼 getTowerInfo: 正在请求角色信息...')
     const roleResult = tokenStore.sendMessage(tokenId, 'role_getroleinfo')
-    console.log('🗼 getTowerInfo: 角色信息请求结果:', roleResult)
-
     // 直接请求塔信息
-    console.log('🗼 getTowerInfo: 正在请求塔信息...')
     const towerResult = tokenStore.sendMessage(tokenId, 'tower_getinfo')
-    console.log('🗼 getTowerInfo: 塔信息请求结果:', towerResult)
-
-    // 检查当前gameData状态
-    console.log('🗼 getTowerInfo: 当前gameData:', tokenStore.gameData)
-    console.log('🗼 getTowerInfo: 当前roleInfo:', tokenStore.gameData?.roleInfo)
-    console.log('🗼 getTowerInfo: 当前tower数据:', tokenStore.gameData?.roleInfo?.role?.tower)
-
     if (!roleResult && !towerResult) {
       console.error('🗼 getTowerInfo: 所有请求都失败了')
     }
-
   } catch (error) {
     console.error('🗼 getTowerInfo: 获取塔信息失败:', error)
   }
@@ -299,11 +246,11 @@ watch(() => tokenStore.selectedToken, (newToken, oldToken) => {
 watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
   if (newResult && newResult.timestamp !== oldResult?.timestamp) {
     console.log('🗼 收到新的爬塔结果:', newResult)
-    
+
     // 显示爬塔结果消息
     if (newResult.success) {
       message.success('咸将塔挑战成功！')
-      
+
       if (newResult.autoReward) {
         setTimeout(() => {
           message.success(`自动领取第${newResult.rewardFloor}层奖励`)
@@ -312,7 +259,7 @@ watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
     } else {
       message.error('咸将塔挑战失败')
     }
-    
+
     // 重置爬塔状态
     setTimeout(() => {
       console.log('🗼 爬塔结果处理完成，重置状态')
@@ -327,24 +274,15 @@ watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
 
 // 生命周期
 onMounted(() => {
-  console.log('🗼 TowerStatus 组件已挂载')
-  console.log('🗼 当前选中Token:', tokenStore.selectedToken?.name)
-  console.log('🗼 当前选中Token ID:', tokenStore.selectedToken?.id)
-  console.log('🗼 当前WebSocket状态:', wsStatus.value)
-  console.log('🗼 当前游戏数据:', tokenStore.gameData)
-  console.log('🗼 当前roleInfo:', tokenStore.gameData?.roleInfo)
-  console.log('🗼 当前tower数据:', tokenStore.gameData?.roleInfo?.role?.tower)
+
 
   // 检查WebSocket客户端
   if (tokenStore.selectedToken) {
     const client = tokenStore.getWebSocketClient(tokenStore.selectedToken.id)
-    console.log('🗼 WebSocket客户端:', client)
-    console.log('🗼 WebSocket客户端状态:', client ? 'exists' : 'null')
   }
 
   // 组件挂载时获取塔信息
   if (tokenStore.selectedToken && wsStatus.value === 'connected') {
-    console.log('🗼 条件满足，开始获取塔信息')
     getTowerInfo()
   } else if (!tokenStore.selectedToken) {
     console.log('🗼 没有选中的Token，无法获取塔信息')

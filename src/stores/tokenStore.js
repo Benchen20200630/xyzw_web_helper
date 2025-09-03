@@ -712,9 +712,23 @@ export const useTokenStore = defineStore('tokens', () => {
     return sendMessage(tokenId, 'heart_beat')
   }
 
-  // 发送获取角色信息请求
-  const sendGetRoleInfo = (tokenId, params = {}) => {
-    return sendMessageWithPromise(tokenId, 'role_getroleinfo', params)
+  // 发送获取角色信息请求（异步处理）
+  const sendGetRoleInfo = async (tokenId, params = {}) => {
+    try {
+      const roleInfo = await sendMessageWithPromise(tokenId, 'role_getroleinfo', params, 10000)
+      
+      // 手动更新游戏数据（因为响应可能不会自动触发消息处理）
+      if (roleInfo) {
+        gameData.value.roleInfo = roleInfo
+        gameData.value.lastUpdated = new Date().toISOString()
+        console.log('📊 角色信息已通过 Promise 更新')
+      }
+      
+      return roleInfo
+    } catch (error) {
+      console.error(`❌ 获取角色信息失败 [${tokenId}]:`, error.message)
+      throw error
+    }
   }
 
   // 发送获取数据版本请求

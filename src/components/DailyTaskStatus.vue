@@ -335,9 +335,9 @@ const log = (message, type = 'info') => {
   })
 }
 
-// 超时执行器 - 基于参考代码的 callWithRetry 函数
+// 超时执行器 - 使用tokenStore的sendMessageWithPromise
 const callWithRetry = async (fn, opt = {}) => {
-  const timeoutMs = opt?.timeoutMs ?? 30000
+  const timeoutMs = opt?.timeoutMs ?? 10000  // 降低超时时间到10秒
   const retries = opt?.retries ?? 1
   const delayMs = opt?.delayMs ?? 600
 
@@ -375,25 +375,44 @@ const syncCompleteFromServer = (resp) => {
   })
 }
 
-// 刷新角色信息 - 基于参考代码
+// 刷新角色信息 - 使用tokenStore的方法
 const refreshRoleInfo = async () => {
   if (!tokenStore.selectedToken) {
     throw new Error('没有选中的Token')
   }
   const tokenId = tokenStore.selectedToken.id
-  const e = await callWithRetry(() => 
-    tokenStore.sendMessageWithPromise(tokenId, 'role_getroleinfo', {})
-  )
-  return e
+  
+  try {
+    // 直接使用sendMessageWithPromise方法
+    log('正在获取角色信息...')
+    
+    // 先检查tokenStore方法是否存在
+    if (typeof tokenStore.sendMessageWithPromise !== 'function') {
+      throw new Error('sendMessageWithPromise方法不存在')
+    }
+    
+    const response = await tokenStore.sendMessageWithPromise(tokenId, 'role_getroleinfo', {}, 8000)
+    log('角色信息获取成功', 'success')
+    
+    // 更新gameData以便其他组件使用
+    if (response) {
+      tokenStore.gameData.roleInfo = response
+    }
+    
+    return response
+  } catch (error) {
+    log(`获取角色信息失败: ${error.message}`, 'error')
+    console.error('详细错误信息:', error)
+    throw error
+  }
 }
 
-// 一键补差 - 基于参考代码的runDailyFix函数  
+// 一键补差 - 简化测试版本
 const runDailyFix = async () => {
-  if (!tokenStore.selectedToken || busy.value) return
-  
-  // 设置消息监听和禁用显示
-  tokenStore.setMessageListener(onRaw)
-  tokenStore.setShowMsg(false)
+  if (!tokenStore.selectedToken || busy.value) {
+    log('没有选中Token或正在执行中', 'error')
+    return
+  }
   
   busy.value = true
   showLog.value = true
@@ -401,182 +420,210 @@ const runDailyFix = async () => {
   
   log('开始执行任务...')
   
+  const tokenId = tokenStore.selectedToken.id
+  log(`当前Token ID: ${tokenId}`)
+  
+  // 检查tokenStore方法
+  log(`检查tokenStore方法:`)
+  log(`- sendMessageWithPromise: ${typeof tokenStore.sendMessageWithPromise}`)
+  log(`- getWebSocketStatus: ${typeof tokenStore.getWebSocketStatus}`)
+  log(`- selectedToken: ${!!tokenStore.selectedToken}`)
+  
+  // 检查WebSocket连接状态
+  const wsStatus = tokenStore.getWebSocketStatus(tokenId)
+  log(`WebSocket状态: ${JSON.stringify(wsStatus)}`)
+  
+  // 修复状态检查逻辑 - wsStatus可能直接是字符串，也可能是对象
+  const actualStatus = typeof wsStatus === 'string' ? wsStatus : wsStatus?.status
+  log(`实际状态: ${actualStatus}`)
+  
+  if (actualStatus !== 'connected') {
+    log('WebSocket未连接，无法继续执行', 'error')
+    busy.value = false
+    return
+  }
+  
   try {
-    const e = await refreshRoleInfo()
-    log('获取角色信息成功')
+    log('尝试获取游戏内角色信息...')
+    log('发送 role_getroleinfo 命令到游戏服务器...')
+    log('期望响应: role_getroleinforesp')
     
-    await U(e, log)
+    // 先检查WebSocket客户端是否能接收到消息
+    tokenStore.setMessageListener((message) => {
+      if (message?.cmd) {
+        log(`收到游戏消息: ${message.cmd}`, 'info')
+      }
+    })
     
-    log('任务执行完成', 'success')
-    message.success('任务处理完成')
+    // 增加超时时间，因为游戏服务器响应可能较慢
+    const roleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'role_getroleinfo', {}, 10000)
     
-  } catch (e) {
-    const msg = e?.message ?? (typeof e === 'string' ? e : JSON.stringify(e))
-    log(`任务执行失败: ${msg}`, 'error')
-    message.error('任务执行失败')
+    if (roleInfo) {
+      log('游戏角色信息获取成功！', 'success')
+      
+      // 显示角色基本信息（如果存在）
+      if (roleInfo.role) {
+        log(`角色等级: ${roleInfo.role.level || '未知'}`)
+        log(`角色名称: ${roleInfo.role.name || '未知'}`)
+        log(`每日任务进度: ${roleInfo.role.dailyTask?.dailyPoint || 0}/100`)
+      }
+      
+      // 现在尝试执行一个简单的游戏指令
+      log('尝试执行游戏内签到...')
+      const signInResult = await tokenStore.sendMessageWithPromise(tokenId, 'system_signinreward', {}, 8000)
+      
+      if (signInResult) {
+        log('游戏签到执行成功！', 'success')
+        log(`签到奖励: ${signInResult.reward ? '有奖励' : '无奖励或已签到'}`)
+      }
+      
+      message.success('游戏指令测试成功！')
+    } else {
+      log('未收到游戏角色数据', 'error')
+      message.warning('未收到游戏服务器响应')
+    }
+    
+  } catch (error) {
+    log(`游戏指令执行失败: ${error.message}`, 'error')
+    
+    // 分析可能的原因
+    if (error.message.includes('超时') || error.message.includes('timeout')) {
+      log('可能原因：游戏服务器响应超时', 'error')
+      log('建议：检查网络连接或稍后重试', 'error')
+    } else if (error.message.includes('Unknown cmd')) {
+      log('可能原因：游戏指令未在WebSocket客户端中注册', 'error')
+    } else {
+      log('可能原因：WebSocket连接异常或游戏服务器拒绝请求', 'error')
+    }
+    
+    message.error(`游戏指令执行失败: ${error.message}`)
   } finally {
-    tokenStore.setShowMsg(true)
     busy.value = false
   }
 }
 
-// 执行器U函数 - 基于完整参考代码重写
+// 简化的执行器函数 - 直接使用tokenStore方法
 const U = async (roleInfoResp, logFn, progress) => {
   const tokenId = tokenStore.selectedToken.id
   
-  logFn?.('检查每日任务完成情况')
+  logFn?.('开始执行每日任务')
 
-  // 1) 已完成任务 → 生成要跳过的指令"指纹"
-  const officialList = [
-    { id: 1,  name: '登录一次游戏', cmds: [] },
-    { id: 2,  name: '分享一次游戏', cmds: ['system_mysharecallback'] },
-    { id: 3,  name: '赠送好友3次金币', cmds: ['friend_batch'] },
-    { id: 4,  name: '进行2次招募', cmds: ['hero_recruit'] },
-    { id: 5,  name: '领取5次挂机奖励', cmds: ['system_claimhangupreward'] },
-    { id: 6,  name: '进行3次点金', cmds: ['system_buygold'] },
-    { id: 7,  name: '开启3次宝箱', cmds: ['item_openbox'] },
-    { id: 12, name: '黑市购买1次物品（请设置采购清单）', cmds: ['store_purchase'] },
-    { id: 13, name: '进行1场竞技场战斗' },
-    { id: 14, name: '收获1个任意盐罐', cmds: ['bottlehelper_stop', 'bottlehelper_start', 'bottlehelper_claim'] }
-  ]
+  // 检查已完成的任务
+  const completedTasks = roleInfoResp.role?.dailyTask?.complete ?? {}
+  const isTaskCompleted = (taskId) => completedTasks[taskId] === -1
 
-  const completedMap = roleInfoResp.role?.dailyTask?.complete ?? {}
-  const doneIds = new Set()
-  const skipFp = new Set()
-  for (const k of Object.keys(completedMap)) {
-    const id = Number(k)
-    if (completedMap[k] === -1) {
-      doneIds.add(id)
-      const found = officialList.find(x => x.id === id)
-      if (found?.cmds) {
-        for (const c of found.cmds) skipFp.add(fpOf({ cmd: c, respKey: '' }))
-      }
-      logFn?.(`${officialList.find(x=>x.id===id)?.name ?? id} 完成`, 'success')
-    }
+  // 执行任务列表
+  const taskList = []
+  
+  // 基础任务
+  if (!isTaskCompleted(2)) { // 分享游戏
+    taskList.push({ name: '分享一次游戏', cmd: 'system_mysharecallback', params: { isSkipShareCard: true, type: 2 } })
+  }
+  
+  if (!isTaskCompleted(3)) { // 赠送好友
+    taskList.push({ name: '赠送好友金币', cmd: 'friend_batch' })
+  }
+  
+  if (!isTaskCompleted(4)) { // 招募
+    taskList.push({ name: '免费招募', cmd: 'hero_recruit' })
+  }
+  
+  if (!isTaskCompleted(6)) { // 点金
+    taskList.push({ name: '免费点金', cmd: 'system_buygold' })
+  }
+  
+  if (!isTaskCompleted(5) && settings.claimHangUp) { // 挂机奖励
+    taskList.push({ name: '领取挂机奖励', cmd: 'system_claimhangupreward' })
+  }
+  
+  if (!isTaskCompleted(7) && settings.openBox) { // 开宝箱
+    taskList.push({ name: '开启宝箱', cmd: 'item_openbox', params: { itemId: 2001, number: 10 } })
+  }
+  
+  if (!isTaskCompleted(14) && settings.claimBottle) { // 盐罐
+    taskList.push({ name: '领取盐罐奖励', cmd: 'bottlehelper_claim' })
   }
 
-  // 2) 组装动态命令段（依据统计与设置）
-  const cmds = []
-
-  // 2.1 切换 BOSS 阵容
-  cmds.push({ cmd: 'presetteam_getinfo', respKey: 'presetteam_getinforesp', sendMsg: '准备切换阵容' })
-  cmds.push({ cmd: 'presetteam_saveteam', respKey: 'presetteam_saveteamresp', params: { teamId: settings.bossFormation }, sendMsg: '切换攻打BOSS阵容中', successMsg: `成功切换阵容 ${settings.bossFormation}` })
-
-  // 2.2 军团 BOSS 次数
-  const alreadyLegion = Number(roleInfoResp.role?.statistics?.['legion:boss'] ?? 0)
-  const leftLegion = isTodayAvailable(roleInfoResp.role?.statisticsTime?.['legion:boss']) ? settings.bossTimes : Math.max(settings.bossTimes - alreadyLegion, 0)
-  for (let i = 0; i < leftLegion; i++) cmds.push({ cmd: 'fight_startlegionboss', respKey: 'fight_startlegionbossresp', sendMsg: '攻打每日俱乐部BOSS', successMsg: '攻打每日俱乐部BOSS成功' })
-
-  // 2.3 免费"钓鱼"
-  if (isTodayAvailable(roleInfoResp.role?.statisticsTime?.['artifact:normal:lottery:time'])) {
-    for (let i = 0; i < 3; i++) cmds.push({ cmd: 'artifact_lottery', respKey: 'syncrewardresp', sendMsg: '每日免费钓鱼', successMsg: '每日免费钓鱼成功' })
+  // 常规奖励
+  taskList.push(
+    { name: '福利签到', cmd: 'system_signinreward' },
+    { name: '俱乐部签到', cmd: 'legion_signin' },
+    { name: '领取每日礼包', cmd: 'discount_claimreward' },
+    { name: '领取免费礼包', cmd: 'card_claimreward' }
+  )
+  
+  if (settings.claimEmail) {
+    taskList.push({ name: '领取邮件奖励', cmd: 'mail_claimallattachment' })
   }
 
-  // 2.4 灯神免费扫荡（1..4）
-  const kingdoms = ['魏国','蜀国','吴国','群雄']
-  for (let gid = 1; gid <= 4; gid++) {
-    if (isTodayAvailable(roleInfoResp.role?.statisticsTime?.[`genie: daily: free: ${gid}`])) {
-      cmds.push({ cmd: 'genie_sweep', respKey: 'syncrewardresp', params: { genieId: gid }, sendMsg: `领取 ${kingdoms[gid-1]} 免费灯神扫荡`, successMsg: `领取 ${kingdoms[gid-1]} 免费灯神扫荡成功` })
-    }
+  // 任务奖励领取
+  for (let i = 1; i <= 10; i++) {
+    taskList.push({ name: `领取任务奖励${i}`, cmd: 'task_claimdailypoint', params: { taskId: i } })
   }
-
-  // 2.5 用户开关
-  if (settings.claimBottle) cmds.push({ cmd: 'bottlehelper_claim', respKey: 'syncrewardresp', sendMsg: '领取盐罐奖励', successMsg: '领取盐罐奖励成功' })
-  if (settings.payRecruit) cmds.push({ cmd: 'hero_recruit', respKey: 'hero_recruitresp', params: { recruitType: 1 }, sendMsg: '招募付费1次', successMsg: '招募1次成功' })
-  if (settings.openBox) cmds.push({ cmd: 'item_openbox', respKey: 'item_openboxresp', params: { itemId: 2001, number: 10 }, sendMsg: '开启木质宝箱10个', successMsg: '开启木质宝箱10个成功' })
-
-  if (isTodayAvailable(roleInfoResp.role?.statisticsTime?.['buy:gold'])) {
-    for (let i = 0; i < 3; i++) cmds.push({ cmd: 'system_buygold', respKey: 'syncrewardresp', sendMsg: '免费点金', successMsg: '免费点金成功' })
-  }
-
-  if (settings.claimHangUp) {
-    for (let i = 0; i < 4; i++) cmds.push({ cmd: 'system_mysharecallback', respKey: 'syncresp', params: { isSkipShareCard: true, type: 2 }, sendMsg: '挂机加钟', successMsg: '加钟成功' })
-    cmds.push({ cmd: 'system_claimhangupreward', respKey: 'system_claimhanguprewardresp', sendMsg: '领取挂机奖励', successMsg: '领取挂机奖励成功' })
-    cmds.push({ cmd: 'system_mysharecallback', respKey: 'syncresp', params: { isSkipShareCard: true, type: 2 }, sendMsg: '挂机加钟', successMsg: '加钟成功' })
-  }
-
-  if (settings.claimEmail) cmds.push({ cmd: 'mail_claimallattachment', respKey: 'mail_claimallattachmentresp', sendMsg: '领取邮件奖励', successMsg: '邮件奖励领取成功' })
-
-  // 2.6 固定段
-  const dow = new Date().getDay()
-  const DAY_BOSS_MAP = [9904, 9905, 9901, 9902, 9903, 9904, 9905]
-  for (let i = 0; i < 3; i++) cmds.push({ cmd: 'fight_startboss', respKey: 'fight_startbossresp', params: { bossId: DAY_BOSS_MAP[dow] }, sendMsg: '攻打每日BOSS', successMsg: '攻打每日BOSS成功' })
-  for (let i = 0; i < 3; i++) cmds.push({ cmd: 'genie_buysweep', respKey: 'syncrewardresp', sendMsg: '领取每日免费扫荡卷', successMsg: '领取每日免费扫荡卷成功' })
-
-  cmds.push(
-    { cmd: 'system_signinreward', respKey: 'syncrewardresp', sendMsg: '福利签到', successMsg: '同步奖励' },
-    { cmd: 'discount_claimreward', respKey: 'syncrewardresp', sendMsg: '领取每日礼包', successMsg: '同步奖励' },
-    { cmd: 'legion_signin', respKey: 'legion_signinresp', sendMsg: '俱乐部签到', successMsg: '同步奖励' },
-    { cmd: 'card_claimreward', respKey: 'syncrewardresp', sendMsg: '领取每日免费礼包', successMsg: '同步奖励' },
-    { cmd: 'card_claimreward', respKey: 'syncrewardresp', params: { cardId: 4003 }, sendMsg: '领取永久卡礼包', successMsg: '同步奖励' },
-    { cmd: 'system_mysharecallback', respKey: 'syncresp', sendMsg: '分享一次游戏', successMsg: '分享一次游戏成功' },
-    { cmd: 'friend_batch', respKey: 'friend_batchresp', sendMsg: '赠送好友金币', successMsg: '赠送好友金币成功' },
-    { cmd: 'hero_recruit', respKey: 'hero_recruitresp', sendMsg: '免费招募1次', successMsg: '招募1次成功' }
+  taskList.push(
+    { name: '领取日常任务奖励', cmd: 'task_claimdailyreward' },
+    { name: '领取周常任务奖励', cmd: 'task_claimweekreward' }
   )
 
-  // 领取积分：taskId 1..10
-  for (let i = 1; i <= 10; i++) cmds.push({ cmd: 'task_claimdailypoint', respKey: 'syncresp', params: { taskId: i }, sendMsg: '领取任务奖励', successMsg: '领取任务奖励成功' })
-  // 领取日/周奖励
-  cmds.push({ cmd: 'task_claimdailyreward', respKey: 'syncrewardresp', sendMsg: '领取任务奖励', successMsg: '领取任务奖励成功' })
-  cmds.push({ cmd: 'task_claimweekreward',  respKey: 'syncrewardresp', sendMsg: '领取任务奖励', successMsg: '领取任务奖励成功' })
-
-  // 3) 过滤掉"已完成任务对应的指令"与真正重复项（按指纹）
-  const uniq = new Map()
-  for (const it of cmds) {
-    const fp = fpOf(it)
-    if (skipFp.has(fpOf({ cmd: it.cmd, respKey: '', params: it.params }))) continue
-    if (!uniq.has(fp)) uniq.set(fp, it)
-  }
-  const queue = Array.from(uniq.values())
-
-  // 4) 竞技场（单独先跑）
-  if (settings.arenaEnable && completedMap[13] !== -1) {
-    logFn?.('竞技场自动战斗')
-    await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, 'presetteam_getinfo', {}))
-      .then(async (resp) => {
-        if (resp?.presetTeamInfo?.useTeamId === settings.arenaFormation) {
-          logFn?.(`当前阵容为阵容 ${settings.arenaFormation}`)
-        } else {
-          await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, 'presetteam_saveteam', { teamId: settings.arenaFormation }))
-          logFn?.(`切换竞技场阵容为阵容 ${settings.arenaFormation}`)
-        }
-      })
-    await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, 'arena_startarea', {}))
-    for (let i = 0; i < 3; i++) {
-      const target = await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', {}))
-      const targetId = target?.roleList?.[0]?.roleId
-      if (targetId) await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }))
-    }
-  } else {
-    logFn?.('今日竞技场任务已完成', 'success')
-  }
-
-  // 5) 依次执行队列 + 进度
-  const total = queue.length || 1
-  let done = 0
-  for (const it of queue) {
-    if (it.sendMsg) logFn?.(it.sendMsg)
+  // 竞技场
+  if (!isTaskCompleted(13) && settings.arenaEnable) {
+    logFn?.('开始竞技场战斗')
     try {
-      await callWithRetry(() => tokenStore.sendMessageWithPromise(tokenId, it.cmd, it.params || {}))
-      if (it.successMsg) logFn?.(it.successMsg, 'success')
-    } catch (err) {
-      logFn?.('任务执行失败', 'error')
-    } finally {
-      done += 1
-      const pct = Math.min(100, Math.floor(done * 100 / total))
-      if (progress && tokenId) progress(tokenId, pct)
+      // 获取队伍信息
+      const teamInfo = await tokenStore.sendMessageWithPromise(tokenId, 'presetteam_getinfo', {}, 5000)
+      
+      // 切换阵容（如果需要）
+      if (teamInfo?.presetTeamInfo?.useTeamId !== settings.arenaFormation) {
+        await tokenStore.sendMessageWithPromise(tokenId, 'presetteam_saveteam', { teamId: settings.arenaFormation }, 5000)
+        logFn?.(`切换到竞技场阵容 ${settings.arenaFormation}`)
+      }
+      
+      // 开始竞技场
+      await tokenStore.sendMessageWithPromise(tokenId, 'arena_startarea', {}, 5000)
+      
+      // 进行3场战斗
+      for (let i = 1; i <= 3; i++) {
+        logFn?.(`竞技场战斗 ${i}/3`)
+        const targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', {}, 5000)
+        const targetId = targets?.roleList?.[0]?.roleId
+        
+        if (targetId) {
+          await tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }, 8000)
+          logFn?.(`完成竞技场战斗 ${i}`, 'success')
+        }
+      }
+    } catch (error) {
+      logFn?.(`竞技场战斗失败: ${error.message}`, 'error')
     }
   }
 
-  // 收尾：确保 100%
+  // 执行任务列表
+  const total = taskList.length
+  for (let i = 0; i < taskList.length; i++) {
+    const task = taskList[i]
+    logFn?.(task.name)
+    
+    try {
+      await tokenStore.sendMessageWithPromise(tokenId, task.cmd, task.params || {}, 5000)
+      logFn?.(`${task.name} 成功`, 'success')
+    } catch (error) {
+      logFn?.(`${task.name} 失败: ${error.message}`, 'error')
+    }
+    
+    // 更新进度
+    const progress_pct = Math.floor(((i + 1) / total) * 100)
+    if (progress && tokenId) progress(tokenId, progress_pct)
+    
+    // 小延迟避免过快
+    await new Promise(resolve => setTimeout(resolve, 300))
+  }
+
+  // 确保进度为100%
   if (progress && tokenId) progress(tokenId, 100)
+  logFn?.('所有任务执行完成', 'success')
 }
 
-// 辅助函数 - 基于参考代码
-const fpOf = (item) => {
-  return `${item.cmd}|${JSON.stringify(item.params ?? {})}`
-}
-
+// 辅助函数
 const getCurrentRole = () => {
   return tokenStore.selectedToken ? { roleId: tokenStore.selectedToken.id } : null
 }
@@ -598,8 +645,6 @@ const saveSettings = (roleId, s) => {
     console.error('Failed to save settings:', error)
   }
 }
-
-const isTodayAvailable = (v) => { return !!v }
 
 // 监听设置变化 - 基于参考代码的watch逻辑
 watch(settings, (cur) => {

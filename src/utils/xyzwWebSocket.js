@@ -511,9 +511,38 @@ export class XyzwWebSocketClient {
     const cmd = packet.cmd
     if (!cmd) return
 
+    // 命令到响应的映射 - 处理响应命令与原始命令不匹配的情况
+    const responseToCommandMap = {
+      'role_getroleinforesp': 'role_getroleinfo',
+      'system_signinrewardresp': 'system_signinreward',
+      'hero_recruitresp': 'hero_recruit',
+      'friend_batchresp': 'friend_batch',
+      'system_claimhanguprewardresp': 'system_claimhangupreward',
+      'task_claimdailyrewardresp': 'task_claimdailyreward',
+      'task_claimweekrewardresp': 'task_claimweekreward',
+      'item_openboxresp': 'item_openbox',
+      'bottlehelper_claimresp': 'bottlehelper_claim',
+      'bottlehelper_startresp': 'bottlehelper_start',
+      'bottlehelper_stopresp': 'bottlehelper_stop',
+      'legion_signinresp': 'legion_signin',
+      'fight_startbossresp': 'fight_startboss',
+      'fight_startlegionbossresp': 'fight_startlegionboss',
+      'fight_startareaarenaresp': 'fight_startareaarena',
+      'arena_startarearesp': 'arena_startarea',
+      'arena_getareatargetresp': 'arena_getareatarget',
+      'presetteam_getinforesp': 'presetteam_getinfo',
+      'presetteam_saveteamresp': 'presetteam_saveteam',
+      'mail_claimallattachmentresp': 'mail_claimallattachment',
+      'store_buyresp': 'store_purchase'
+    }
+
+    // 获取原始命令名
+    const originalCmd = responseToCommandMap[cmd] || cmd
+
     // 查找对应的 Promise
     for (const [key, promise] of Object.entries(this.promises)) {
-      if (key.startsWith(cmd) || cmd === key) {
+      // 检查是否匹配原始命令或响应命令
+      if (key.startsWith(originalCmd) || key.startsWith(cmd) || cmd === key) {
         delete this.promises[key]
 
         if (packet.code === 0 || packet.code === undefined) {

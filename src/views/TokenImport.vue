@@ -451,9 +451,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, useDialog } from 'naive-ui'
+import { useMessage, useDialog, NIcon } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import {
   Add,
@@ -464,7 +464,12 @@ import {
   Refresh,
   Sunny,
   Moon,
-  Home
+  Home,
+  Create,
+  Copy,
+  SyncCircle,
+  Link,
+  TrashBin
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -573,7 +578,8 @@ const handleImport = async () => {
       importForm.base64Token,
       {
         server: importForm.server,
-        wsUrl: importForm.wsUrl
+        wsUrl: importForm.wsUrl,
+        importMethod: 'manual'
       }
     )
 
@@ -654,7 +660,8 @@ const handleUrlImport = async () => {
       {
         server: urlForm.server || data.server,
         wsUrl: urlForm.wsUrl,
-        sourceUrl: urlForm.url // 保存源URL用于刷新
+        sourceUrl: urlForm.url, // 保存源URL用于刷新
+        importMethod: 'url'
       }
     )
 
@@ -795,13 +802,52 @@ const toggleConnection = (token) => {
   }
 }
 
-const getTokenActions = (token) => [
-  { label: '编辑', key: 'edit' },
-  { label: '复制Token', key: 'copy' },
-  { label: '重新连接', key: 'reconnect' },
-  { type: 'divider' },
-  { label: '删除', key: 'delete' }
-]
+const getTokenActions = (token) => {
+  const actions = [
+    { 
+      label: '编辑', 
+      key: 'edit',
+      icon: () => h(NIcon, null, { default: () => h(Create) })
+    },
+    { 
+      label: '复制Token', 
+      key: 'copy',
+      icon: () => h(NIcon, null, { default: () => h(Copy) })
+    }
+  ]
+
+  // 根据Token类型添加不同的刷新选项
+  if (token.importMethod === 'url' && token.sourceUrl) {
+    actions.push({ 
+      label: '从URL刷新', 
+      key: 'refresh-url',
+      icon: () => h(NIcon, null, { default: () => h(SyncCircle) })
+    })
+  } else {
+    actions.push({ 
+      label: '刷新Token', 
+      key: 'refresh',
+      icon: () => h(NIcon, null, { default: () => h(Refresh) })
+    })
+  }
+
+  actions.push(
+    { 
+      label: '重新连接', 
+      key: 'reconnect',
+      icon: () => h(NIcon, null, { default: () => h(Link) })
+    },
+    { type: 'divider' },
+    { 
+      label: '删除', 
+      key: 'delete',
+      icon: () => h(NIcon, null, { default: () => h(TrashBin) }),
+      props: { style: { color: '#e74c3c' } }
+    }
+  )
+
+  return actions
+}
 
 const handleTokenAction = async (key, token) => {
   switch (key) {
@@ -810,6 +856,14 @@ const handleTokenAction = async (key, token) => {
       break
     case 'copy':
       copyToken(token)
+      break
+    case 'refresh':
+      // 手动添加的Token的刷新逻辑（暂时提示）
+      message.info('手动添加的Token暂不支持刷新，请重新导入')
+      break
+    case 'refresh-url':
+      // URL获取的Token刷新
+      refreshToken(token)
       break
     case 'reconnect':
       reconnectToken(token)

@@ -44,7 +44,10 @@ export const useTokenStore = defineStore('tokens', () => {
       profession: tokenData.profession || '',
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
-      isActive: true
+      isActive: true,
+      // URL获取相关信息
+      sourceUrl: tokenData.sourceUrl || null, // Token来源URL（用于刷新）
+      importMethod: tokenData.importMethod || 'manual' // 导入方式：manual 或 url
     }
 
     gameTokens.value.push(newToken)
@@ -221,7 +224,7 @@ export const useTokenStore = defineStore('tokens', () => {
       }
 
       // 处理队伍信息 - 支持多种队伍相关响应
-      else if (cmd === 'presetteam_getteam' || cmd === 'presetteam_getteamresp' || 
+      else if (cmd === 'presetteam_getinfo' || cmd === 'presetteam_getinforesp' || 
                cmd === 'presetteam_setteam' || cmd === 'presetteam_setteamresp' ||
                cmd === 'presetteam_saveteam' || cmd === 'presetteam_saveteamresp' ||
                cmd === 'role_gettargetteam' || cmd === 'role_gettargetteamresp' ||
@@ -669,7 +672,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
   // 发送消息到WebSocket
   const sendMessage = (tokenId, cmd, params = {}, options = {}) => {
-    const connection = wsConnections.value[tokenId]
+      const connection = wsConnections.value[tokenId]
     if (!connection || connection.status !== 'connected') {
       console.error(`❌ WebSocket未连接，无法发送消息 [${tokenId}]`)
       return false
@@ -696,15 +699,19 @@ export const useTokenStore = defineStore('tokens', () => {
   const sendMessageWithPromise = async (tokenId, cmd, params = {}, timeout = 5000) => {
     const connection = wsConnections.value[tokenId]
     if (!connection || connection.status !== 'connected') {
-      throw new Error(`WebSocket未连接 [${tokenId}]`)
+      return Promise.reject(new Error(`WebSocket未连接 [${tokenId}]`))
     }
 
     const client = connection.client
     if (!client) {
-      throw new Error(`WebSocket客户端不存在 [${tokenId}]`)
+      return Promise.reject(new Error(`WebSocket客户端不存在 [${tokenId}]`))
     }
 
-    return await client.sendWithPromise(cmd, params, timeout)
+    try {
+      return await client.sendWithPromise(cmd, params, timeout)
+    } catch (error) {
+      return Promise.reject(error)
+    }
   }
 
   // 发送心跳消息
@@ -748,7 +755,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
   // 发送获取队伍信息
   const sendGetTeamInfo = (tokenId, params = {}) => {
-    return sendMessageWithPromise(tokenId, 'presetteam_getteam', params)
+    return sendMessageWithPromise(tokenId, 'presetteam_getinfo', params)
   }
 
   // 发送自定义游戏消息

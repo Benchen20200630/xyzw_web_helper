@@ -158,7 +158,7 @@ export function registerDefaultCommands(reg) {
 
     // 队伍相关
     .register("presetteam_getinfo")
-    .register("presetteam_getteam")
+    .register("presetteam_getinfo")
     .register("presetteam_setteam")
     .register("presetteam_saveteam", { teamId: 1 })
     .register("role_gettargetteam")
@@ -532,7 +532,7 @@ export class XyzwWebSocketClient {
       'arena_getareatargetresp': 'arena_getareatarget',
       'presetteam_getinforesp': 'presetteam_getinfo',
       'presetteam_saveteamresp': 'presetteam_saveteam',
-      'presetteam_getteamresp': 'presetteam_getteam',
+      'presetteam_getinforesp': 'presetteam_getinfo',
       'mail_claimallattachmentresp': 'mail_claimallattachment',
       'store_buyresp': 'store_purchase',
       'system_getdatabundleverresp': 'system_getdatabundlever',

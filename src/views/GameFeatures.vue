@@ -111,6 +111,10 @@ const connectionClass = computed(() => {
   return connectionStatus.value === 'connected' ? 'status-connected' : 'status-disconnected'
 })
 
+const isConnected = computed(() => {
+  return connectionStatus.value === 'connected'
+})
+
 // 方法
 const handleFeatureAction = (featureType) => {
   if (!tokenStore.selectedToken) {
@@ -255,7 +259,7 @@ const initializeGameData = async () => {
     
     // 获取队伍信息
     console.log('🎮 正在获取队伍信息...')
-    const teamResult = tokenStore.sendMessage(tokenId, 'presetteam_getteam')
+    const teamResult = tokenStore.sendMessage(tokenId, 'presetteam_getinfo')
     console.log('🎮 队伍信息请求结果:', teamResult)
     
     console.log('🎮 游戏数据初始化请求已发送')

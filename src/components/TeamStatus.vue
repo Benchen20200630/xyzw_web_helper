@@ -22,12 +22,18 @@
           {{ teamId }}
         </button>
         <button
-            class="team-button refresh-button"
+            class="refresh-button"
             :disabled="loading"
             title="刷新队伍数据"
             @click="refreshTeamData(true)"
         >
-          🔄
+          <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M3 21v-5h5"/>
+          </svg>
+          <span class="refresh-text">刷新</span>
         </button>
       </div>
     </div>
@@ -84,7 +90,7 @@ import { useMessage, NTag } from 'naive-ui'
  * 集成英雄字典（游戏ID -> { name, type }）
  * 你也可以独立出一个 heroDict.ts 后 import；按你的要求，这里整合到同一文件。
  */
-const HERO_DICT: Record<number, { name: string; type: string }> = {
+const HERO_DICT = {
   101: { name: '司马懿', type: '魏国' }, 102: { name: '郭嘉', type: '魏国' }, 103: { name: '关羽', type: '蜀国' },
   104: { name: '诸葛亮', type: '蜀国' }, 105: { name: '周瑜', type: '吴国' }, 106: { name: '太史慈', type: '吴国' },
   107: { name: '吕布', type: '群雄' }, 108: { name: '华佗', type: '群雄' }, 109: { name: '甄姬', type: '魏国' },
@@ -115,16 +121,22 @@ const message = useMessage()
 const loading = ref(false)
 const switching = ref(false)
 const currentTeam = ref(1)
-const availableTeams = ref<number[]>([1, 2, 3, 4])
+const availableTeams = ref([1, 2, 3, 4])
+
+// WebSocket连接状态
+const wsStatus = computed(() => {
+  if (!tokenStore.selectedToken) return 'disconnected'
+  return tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)
+})
 
 // —— 缓存优先的 presetTeam 原始数据 ——
 const presetTeamRaw = computed(() => tokenStore.gameData?.presetTeam ?? null)
 
 // 统一结构：输出 { useTeamId, teams }
-function normalizePresetTeam(raw: any): { useTeamId: number; teams: Record<number, { teamInfo: Record<string, any> }> } {
+function normalizePresetTeam(raw) {
   if (!raw) return { useTeamId: 1, teams: {} }
   const root = raw.presetTeamInfo ?? raw
-  const findUseIdRec = (obj: any): number | null => {
+  const findUseIdRec = (obj) => {
     if (!obj || typeof obj !== 'object') return null
     if (typeof obj.useTeamId === 'number') return obj.useTeamId
     for (const k of Object.keys(obj)) {
@@ -136,7 +148,7 @@ function normalizePresetTeam(raw: any): { useTeamId: number; teams: Record<numbe
   const useTeamId = root.useTeamId ?? root.presetTeamInfo?.useTeamId ?? findUseIdRec(root) ?? 1
 
   const dict = root.presetTeamInfo ?? root
-  const teams: Record<number, { teamInfo: Record<string, any> }> = {}
+  const teams = {}
   const ids = Object.keys(dict || {}).filter(k => /^\d+$/.test(k))
   for (const idStr of ids) {
     const id = Number(idStr)
@@ -146,10 +158,10 @@ function normalizePresetTeam(raw: any): { useTeamId: number; teams: Record<numbe
       teams[id] = { teamInfo: node.teamInfo }
     } else if (node.heroes) {
       const ti: Record<string, any> = {}
-      node.heroes.forEach((h: any, idx: number) => { ti[String(idx + 1)] = h })
+      node.heroes.forEach((h, idx) => { ti[String(idx + 1)] = h })
       teams[id] = { teamInfo: ti }
     } else if (typeof node === 'object') {
-      const hasHero = Object.values(node).some((v: any) => v && typeof v === 'object' && 'heroId' in v)
+      const hasHero = Object.values(node).some((v) => v && typeof v === 'object' && 'heroId' in v)
       teams[id] = { teamInfo: hasHero ? node : {} }
     } else {
       teams[id] = { teamInfo: {} }
@@ -164,7 +176,7 @@ const presetTeam = computed(() => normalizePresetTeam(presetTeamRaw.value))
 const currentTeamHeroes = computed(() => {
   const team = presetTeam.value.teams[currentTeam.value]?.teamInfo
   if (!team) return []
-  const heroes: Array<{ id: number; name: string; type: string; position: number; level?: number; avatar?: string }> = []
+  const heroes = []
   for (const [pos, hero] of Object.entries(team)) {
     const hid = (hero as any)?.heroId ?? (hero as any)?.id
     if (!hid) continue
@@ -183,10 +195,10 @@ const currentTeamHeroes = computed(() => {
 })
 
 // —— 命令封装 ——
-const executeGameCommand = async (tokenId: string | number, cmd: string, params: any = {}, description = '', timeout = 8000) => {
+const executeGameCommand = async (tokenId, cmd, params = {}, description = '', timeout = 8000) => {
   try {
     return await tokenStore.sendMessageWithPromise(tokenId, cmd, params, timeout)
-  } catch (error: any) {
+  } catch (error) {
     const msg = error?.message ?? String(error)
     if (description) message.error(`${description}失败：${msg}`)
     throw error
@@ -213,6 +225,9 @@ const getTeamInfoWithCache = async (force = false) => {
       state.gameData = { ...(state.gameData ?? {}), presetTeam: result }
     })
     return result?.presetTeamInfo ?? null
+  } catch (error) {
+    console.error('获取阵容信息失败:', error)
+    return null
   } finally {
     loading.value = false
   }
@@ -226,7 +241,7 @@ const updateAvailableTeams = () => {
 const updateCurrentTeam = () => { currentTeam.value = presetTeam.value.useTeamId || 1 }
 
 // —— 交互 ——
-const selectTeam = async (teamId: number) => {
+const selectTeam = async (teamId) => {
   if (switching.value || loading.value) return
   if (!tokenStore.selectedToken) { message.warning('请先选择Token'); return }
   const prev = currentTeam.value
@@ -245,13 +260,52 @@ const selectTeam = async (teamId: number) => {
 
 const refreshTeamData = async (force = false) => { await getTeamInfoWithCache(force) }
 
-// —— 首次挂载：先查缓存，再兜底拉接口 ——
+// —— 首次挂载：检查连接状态后获取数据 ——
 onMounted(async () => {
-  await refreshTeamData(false)
-  updateAvailableTeams(); updateCurrentTeam()
-  if (!presetTeamRaw.value) {
-    await refreshTeamData(true)
+  // 组件挂载时获取队伍信息
+  if (tokenStore.selectedToken && wsStatus.value === 'connected') {
+    await refreshTeamData(false)
     updateAvailableTeams(); updateCurrentTeam()
+    if (!presetTeamRaw.value) {
+      await refreshTeamData(true)
+      updateAvailableTeams(); updateCurrentTeam()
+    }
+  } else if (!tokenStore.selectedToken) {
+    console.log('🛡️ 没有选中的Token，无法获取队伍信息')
+  } else {
+    console.log('🛡️ WebSocket未连接，等待连接后自动获取队伍信息')
+  }
+})
+
+// —— 监听WebSocket连接状态变化 ——
+watch(wsStatus, (newStatus, oldStatus) => {
+  console.log(`🛡️ WebSocket状态变化: ${oldStatus} -> ${newStatus}`)
+  
+  if (newStatus === 'connected' && oldStatus !== 'connected' && tokenStore.selectedToken) {
+    console.log('🛡️ WebSocket已连接，自动获取队伍信息')
+    // 延迟一点时间让WebSocket完全就绪
+    setTimeout(async () => {
+      await refreshTeamData(false)
+      updateAvailableTeams(); updateCurrentTeam()
+      if (!presetTeamRaw.value) {
+        await refreshTeamData(true)
+        updateAvailableTeams(); updateCurrentTeam()
+      }
+    }, 1000)
+  }
+})
+
+// —— 监听Token变化 ——
+watch(() => tokenStore.selectedToken, async (newToken, oldToken) => {
+  if (newToken && newToken.id !== oldToken?.id) {
+    console.log('🛡️ Token已切换，重新获取队伍信息')
+    
+    // 检查WebSocket是否已连接
+    const status = tokenStore.getWebSocketStatus(newToken.id)
+    if (status === 'connected') {
+      await refreshTeamData(true) // 切换Token时强制刷新
+      updateAvailableTeams(); updateCurrentTeam()
+    }
   }
 })
 
@@ -282,8 +336,75 @@ watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTe
   cursor: pointer; transition: all var(--transition-fast);
   &:hover { background: var(--bg-secondary); }
   &.active { background: var(--primary-color); color: white; }
-  &.refresh-button { background: var(--success-color, #10b981); color: white; &:hover { background: var(--success-color-dark, #059669); } }
   &:disabled { opacity: .6; cursor: not-allowed; }
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-secondary, #6b7280);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+  
+  &:hover {
+    background: var(--bg-secondary, #f9fafb);
+    border-color: var(--border-hover, #d1d5db);
+    color: var(--text-primary, #374151);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    
+    &:hover {
+      background: var(--bg-primary, #ffffff);
+      border-color: var(--border-color, #e5e7eb);
+      color: var(--text-secondary, #6b7280);
+      transform: none;
+      box-shadow: none;
+    }
+  }
+  
+  .refresh-icon {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--transition-fast, 0.15s ease);
+  }
+  
+  &:not(:disabled):hover .refresh-icon {
+    transform: rotate(180deg);
+  }
+  
+  &:disabled .refresh-icon {
+    animation: spin 1s linear infinite;
+  }
+  
+  .refresh-text {
+    font-size: 13px;
+    line-height: 1;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 .card-content .current-team-info {
   display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);

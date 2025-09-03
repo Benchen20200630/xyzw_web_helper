@@ -89,20 +89,18 @@
               >
                 {{ getWSStatus(roleId) === 'connected' ? '断开WS' : '连接WS' }}
               </n-button>
-              <n-button 
-                size="tiny" 
-                type="warning"
-                @click="regenerateToken(roleId)"
+              
+              <n-dropdown 
+                :options="getTokenMenuOptions(tokenData)" 
+                @select="handleTokenAction($event, roleId, tokenData)"
+                trigger="click"
               >
-                刷新Token
-              </n-button>
-              <n-button 
-                size="tiny" 
-                type="error"
-                @click="removeToken(roleId)"
-              >
-                删除
-              </n-button>
+                <n-button size="tiny" type="tertiary">
+                  <template #icon>
+                    <n-icon><EllipsisHorizontal /></n-icon>
+                  </template>
+                </n-button>
+              </n-dropdown>
             </div>
           </div>
           
@@ -156,14 +154,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { ref, h } from 'vue'
+import { useMessage, useDialog, NIcon } from 'naive-ui'
 import { useLocalTokenStore } from '@/stores/localTokenManager'
 import { useGameRolesStore } from '@/stores/gameRoles'
 import { 
   Refresh, 
   Download, 
-  CloudUpload
+  CloudUpload,
+  EllipsisHorizontal,
+  Create,
+  TrashBin,
+  SyncCircle,
+  CopyOutline
 } from '@vicons/ionicons5'
 
 const message = useMessage()
@@ -202,6 +205,70 @@ const getWSStatusText = (status) => {
     case 'error': return '连接错误'
     case 'connecting': return '连接中'
     default: return '未连接'
+  }
+}
+
+// 获取Token菜单选项
+const getTokenMenuOptions = (tokenData) => {
+  const options = [
+    {
+      label: '编辑',
+      key: 'edit',
+      icon: () => h(NIcon, null, { default: () => h(Create) })
+    },
+    {
+      label: '复制Token',
+      key: 'copy',
+      icon: () => h(NIcon, null, { default: () => h(CopyOutline) })
+    }
+  ]
+
+  // 如果是URL获取的Token，显示刷新选项
+  if (tokenData.importMethod === 'url' && tokenData.sourceUrl) {
+    options.unshift({
+      label: '从URL刷新',
+      key: 'refresh-url',
+      icon: () => h(NIcon, null, { default: () => h(SyncCircle) })
+    })
+  } else {
+    // 手动添加的Token显示重新生成选项
+    options.unshift({
+      label: '刷新Token',
+      key: 'refresh',
+      icon: () => h(NIcon, null, { default: () => h(Refresh) })
+    })
+  }
+
+  options.push(
+    { type: 'divider' },
+    {
+      label: '删除',
+      key: 'delete',
+      icon: () => h(NIcon, null, { default: () => h(TrashBin) })
+    }
+  )
+
+  return options
+}
+
+// 处理Token菜单操作
+const handleTokenAction = (action, roleId, tokenData) => {
+  switch (action) {
+    case 'edit':
+      editToken(roleId, tokenData)
+      break
+    case 'copy':
+      copyToken(tokenData.token)
+      break
+    case 'refresh':
+      regenerateToken(roleId)
+      break
+    case 'refresh-url':
+      refreshTokenFromUrl(roleId, tokenData)
+      break
+    case 'delete':
+      removeToken(roleId)
+      break
   }
 }
 
@@ -333,6 +400,84 @@ const removeToken = (roleId) => {
     onPositiveClick: () => {
       localTokenStore.removeGameToken(roleId)
       message.success('Token已删除')
+    }
+  })
+}
+
+// 编辑Token（暂时显示提示信息，后续可以实现编辑功能）
+const editToken = (roleId, tokenData) => {
+  message.info('编辑功能正在开发中')
+}
+
+// 复制Token到剪贴板
+const copyToken = async (token) => {
+  try {
+    await navigator.clipboard.writeText(token)
+    message.success('Token已复制到剪贴板')
+  } catch (error) {
+    // 降级方案
+    const textArea = document.createElement('textarea')
+    textArea.value = token
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    message.success('Token已复制到剪贴板')
+  }
+}
+
+// 从URL刷新Token
+const refreshTokenFromUrl = async (roleId, tokenData) => {
+  if (!tokenData.sourceUrl) {
+    message.warning('该Token没有配置源URL')
+    return
+  }
+
+  dialog.info({
+    title: '从URL刷新Token',
+    content: `确定要从源URL重新获取Token吗？\n源地址：${tokenData.sourceUrl}`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const loadingMsg = message.loading('正在从URL获取新Token...', { duration: 0 })
+        
+        // 使用与TokenImport相同的逻辑获取Token
+        let response
+        const isLocalUrl = tokenData.sourceUrl.startsWith(window.location.origin) || 
+                          tokenData.sourceUrl.startsWith('/') ||
+                          tokenData.sourceUrl.startsWith('http://localhost') ||
+                          tokenData.sourceUrl.startsWith('http://127.0.0.1')
+        
+        if (isLocalUrl) {
+          response = await fetch(tokenData.sourceUrl)
+        } else {
+          // 跨域请求，使用代理
+          const proxyUrl = `/api/proxy?url=${encodeURIComponent(tokenData.sourceUrl)}`
+          response = await fetch(proxyUrl)
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (!data.token) {
+          throw new Error('返回数据中未找到token字段')
+        }
+
+        // 更新Token
+        localTokenStore.updateGameToken(roleId, {
+          token: data.token,
+          lastUsed: new Date().toISOString()
+        })
+
+        loadingMsg.destroy()
+        message.success('Token刷新成功')
+      } catch (error) {
+        console.error('URL刷新Token失败:', error)
+        message.error('刷新失败: ' + error.message)
+      }
     }
   })
 }

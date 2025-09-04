@@ -11,21 +11,7 @@
               class="brand-logo"
             >
             <!-- 主题切换按钮 -->
-            <n-button 
-              circle 
-              size="small" 
-              class="theme-toggle"
-              @click="toggleTheme"
-            >
-              <template #icon>
-                <n-icon v-if="isDarkTheme">
-                  <Sunny />
-                </n-icon>
-                <n-icon v-else>
-                  <Moon />
-                </n-icon>
-              </template>
-            </n-button>
+            <ThemeToggle />
           </div>
           <h1>游戏Token管理</h1>
         </div>
@@ -451,10 +437,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, h } from 'vue'
+import { ref, reactive, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog, NIcon } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import {
   Add,
   CloudUpload,
@@ -462,8 +449,6 @@ import {
   EllipsisHorizontal,
   Key,
   Refresh,
-  Sunny,
-  Moon,
   Home,
   Create,
   Copy,
@@ -487,20 +472,6 @@ const editFormRef = ref(null)
 const editingToken = ref(null)
 const importMethod = ref('manual')
 const refreshingTokens = ref(new Set())
-
-// 主题控制（使用 data-theme 与全局变量匹配）
-const isDarkTheme = computed(() => document.documentElement.getAttribute('data-theme') === 'dark')
-
-const toggleTheme = () => {
-  const current = document.documentElement.getAttribute('data-theme') === 'dark'
-  if (current) {
-    document.documentElement.removeAttribute('data-theme')
-    localStorage.setItem('theme', 'light')
-  } else {
-    document.documentElement.setAttribute('data-theme', 'dark')
-    localStorage.setItem('theme', 'dark')
-  }
-}
 
 // 导入表单
 const importForm = reactive({

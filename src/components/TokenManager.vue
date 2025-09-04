@@ -92,10 +92,13 @@
               
               <n-dropdown 
                 :options="getTokenMenuOptions(tokenData)" 
-                @select="handleTokenAction($event, roleId, tokenData)"
                 trigger="click"
+                @select="handleTokenAction($event, roleId, tokenData)"
               >
-                <n-button size="tiny" type="tertiary">
+                <n-button
+                  size="tiny"
+                  type="tertiary"
+                >
                   <template #icon>
                     <n-icon><EllipsisHorizontal /></n-icon>
                   </template>

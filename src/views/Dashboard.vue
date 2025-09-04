@@ -64,6 +64,9 @@
         </div>
 
         <div class="nav-user">
+          <!-- 主题切换按钮 -->
+          <ThemeToggle />
+          
           <n-dropdown
             :options="userMenuOptions"
             @select="handleUserAction"
@@ -222,6 +225,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import {
   Home,
   PersonCircle,
@@ -543,6 +547,9 @@ onMounted(async () => {
 
 .nav-user {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
 .user-info {

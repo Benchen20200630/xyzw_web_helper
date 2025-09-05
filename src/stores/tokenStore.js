@@ -344,6 +344,21 @@ export const useTokenStore = defineStore('tokens', () => {
           gameData.value.lastUpdated = new Date().toISOString()
           console.log('📊 角色信息已更新')
 
+          // 检查答题完成状态
+          if (body.role?.study?.maxCorrectNum !== undefined) {
+            const maxCorrectNum = body.role.study.maxCorrectNum
+            const isStudyCompleted = maxCorrectNum >= 10
+            
+            // 更新答题完成状态
+            if (!gameData.value.studyStatus) {
+              gameData.value.studyStatus = {}
+            }
+            gameData.value.studyStatus.isCompleted = isStudyCompleted
+            gameData.value.studyStatus.maxCorrectNum = maxCorrectNum
+            
+            console.log(`📚 答题状态更新: maxCorrectNum=${maxCorrectNum}, 完成状态=${isStudyCompleted}`)
+          }
+
           // 检查塔信息
           if (body.role?.tower) {
             // 塔信息已更新

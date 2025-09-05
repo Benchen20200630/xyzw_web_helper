@@ -208,8 +208,8 @@
           <h3>咸鱼大冲关</h3>
           <p>每日知识挑战</p>
         </div>
-        <div class="status-badge weekly">
-          <div class="status-dot" />
+        <div class="status-badge weekly" :class="{ 'completed': study.isCompleted }">
+          <div class="status-dot" :class="{ 'completed': study.isCompleted }" />
           <span>每周任务</span>
         </div>
       </div>
@@ -219,11 +219,15 @@
         </p>
         <button 
           class="action-button"
-          :disabled="study.isAnswering"
+          :class="{ 'completed': study.isCompleted }"
+          :disabled="study.isAnswering || study.isCompleted"
           @click="startStudy"
         >
+          <span v-if="study.isCompleted">
+            ✅ 已完成无需作答
+          </span>
           <span
-            v-if="study.isAnswering"
+            v-else-if="study.isAnswering"
             class="loading-text"
           >
             <svg
@@ -552,6 +556,12 @@ const signInLegion = () => {
 const startStudy = async () => {
   if (!tokenStore.selectedToken || study.value.isAnswering) return
   
+  // 检查是否已完成
+  if (study.value.isCompleted) {
+    message.success('✅ 咸鱼大冲关任务已完成，无需重复作答！')
+    return
+  }
+  
   try {
     // 确保答题数据已加载
     await preloadQuestions()
@@ -559,6 +569,7 @@ const startStudy = async () => {
     
     // 通过 tokenStore 重置状态
     tokenStore.gameData.studyStatus = {
+      ...tokenStore.gameData.studyStatus, // 保留isCompleted等状态
       isAnswering: true,
       questionCount: 0,
       answeredCount: 0,
@@ -573,6 +584,7 @@ const startStudy = async () => {
     setTimeout(() => {
       if (tokenStore.gameData.studyStatus.isAnswering) {
         tokenStore.gameData.studyStatus = {
+          ...tokenStore.gameData.studyStatus, // 保留isCompleted等状态
           isAnswering: false,
           questionCount: 0,
           answeredCount: 0,
@@ -703,6 +715,12 @@ onUnmounted(() => {
     background: rgba(245, 158, 11, 0.1);
     color: var(--warning-color);
   }
+
+  &.completed {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success-color);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
 }
 
 .status-dot {
@@ -710,6 +728,11 @@ onUnmounted(() => {
   height: 8px;
   border-radius: 50%;
   background: currentColor;
+
+  &.completed {
+    background: var(--success-color);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  }
 }
 
 .energy-icon {
@@ -814,6 +837,24 @@ onUnmounted(() => {
     
     &:hover {
       background: var(--info-color-hover);
+    }
+  }
+
+  &.completed {
+    background: var(--success-color);
+    color: white;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    
+    &:hover {
+      background: var(--success-color);
+      transform: none;
+      cursor: default;
+    }
+    
+    &:disabled {
+      background: var(--success-color);
+      color: white;
+      opacity: 0.9;
     }
   }
 }

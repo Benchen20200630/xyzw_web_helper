@@ -235,9 +235,13 @@
                 d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
               />
             </svg>
-            答题中...
+            <span v-if="study.status === 'starting'">正在获取题目...</span>
+            <span v-else-if="study.status === 'answering'">答题中 {{ study.answeredCount }}/{{ study.questionCount }}</span>
+            <span v-else-if="study.status === 'claiming_rewards'">正在领取奖励...</span>
+            <span v-else-if="study.status === 'completed'">答题完成</span>
+            <span v-else>答题中...</span>
           </span>
-          <span v-else>一键答题</span>
+          <span v-else>🎯 一键答题</span>
         </button>
       </div>
     </div>
@@ -248,6 +252,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage } from 'naive-ui'
+import { preloadQuestions, getQuestionCount } from '@/utils/studyQuestionsFromJSON.js'
 import TeamStatus from './TeamStatus.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
@@ -281,9 +286,8 @@ const legionSignin = ref({
   clubName: ''
 })
 
-const study = ref({
-  isAnswering: false
-})
+// 使用 tokenStore 中的答题状态
+const study = computed(() => tokenStore.gameData.studyStatus)
 
 
 // 计算属性
@@ -545,18 +549,45 @@ const signInLegion = () => {
 }
 
 // 学习答题
-const startStudy = () => {
+const startStudy = async () => {
   if (!tokenStore.selectedToken || study.value.isAnswering) return
   
-  study.value.isAnswering = true
-  const tokenId = tokenStore.selectedToken.id
-  tokenStore.sendMessage(tokenId, 'study_startgame')
-  
-  setTimeout(() => {
-    study.value.isAnswering = false
-  }, 3000)
-  
-  message.info('开始答题')
+  try {
+    // 确保答题数据已加载
+    await preloadQuestions()
+    const questionCount = await getQuestionCount()
+    
+    // 通过 tokenStore 重置状态
+    tokenStore.gameData.studyStatus = {
+      isAnswering: true,
+      questionCount: 0,
+      answeredCount: 0,
+      status: 'starting',
+      timestamp: Date.now()
+    }
+    
+    const tokenId = tokenStore.selectedToken.id
+    tokenStore.sendMessage(tokenId, 'study_startgame')
+    
+    // 设置超时保护，最多30秒后自动重置
+    setTimeout(() => {
+      if (tokenStore.gameData.studyStatus.isAnswering) {
+        tokenStore.gameData.studyStatus = {
+          isAnswering: false,
+          questionCount: 0,
+          answeredCount: 0,
+          status: '',
+          timestamp: null
+        }
+        message.warning('答题超时，已自动重置状态')
+      }
+    }, 30000)
+    
+    message.info(`🚀 开始一键答题... (题库包含 ${questionCount} 道题目)`)
+  } catch (error) {
+    console.error('启动答题失败:', error)
+    message.error('启动答题失败: ' + error.message)
+  }
 }
 
 
@@ -571,6 +602,13 @@ watch(roleInfo, (newValue) => {
 onMounted(() => {
   updateGameStatus()
   startTimer()
+  
+  // 预加载答题数据
+  preloadQuestions().then(() => {
+    console.log('📚 答题数据预加载完成')
+  }).catch(error => {
+    console.error('❌ 答题数据预加载失败:', error)
+  })
   
   // 获取俱乐部信息
   if (tokenStore.selectedToken) {

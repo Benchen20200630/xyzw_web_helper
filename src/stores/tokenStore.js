@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { bonProtocol, GameMessages, g_utils } from '../utils/bonProtocol.js'
 import { XyzwWebSocketClient } from '../utils/xyzwWebSocket.js'
+import { findAnswer } from '../utils/studyQuestionsFromJSON.js'
 
 /**
  * 重构后的Token管理存储
@@ -18,6 +19,13 @@ export const useTokenStore = defineStore('tokens', () => {
     roleInfo: null,
     legionInfo: null,
     presetTeam: null,
+    studyStatus: {
+      isAnswering: false,
+      questionCount: 0,
+      answeredCount: 0,
+      status: '', // '', 'starting', 'answering', 'claiming_rewards', 'completed'
+      timestamp: null
+    },
     lastUpdated: null
   })
 
@@ -173,6 +181,136 @@ export const useTokenStore = defineStore('tokens', () => {
       })
     } else {
       // 未找到队伍数据
+    }
+  }
+
+  // 处理学习答题响应的核心函数
+  const handleStudyResponse = async (tokenId, body) => {
+    try {
+      console.log('📚 开始处理学习答题响应:', body)
+      
+      const connection = wsConnections.value[tokenId]
+      if (!connection || connection.status !== 'connected' || !connection.client) {
+        console.error('❌ WebSocket连接不可用，无法进行答题')
+        return
+      }
+      
+      // 获取题目列表和学习ID
+      const questionList = body.questionList
+      const studyId = body.role?.study?.id
+      
+      if (!questionList || !Array.isArray(questionList)) {
+        console.error('❌ 未找到题目列表')
+        return
+      }
+      
+      if (!studyId) {
+        console.error('❌ 未找到学习ID')
+        return
+      }
+      
+      console.log(`📝 找到 ${questionList.length} 道题目，学习ID: ${studyId}`)
+      
+      // 更新答题状态
+      gameData.value.studyStatus = {
+        isAnswering: true,
+        questionCount: questionList.length,
+        answeredCount: 0,
+        status: 'answering',
+        timestamp: Date.now()
+      }
+      
+      // 遍历题目并回答
+      for (let i = 0; i < questionList.length; i++) {
+        const question = questionList[i]
+        const questionText = question.question
+        const questionId = question.id
+        
+        console.log(`📖 题目 ${i + 1}: ${questionText}`)
+        
+        // 查找答案（异步）
+        let answer = await findAnswer(questionText)
+        
+        if (answer === null) {
+          // 如果没有找到答案，默认选择选项1
+          answer = 1
+          console.log(`⚠️ 未找到匹配答案，使用默认答案: ${answer}`)
+        } else {
+          console.log(`✅ 找到答案: ${answer}`)
+        }
+        
+        // 发送答案
+        try {
+          connection.client.send('study_answer', {
+            id: studyId,
+            option: [answer],
+            questionId: [questionId]
+          })
+          console.log(`📤 已提交题目 ${i + 1} 的答案: ${answer}`)
+        } catch (error) {
+          console.error(`❌ 提交答案失败 (题目 ${i + 1}):`, error)
+        }
+        
+        // 更新已回答题目数量
+        gameData.value.studyStatus.answeredCount = i + 1
+        
+        // 添加短暂延迟，避免请求过快
+        if (i < questionList.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      }
+      
+      // 等待一下让所有答案提交完成，然后领取奖励
+      setTimeout(() => {
+        console.log('🎁 开始领取答题奖励...')
+        
+        // 更新状态为正在领取奖励
+        gameData.value.studyStatus.status = 'claiming_rewards'
+        
+        // 领取所有等级的奖励 (1-10)
+        const rewardPromises = []
+        for (let rewardId = 1; rewardId <= 10; rewardId++) {
+          try {
+            const promise = connection.client.send('study_claimreward', { 
+              rewardId: rewardId 
+            })
+            rewardPromises.push(promise)
+            console.log(`🎯 已发送奖励领取请求: rewardId=${rewardId}`)
+          } catch (error) {
+            console.error(`❌ 发送奖励领取请求失败 (rewardId=${rewardId}):`, error)
+          }
+        }
+        
+        console.log('🎊 一键答题完成！已尝试领取所有奖励')
+        
+        // 更新状态为完成
+        gameData.value.studyStatus.status = 'completed'
+        
+        // 3秒后重置状态
+        setTimeout(() => {
+          gameData.value.studyStatus = {
+            isAnswering: false,
+            questionCount: 0,
+            answeredCount: 0,
+            status: '',
+            timestamp: null
+          }
+        }, 3000)
+        
+        // 更新游戏数据
+        setTimeout(() => {
+          try {
+            connection.client.send('role_getroleinfo', {})
+            console.log('📊 已请求更新角色信息')
+          } catch (error) {
+            console.error('❌ 请求角色信息更新失败:', error)
+          }
+        }, 1000)
+        
+      }, 500) // 延迟500ms后领取奖励
+      
+    } catch (error) {
+      console.error('❌ 处理学习答题响应失败:', error)
     }
   }
 
@@ -344,6 +482,14 @@ export const useTokenStore = defineStore('tokens', () => {
               connection.client.send('role_getroleinfo', {})
             }
           }, 500)
+        }
+      }
+
+      // 处理学习答题响应 - 一键答题功能
+      else if (cmd === 'studyresp' || cmd === 'study_startgame' || cmd === 'study_startgameresp') {
+        if (body) {
+          console.log(`📚 学习答题响应 [${tokenId}]`, body)
+          handleStudyResponse(tokenId, body)
         }
       }
 

@@ -10,7 +10,7 @@
           <n-select
             v-model:value="selectedTokenId"
             :options="tokenOptions"
-            placeholder="选择要测试的Token"
+            placeholder="选择要测试的游戏Token"
             class="w-full"
           />
         </div>
@@ -28,6 +28,14 @@
             @click="connectWebSocket"
           >
             连接WebSocket
+          </n-button>
+          <n-button 
+            type="info"
+            size="small"
+            class="ml-2"
+            @click="testBONDecoding"
+          >
+            🔓 测试BON解码
           </n-button>
         </div>
 
@@ -140,11 +148,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useTokenStore } from '../stores/tokenStore'
-import { useGameRolesStore } from '../stores/gameRoles'
 import { useMessage } from 'naive-ui'
 
 const tokenStore = useTokenStore()
-const gameRolesStore = useGameRolesStore()
 const message = useMessage()
 
 // 响应式数据
@@ -152,12 +158,13 @@ const selectedTokenId = ref(null)
 const customCmd = ref('')
 const customBody = ref('{}')
 const messageHistory = ref([])
+const lastProcessedMessage = ref(null) // 追踪最后处理的消息
 
 // 计算属性
 const tokenOptions = computed(() => {
-  return gameRolesStore.gameRoles.map(role => ({
-    label: role.name,
-    value: role.id
+  return tokenStore.gameTokens.map(token => ({
+    label: token.name,
+    value: token.id
   }))
 })
 
@@ -189,16 +196,89 @@ const canSendMessage = computed(() => {
 
 // 方法
 const connectWebSocket = () => {
-  if (!selectedTokenId.value) return
+  if (!selectedTokenId.value) {
+    message.error('请先选择一个token')
+    return
+  }
   
-  const role = gameRolesStore.gameRoles.find(r => r.id === selectedTokenId.value)
-  if (role) {
-    gameRolesStore.selectRole(role)
-    message.success('正在建立WebSocket连接...')
+  const token = tokenStore.gameTokens.find(t => t.id === selectedTokenId.value)
+  if (token) {
+    console.log('🔧 MessageTester: 开始连接WebSocket', {
+      tokenId: selectedTokenId.value,
+      tokenName: token.name,
+      hasToken: !!token.token
+    })
+    
+    try {
+      tokenStore.selectToken(selectedTokenId.value)
+      message.success('正在建立WebSocket连接...')
+    } catch (error) {
+      console.error('❌ MessageTester: WebSocket连接失败', error)
+      message.error('WebSocket连接失败: ' + error.message)
+    }
+  } else {
+    message.error('找不到选中的token')
+  }
+}
+
+const testBONDecoding = async () => {
+  try {
+    // 导入BON协议
+    const { g_utils } = await import('../utils/bonProtocol.js')
+    
+    // 测试一些简单的数据
+    const testData = new Uint8Array([8, 2, 5, 4, 114, 111, 108, 101])
+    
+    console.log('🧪 BON解码测试开始')
+    console.log('🔍 g_utils可用性检查:', {
+      hasGUtils: !!g_utils,
+      hasBon: !!(g_utils && g_utils.bon),
+      hasBonDecode: !!(g_utils && g_utils.bon && g_utils.bon.decode)
+    })
+    
+    if (g_utils && g_utils.bon && g_utils.bon.decode) {
+      console.log('📥 测试数据:', testData)
+      const decoded = g_utils.bon.decode(testData)
+      console.log('✅ BON解码成功:', decoded)
+      message.success(`BON解码器工作正常: ${JSON.stringify(decoded)}`)
+      
+      // 添加测试结果到历史
+      addToHistory('test', {
+        testType: 'BON解码测试',
+        input: Array.from(testData),
+        output: decoded,
+        status: 'success'
+      }, 'bon_decode_test')
+    } else {
+      console.error('❌ BON解码器不可用')
+      message.error('BON解码器不可用')
+      
+      // 添加错误结果到历史  
+      addToHistory('test', {
+        testType: 'BON解码测试',
+        error: 'BON解码器不可用',
+        status: 'error'
+      }, 'bon_decode_test')
+    }
+  } catch (error) {
+    console.error('❌ BON解码测试失败:', error)
+    message.error('BON解码测试失败: ' + error.message)
+    
+    // 添加错误结果到历史
+    addToHistory('test', {
+      testType: 'BON解码测试',
+      error: error.message,
+      status: 'error'
+    }, 'bon_decode_test')
   }
 }
 
 const addToHistory = (type, data, cmd = null) => {
+  // 过滤心跳消息 (但保留test类型)
+  if (type !== 'test' && (cmd === '_sys/ack' || cmd === 'heartbeat')) {
+    return
+  }
+  
   messageHistory.value.unshift({
     type,
     timestamp: new Date().toISOString(),
@@ -217,7 +297,7 @@ const sendHeartbeat = () => {
   
   const success = tokenStore.sendHeartbeat(selectedTokenId.value)
   if (success) {
-    addToHistory('sent', { cmd: '_sys/ack' }, '_sys/ack')
+    // 不记录心跳消息到历史
     message.success('心跳消息已发送')
   } else {
     message.error('心跳消息发送失败')
@@ -286,18 +366,154 @@ const formatTime = (timestamp) => {
   return new Date(timestamp).toLocaleTimeString()
 }
 
-const formatJSON = (data) => {
-  return JSON.stringify(data, null, 2)
+// 辅助方法：格式化body描述
+const formatBodyDescription = (body) => {
+  if (!body) return 'null'
+  if (Array.isArray(body)) return `[Array: ${body.length} items]`
+  if (body instanceof Uint8Array) return `[Uint8Array: ${body.length} bytes]`
+  if (typeof body === 'object' && body.constructor === Object) {
+    const keys = Object.keys(body)
+    if (keys.every(key => !isNaN(parseInt(key)))) {
+      return `[NumericObject: ${keys.length} entries]`
+    }
+  }
+  return '[Unknown format]'
 }
 
-// 监听WebSocket消息（模拟，实际需要在tokenStore中触发事件）
+// 辅助方法：判断是否是原始body数据
+const isRawBodyData = (body) => {
+  if (!body) return false
+  if (Array.isArray(body)) return true
+  if (body instanceof Uint8Array) return true
+  if (typeof body === 'object' && body.constructor === Object) {
+    const keys = Object.keys(body)
+    return keys.length > 0 && keys.every(key => !isNaN(parseInt(key)))
+  }
+  return false
+}
+
+const formatJSON = (data) => {
+  try {
+    if (!data) return 'null'
+    
+    // 处理BON解码数据：优先显示解码后的数据
+    let displayData = data
+    
+    // 检查_raw结构中的解码数据
+    const actualData = data._raw || data
+    
+    // 如果有解码后的数据，优先显示
+    if (actualData.decodedBody || data.decodedBody) {
+      const decodedBody = actualData.decodedBody || data.decodedBody
+      const originalBody = actualData.body || data.body
+      
+      if (data._raw) {
+        // 如果有_raw结构，更新_raw中的body
+        displayData = {
+          ...data,
+          _raw: {
+            ...data._raw,
+            body: decodedBody,
+            _originalBody: formatBodyDescription(originalBody),
+            _note: 'body已自动BON解码'
+          }
+        }
+      } else {
+        // 直接结构，更新body
+        displayData = {
+          ...data,
+          body: decodedBody,
+          _originalBody: formatBodyDescription(originalBody),
+          _note: 'body已自动BON解码'
+        }
+      }
+    } else if (actualData.rawData || data.rawData) {
+      // 如果是ProtoMsg格式，使用rawData
+      const rawData = actualData.rawData || data.rawData
+      
+      if (data._raw) {
+        displayData = {
+          ...data,
+          _raw: {
+            ...data._raw,
+            body: rawData,
+            _note: 'body已使用rawData解码'
+          }
+        }
+      } else {
+        displayData = {
+          ...data,
+          body: rawData,
+          _note: 'body已使用rawData解码'
+        }
+      }
+    } else if ((actualData.body && isRawBodyData(actualData.body)) || (data.body && isRawBodyData(data.body))) {
+      // 如果body是原始数据，添加提示
+      displayData = {
+        ...data,
+        _note: 'body为原始数据，等待BON解码'
+      }
+    }
+    
+    // 处理循环引用和大型对象的JSON序列化
+    const seen = new WeakSet()
+    const replacer = (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[循环引用]'
+        }
+        seen.add(value)
+      }
+      
+      // 限制字符串长度
+      if (typeof value === 'string' && value.length > 200) {
+        return value.substring(0, 200) + '...[截断]'
+      }
+      
+      // 处理大数组显示
+      if (Array.isArray(value) && value.length > 50) {
+        return `[Array: ${value.length} items] ${JSON.stringify(value.slice(0, 10))}...[显示前10项]`
+      }
+      
+      return value
+    }
+    
+    const jsonString = JSON.stringify(displayData, replacer, 2)
+    
+    // 限制总体输出长度
+    if (jsonString.length > 5000) {
+      return jsonString.substring(0, 5000) + '\n...[内容过长已截断]'
+    }
+    
+    return jsonString
+  } catch (error) {
+    return `[JSON序列化错误: ${error.message}]`
+  }
+}
+
+// 监听WebSocket消息
 watch(() => tokenStore.wsConnections, (connections) => {
   if (!selectedTokenId.value || !connections[selectedTokenId.value]) return
   
   const connection = connections[selectedTokenId.value]
   if (connection.lastMessage) {
     const lastMessage = connection.lastMessage
-    addToHistory('received', lastMessage.parsed, lastMessage.parsed?.cmd)
+    
+    // 避免重复处理相同的消息
+    if (lastProcessedMessage.value && 
+        lastProcessedMessage.value.timestamp === lastMessage.timestamp) {
+      return
+    }
+    
+    // 使用实际的消息数据而不是简化的数据结构
+    const messageData = lastMessage.data || lastMessage
+    const cmd = messageData.cmd || lastMessage.cmd
+    
+    // 过滤心跳消息
+    if (cmd && cmd !== '_sys/ack' && cmd !== 'heartbeat') {
+      addToHistory('received', messageData, cmd)
+      lastProcessedMessage.value = lastMessage
+    }
   }
 }, { deep: true })
 </script>

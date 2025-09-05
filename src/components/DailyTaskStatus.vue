@@ -401,12 +401,7 @@ const syncCompleteFromServer = (resp) => {
     }
   })
 
-  // 检查本地定义但服务器未返回的任务
-  tasks.value.forEach(task => {
-    if (!(task.id.toString() in complete)) {
-      log(`本地任务${task.id} "${task.name}" 在服务器数据中缺失`, 'warning')
-    }
-  })
+
 
   log(`任务状态同步完成: ${completedCount}/${syncedCount} 已完成`)
   log(`当前进度: ${roleDailyPoint.value}/100`)
@@ -495,7 +490,7 @@ const switchToFormationIfNeeded = async (tokenId, targetFormation, formationName
     logFn(`当前阵容: ${currentFormation}, 目标阵容: ${targetFormation}，开始切换...`)
     await executeGameCommand(tokenId, 'presetteam_saveteam',
       { teamId: targetFormation }, `切换到${formationName}${targetFormation}`)
-    
+
     logFn(`成功切换到${formationName}${targetFormation}`, 'success')
     return true // 已切换
   } catch (error) {

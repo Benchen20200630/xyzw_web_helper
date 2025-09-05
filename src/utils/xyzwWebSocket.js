@@ -237,19 +237,23 @@ export class XyzwWebSocketClient {
 
               // 处理消息体解码（ProtoMsg会自动解码）
               if (packet instanceof Object && packet.rawData !== undefined) {
-                // ProtoMsg消息
-              } else if (packet.body && packet.body instanceof Uint8Array) {
+                console.log('✅ ProtoMsg Blob消息，使用rawData:', packet.rawData)
+              } else if (packet.body && this.shouldDecodeBody(packet.body)) {
                 try {
                   if (this.utils && this.utils.bon && this.utils.bon.decode) {
-                    const decodedBody = this.utils.bon.decode(packet.body)
-                    // 手动解码成功
-                    // 不修改packet.body，而是创建一个新的属性存储解码后的数据
-                    packet.decodedBody = decodedBody
+                    // 转换body数据为Uint8Array
+                    const bodyBytes = this.convertToUint8Array(packet.body)
+                    if (bodyBytes) {
+                      const decodedBody = this.utils.bon.decode(bodyBytes)
+                      console.log('🔓 BON Blob解码成功:', packet.cmd, decodedBody)
+                      // 不修改packet.body，而是创建一个新的属性存储解码后的数据
+                      packet.decodedBody = decodedBody
+                    }
                   } else {
-                    // BON解码器不可用
+                    console.warn('⚠️ BON解码器不可用 (Blob)')
                   }
                 } catch (error) {
-                  // 消息体解码失败
+                  console.error('❌ BON Blob消息体解码失败:', error.message, packet.cmd)
                 }
               }
 
@@ -282,18 +286,31 @@ export class XyzwWebSocketClient {
         // 处理消息体解码（ProtoMsg会自动解码）
         if (packet instanceof Object && packet.rawData !== undefined) {
           console.log('✅ ProtoMsg消息，使用rawData:', packet.rawData)
-        } else if (packet.body && packet.body instanceof Uint8Array) {
-          try {
-            if (this.utils && this.utils.bon && this.utils.bon.decode) {
-              const decodedBody = this.utils.bon.decode(packet.body)
-              // 手动解码成功
-              // 不修改packet.body，而是创建一个新的属性存储解码后的数据
-              packet.decodedBody = decodedBody
-            } else {
-              // BON解码器不可用
+        } else {
+          // 处理可能存在_raw包装的情况
+          const actualPacket = packet._raw || packet
+
+          if (actualPacket.body && this.shouldDecodeBody(actualPacket.body)) {
+            try {
+              if (this.utils && this.utils.bon && this.utils.bon.decode) {
+                // 转换body数据为Uint8Array
+                const bodyBytes = this.convertToUint8Array(actualPacket.body)
+                if (bodyBytes) {
+                  const decodedBody = this.utils.bon.decode(bodyBytes)
+                  console.log('🔓 BON解码成功:', actualPacket.cmd || packet.cmd, decodedBody)
+                  // 将解码后的数据存储到原始packet中
+                  packet.decodedBody = decodedBody
+                  // 如果有_raw结构，也存储到_raw中
+                  if (packet._raw) {
+                    packet._raw.decodedBody = decodedBody
+                  }
+                }
+              } else {
+                console.warn('⚠️ BON解码器不可用')
+              }
+            } catch (error) {
+              console.error('❌ BON消息体解码失败:', error.message, actualPacket.cmd || packet.cmd)
             }
-          } catch (error) {
-            // 消息体解码失败
           }
         }
 
@@ -339,6 +356,57 @@ export class XyzwWebSocketClient {
   /** 控制台消息开关 */
   setShowMsg(val) {
     this.showMsg = !!val
+  }
+
+  /** 判断是否需要解码body */
+  shouldDecodeBody(body) {
+    if (!body) return false
+
+    // Uint8Array或Array格式
+    if (body instanceof Uint8Array || Array.isArray(body)) {
+      return true
+    }
+
+    // 对象格式的数字数组（从图片中看到的格式）
+    if (typeof body === 'object' && body.constructor === Object) {
+      // 检查是否是数字键的对象（例如 {"0": 8, "1": 2, ...}）
+      const keys = Object.keys(body)
+      return keys.length > 0 && keys.every(key => !isNaN(parseInt(key)))
+    }
+
+    return false
+  }
+
+  /** 转换body为Uint8Array */
+  convertToUint8Array(body) {
+    if (!body) return null
+
+    if (body instanceof Uint8Array) {
+      return body
+    }
+
+    if (Array.isArray(body)) {
+      return new Uint8Array(body)
+    }
+
+    // 对象格式的数字数组转换为Uint8Array
+    if (typeof body === 'object' && body.constructor === Object) {
+      const keys = Object.keys(body).map(k => parseInt(k)).sort((a, b) => a - b)
+      if (keys.length > 0) {
+        const maxIndex = Math.max(...keys)
+        const arr = new Array(maxIndex + 1).fill(0)
+        for (const [key, value] of Object.entries(body)) {
+          const index = parseInt(key)
+          if (!isNaN(index) && typeof value === 'number') {
+            arr[index] = value
+          }
+        }
+        console.log('🔄 转换对象格式body为Uint8Array:', arr.length, 'bytes')
+        return new Uint8Array(arr)
+      }
+    }
+
+    return null
   }
 
   /** 重连 */
@@ -530,7 +598,6 @@ export class XyzwWebSocketClient {
       'fight_startareaarenaresp': 'fight_startareaarena',
       'arena_startarearesp': 'arena_startarea',
       'arena_getareatargetresp': 'arena_getareatarget',
-      'presetteam_getinforesp': 'presetteam_getinfo',
       'presetteam_saveteamresp': 'presetteam_saveteam',
       'presetteam_getinforesp': 'presetteam_getinfo',
       'mail_claimallattachmentresp': 'mail_claimallattachment',

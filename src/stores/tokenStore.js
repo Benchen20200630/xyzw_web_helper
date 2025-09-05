@@ -611,7 +611,8 @@ export const useTokenStore = defineStore('tokens', () => {
         if (wsConnections.value[tokenId]) {
           wsConnections.value[tokenId].lastMessage = {
             timestamp: new Date().toISOString(),
-            data: { cmd: message?.cmd } // 只保存命令名
+            data: message, // 保存完整消息数据
+            cmd: message?.cmd
           }
         }
 

@@ -439,6 +439,7 @@ export class XyzwWebSocketClient {
     const task = {
       cmd,
       params,
+      seq: options.seq, // 支持传递自定义seq
       respKey: options.respKey || cmd,
       sleep: options.sleep || 0,
       onSent: options.onSent
@@ -455,21 +456,21 @@ export class XyzwWebSocketClient {
         return reject(new Error("WebSocket 连接已关闭"))
       }
 
-      // 生成唯一的请求ID
-      const requestId = `${cmd}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      // 为此请求生成唯一的seq值
+      const requestSeq = ++this.seq
 
-      // 设置 Promise 状态
-      this.promises[requestId] = { resolve, reject, originalCmd: cmd }
+      // 设置 Promise 状态，使用seq作为键
+      this.promises[requestSeq] = { resolve, reject, originalCmd: cmd }
 
       // 超时处理
       const timer = setTimeout(() => {
-        delete this.promises[requestId]
+        delete this.promises[requestSeq]
         reject(new Error(`请求超时: ${cmd} (${timeoutMs}ms)`))
       }, timeoutMs)
 
-      // 发送消息
+      // 发送消息，直接传递seq
       this.send(cmd, params, {
-        respKey: requestId,
+        seq: requestSeq,
         onSent: () => {
           // 消息发送成功后，不要清除超时器，让它继续等待响应
           // 只有在收到响应或超时时才清除
@@ -538,9 +539,16 @@ export class XyzwWebSocketClient {
       if (!task) return
 
       try {
+        // 使用任务指定的seq或者当前seq
+        const taskSeq = task.seq !== undefined ? task.seq : this.seq
+        
         // 构建报文
-        const raw = this.registry.build(task.cmd, this.ack, this.seq, task.params)
-            if (task.cmd !== "heart_beat") this.seq++
+        const raw = this.registry.build(task.cmd, this.ack, taskSeq, task.params)
+        
+        // 只有在没有指定seq的情况下才自增（普通消息）
+        if (task.seq === undefined && task.cmd !== "heart_beat") {
+          this.seq++
+        }
 
         // 编码并发送
         const bin = this.registry.encodePacket(raw)
@@ -578,6 +586,25 @@ export class XyzwWebSocketClient {
 
   /** 处理 Promise 响应 */
   _handlePromiseResponse(packet) {
+    // 优先使用resp字段进行响应匹配（新的正确方式）
+    if (packet.resp !== undefined && this.promises[packet.resp]) {
+      const promiseData = this.promises[packet.resp]
+      delete this.promises[packet.resp]
+
+      // 获取响应数据，优先使用 rawData（ProtoMsg 自动解码），然后 decodedBody（手动解码），最后 body
+      const responseBody = packet.rawData !== undefined ? packet.rawData :
+                         packet.decodedBody !== undefined ? packet.decodedBody :
+                         packet.body
+
+      if (packet.code === 0 || packet.code === undefined) {
+        promiseData.resolve(responseBody || packet)
+      } else {
+        promiseData.reject(new Error(`服务器错误: ${packet.code} - ${packet.hint || '未知错误'}`))
+      }
+      return
+    }
+
+    // 兼容旧的基于cmd名称的匹配方式（保留为向后兼容）
     const cmd = packet.cmd
     if (!cmd) return
 
@@ -625,7 +652,7 @@ export class XyzwWebSocketClient {
       originalCmds = [originalCmds] // 转换为数组
     }
 
-    // 查找对应的 Promise - 遍历所有等待中的 Promise
+    // 查找对应的 Promise - 遍历所有等待中的 Promise（向后兼容）
     for (const [requestId, promiseData] of Object.entries(this.promises)) {
       // 检查 Promise 是否匹配当前响应的任一原始命令
       if (originalCmds.includes(promiseData.originalCmd)) {

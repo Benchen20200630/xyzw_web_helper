@@ -1034,6 +1034,12 @@ export const useTokenStore = defineStore('tokens', () => {
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
         const cleanedTokens = gameTokens.value.filter(token => {
+            // URL导入的token设为长期有效，不会过期
+            if (token.importMethod === 'url') {
+                return true
+            }
+            
+            // 手动导入的token按原逻辑处理（24小时过期）
             const lastUsed = new Date(token.lastUsed || token.createdAt)
             return lastUsed > oneDayAgo
         })
@@ -1043,6 +1049,20 @@ export const useTokenStore = defineStore('tokens', () => {
         saveTokensToStorage()
 
         return cleanedCount
+    }
+
+    // 将现有token升级为长期有效
+    const upgradeTokenToPermanent = (tokenId) => {
+        const token = gameTokens.value.find(t => t.id === tokenId)
+        if (token && token.importMethod !== 'url') {
+            updateToken(tokenId, {
+                importMethod: 'url',
+                upgradedToPermanent: true,
+                upgradedAt: new Date().toISOString()
+            })
+            return true
+        }
+        return false
     }
 
     const saveTokensToStorage = () => {
@@ -1116,6 +1136,7 @@ export const useTokenStore = defineStore('tokens', () => {
         importTokens,
         clearAllTokens,
         cleanExpiredTokens,
+        upgradeTokenToPermanent,
         initTokenStore,
 
         // 塔信息方法

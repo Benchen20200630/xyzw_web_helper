@@ -355,6 +355,37 @@
                   <span class="timestamp-value">{{ formatTime(token.lastUsed) }}</span>
                 </div>
               </div>
+
+              <!-- 存储类型信息 -->
+              <div class="storage-info">
+                <div class="storage-item">
+                  <span class="storage-label">存储类型：</span>
+                  <n-tag
+                    size="small"
+                    :type="token.importMethod === 'url' ? 'success' : 'warning'"
+                  >
+                    {{ token.importMethod === 'url' ? '长期有效' : '临时存储' }}
+                  </n-tag>
+                </div>
+                
+                <!-- 升级选项（仅对临时存储的token显示） -->
+                <div 
+                  v-if="token.importMethod !== 'url'"
+                  class="storage-upgrade"
+                >
+                  <n-button
+                    size="tiny"
+                    type="success"
+                    ghost
+                    @click.stop="upgradeTokenToPermanent(token)"
+                  >
+                    <template #icon>
+                      <n-icon><Star /></n-icon>
+                    </template>
+                    升级为长期有效
+                  </n-button>
+                </div>
+              </div>
             </div>
 
             <div
@@ -450,6 +481,7 @@ import {
   Key,
   Refresh,
   Home,
+  Star,
   Create,
   Copy,
   SyncCircle,
@@ -723,6 +755,24 @@ const refreshToken = async (token) => {
   } finally {
     refreshingTokens.value.delete(token.id)
   }
+}
+
+// 升级Token为长期有效
+const upgradeTokenToPermanent = (token) => {
+  dialog.warning({
+    title: '升级为长期有效',
+    content: `确认要将Token "${token.name}" 升级为长期有效吗？升级后该Token将不会因24小时未使用而被自动清理。`,
+    positiveText: '确认升级',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      const success = tokenStore.upgradeTokenToPermanent(token.id)
+      if (success) {
+        message.success(`Token "${token.name}" 已升级为长期有效！`)
+      } else {
+        message.error('升级失败，该Token可能已经是长期有效状态')
+      }
+    }
+  })
 }
 
 const resetImportForm = () => {
@@ -1442,5 +1492,35 @@ onMounted(() => {
   .token-timestamps {
     flex-direction: column;
   }
+
+  .storage-info {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+}
+
+/* 存储信息样式 */
+.storage-info {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-light);
+}
+
+.storage-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.storage-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  min-width: 70px;
+}
+
+.storage-upgrade {
+  margin-top: var(--spacing-xs);
 }
 </style>

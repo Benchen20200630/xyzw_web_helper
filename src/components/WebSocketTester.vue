@@ -139,6 +139,14 @@
               >
                 发送并等待响应
               </n-button>
+              <n-button
+                type="warning"
+                :disabled="!selectedCommand"
+                :loading="testingConcurrency"
+                @click="testConcurrentRequests"
+              >
+                测试并发请求
+              </n-button>
             </n-space>
           </n-space>
         </n-card>
@@ -211,6 +219,7 @@ const selectedCommand = ref(null)
 const commandParams = ref('{}')
 const sendingCommand = ref(false)
 const waitingResponse = ref(false)
+const testingConcurrency = ref(false)
 const messageLog = ref([])
 
 // Token选项
@@ -399,6 +408,85 @@ const sendCommandWithPromise = async () => {
     message.error('发送命令失败: ' + error.message)
   } finally {
     waitingResponse.value = false
+  }
+}
+
+const testConcurrentRequests = async () => {
+  if (!selectedCommand.value) {
+    message.error('请选择要发送的命令')
+    return
+  }
+  
+  try {
+    testingConcurrency.value = true
+    
+    let params = {}
+    if (commandParams.value.trim()) {
+      params = JSON.parse(commandParams.value)
+    }
+    
+    addToLog('sent', {
+      message: '开始并发测试：同时发送5个相同命令',
+      command: selectedCommand.value,
+      params
+    })
+    
+    // 同时发送5个相同的命令
+    const promises = []
+    const startTime = Date.now()
+    
+    for (let i = 0; i < 5; i++) {
+      const promise = tokenStore.sendMessageWithPromise(
+        selectedRoleId.value,
+        selectedCommand.value,
+        { ...params, requestIndex: i + 1 }
+      ).then(response => ({
+        requestIndex: i + 1,
+        response,
+        success: true
+      })).catch(error => ({
+        requestIndex: i + 1,
+        error: error.message,
+        success: false
+      }))
+      
+      promises.push(promise)
+    }
+    
+    // 等待所有请求完成
+    const results = await Promise.allSettled(promises)
+    const endTime = Date.now()
+    
+    // 记录结果
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+    const failCount = results.length - successCount
+    
+    addToLog('received', {
+      message: '并发测试完成',
+      totalRequests: 5,
+      successCount,
+      failCount,
+      duration: `${endTime - startTime}ms`,
+      results: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason })
+    })
+    
+    if (successCount === 5) {
+      message.success(`并发测试成功！5个请求全部正确响应，耗时${endTime - startTime}ms`)
+    } else if (successCount > 0) {
+      message.warning(`并发测试部分成功：${successCount}个成功，${failCount}个失败`)
+    } else {
+      message.error('并发测试失败：所有请求都失败了')
+    }
+    
+  } catch (error) {
+    console.error('并发测试失败:', error)
+    message.error('并发测试失败: ' + error.message)
+    addToLog('received', {
+      message: '并发测试异常',
+      error: error.message
+    })
+  } finally {
+    testingConcurrency.value = false
   }
 }
 

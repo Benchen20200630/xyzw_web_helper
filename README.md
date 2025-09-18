@@ -571,6 +571,7 @@ git push origin feature/new-feature
 - **项目主页**：[GitHub Repository](https://github.com/w1249178256/xyzw_web_helper)
 - **问题反馈**：[GitHub Issues](https://github.com/w1249178256/xyzw_web_helper/issues)
 - **联系邮箱**：[发邮件给我](mailto:stevefeng59@gmail.com)
+- **TG群组**：欢迎加入](https://t.me/+SEDhXWN_OpNiMGI1)
 
 ---
 

@@ -468,7 +468,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, h, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog, NIcon } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
@@ -488,6 +488,16 @@ import {
   Link,
   TrashBin
 } from '@vicons/ionicons5'
+
+// 接收路由参数
+const props = defineProps({
+  token: String,
+  name: String,
+  server: String,
+  wsUrl: String,
+  api: String,
+  auto: Boolean
+})
 
 const router = useRouter()
 const message = useMessage()
@@ -1054,12 +1064,105 @@ const goToDashboard = () => {
   router.push('/dashboard')
 }
 
+// URL参数处理函数
+const handleUrlParams = async () => {
+  // 检查是否通过URL传递了token参数
+  if (props.token || props.api) {
+    try {
+      isImporting.value = true
+      let tokenResult = null
+
+      if (props.api) {
+        // 通过API获取token
+        console.log('通过API获取token:', props.api)
+        message.info('正在从API获取token...')
+
+        const response = await fetch(props.api, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors'
+        })
+
+        if (!response.ok) {
+          throw new Error(`API请求失败: ${response.status} ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        if (!data.token) {
+          throw new Error('API返回数据中未找到token字段')
+        }
+
+        // 使用API获取的token
+        tokenResult = tokenStore.importBase64Token(
+          props.name || data.name || '通过API导入的Token',
+          data.token,
+          {
+            server: props.server || data.server,
+            wsUrl: props.wsUrl,
+            sourceUrl: props.api,
+            importMethod: 'url'
+          }
+        )
+      } else if (props.token) {
+        // 直接使用URL中的token
+        console.log('直接导入URL token:', props.token.substring(0, 20) + '...')
+        message.info('正在导入token...')
+
+        tokenResult = tokenStore.importBase64Token(
+          props.name || '通过URL导入的Token',
+          props.token,
+          {
+            server: props.server,
+            wsUrl: props.wsUrl,
+            importMethod: 'url'
+          }
+        )
+      }
+
+      if (tokenResult && tokenResult.success) {
+        message.success(`Token "${tokenResult.tokenName}" 导入成功！`)
+
+        // 如果auto=true，自动选择并跳转到控制台
+        if (props.auto && tokenResult.token) {
+          tokenStore.selectToken(tokenResult.token.id)
+          message.success('正在跳转到控制台...')
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 1500)
+        } else {
+          // 清除URL参数，避免重复处理
+          router.replace('/tokens')
+        }
+      } else {
+        throw new Error(tokenResult?.message || 'Token导入失败')
+      }
+
+    } catch (error) {
+      console.error('URL参数处理失败:', error)
+      message.error(`导入失败: ${error.message}`)
+      // 清除URL参数
+      router.replace('/tokens')
+    } finally {
+      isImporting.value = false
+    }
+  }
+}
+
+// 监听路由参数变化
+watch(() => [props.token, props.api], handleUrlParams, { immediate: false })
+
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   tokenStore.initTokenStore()
 
-  // 如果没有token，显示导入表单
-  if (!tokenStore.hasTokens) {
+  // 处理URL参数
+  await handleUrlParams()
+
+  // 如果没有token且没有URL参数，显示导入表单
+  if (!tokenStore.hasTokens && !props.token && !props.api) {
     showImportForm.value = true
   }
 })

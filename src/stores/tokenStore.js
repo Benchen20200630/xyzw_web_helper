@@ -682,7 +682,8 @@ export const useTokenStore = defineStore('tokens', () => {
 
             return {
                 success: true,
-                data: newToken,
+                token: newToken,
+                tokenName: name,
                 message: `Token "${name}" 导入成功`,
                 details: `实际Token: ${displayToken}`
             }

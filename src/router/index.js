@@ -18,7 +18,15 @@ const routes = [
     meta: {
       title: 'Token管理',
       requiresToken: false
-    }
+    },
+    props: route => ({
+      token: route.query.token,
+      name: route.query.name,
+      server: route.query.server,
+      wsUrl: route.query.wsUrl,
+      api: route.query.api,
+      auto: route.query.auto === 'true'
+    })
   },
   {
     path: '/dashboard',

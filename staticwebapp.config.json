@@ -1,0 +1,10 @@
+{
+  "routes": [
+    {
+      "route": "/tokens",
+      "methods": [
+        "get"
+      ]
+    }
+  ]
+}

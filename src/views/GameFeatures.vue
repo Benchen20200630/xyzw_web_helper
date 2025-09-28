@@ -32,6 +32,7 @@
       class="feedback-section"
     />
 
+
     <!-- 功能模块网格 -->
     <div class="features-grid-section">
       <div class="container">
@@ -114,6 +115,7 @@ const connectionClass = computed(() => {
 const isConnected = computed(() => {
   return connectionStatus.value === 'connected'
 })
+
 
 // 方法
 const handleFeatureAction = (featureType) => {
@@ -340,6 +342,7 @@ onUnmounted(() => {
 .feedback-section {
   padding: var(--spacing-md) 0;
 }
+
 
 // 功能模块网格
 .features-grid-section {

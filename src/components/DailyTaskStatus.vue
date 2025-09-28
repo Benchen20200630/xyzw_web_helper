@@ -1,21 +1,18 @@
 <template>
-  <div class="daily-task-container">
-    <div class="task-header">
-      <div class="header-left">
-        <img
-          src="/icons/174023274867420.png"
-          alt="每日任务"
-          class="task-icon"
-        >
-        <div class="title-container">
-          <h3>每日任务</h3>
-          <p>当前进度</p>
-        </div>
+  <div class="status-card daily-task">
+    <div class="card-header">
+      <img
+        src="/icons/174023274867420.png"
+        alt="每日任务"
+        class="status-icon"
+      >
+      <div class="status-info">
+        <h3>每日任务</h3>
+        <p>当前进度</p>
       </div>
-
       <div class="header-right">
         <div
-          class="status-indicator"
+          class="status-badge"
           :class="{ completed: isFull }"
           @click="showTaskDetails = true"
         >
@@ -27,55 +24,64 @@
         </div>
 
         <button
-          class="settings-button"
+          class="settings-gear"
           @click="showSettings = true"
+          title="任务设置"
         >
-          <n-icon><Settings /></n-icon>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.240.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
         </button>
       </div>
     </div>
 
-    <!-- 进度条 -->
-    <div class="progress-container">
-      <n-progress
-        type="line"
-        :percentage="dailyPoint"
-        :height="8"
-        :border-radius="4"
-        :color="progressColor"
-        rail-color="#f3f4f6"
-      />
-    </div>
+    <!-- 卡片内容区域（自适应填充高度，居中展示） -->
+    <div class="card-content">
+      <!-- 进度条 -->
+      <div class="progress-container">
+        <n-progress
+          type="line"
+          :percentage="dailyPoint"
+          :height="8"
+          :border-radius="4"
+          :color="progressColor"
+          rail-color="#f3f4f6"
+        />
+      </div>
 
-    <!-- 提示信息 -->
-    <div class="info-container">
-      右上角小齿轮有惊喜
+      <!-- 提示信息 -->
+      <div class="info-container">
+        右上角小齿轮有惊喜
+      </div>
     </div>
 
     <!-- 一键执行按钮 -->
-    <button
-      class="execute-button"
-      :disabled="busy || !isConnected"
-      @click="runDailyFix"
-    >
-      <span
-        v-if="busy"
-        class="loading-text"
+    <div class="card-actions">
+      <button
+        class="action-button"
+        :disabled="busy || !isConnected"
+        @click="runDailyFix"
       >
-        <svg
-          class="loading-icon"
-          viewBox="0 0 24 24"
+        <span
+          v-if="busy"
+          class="loading-text"
         >
-          <path
-            fill="currentColor"
-            d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
-          />
-        </svg>
-        执行中...
-      </span>
-      <span v-else-if="!isConnected">WebSocket未连接</span>
-      <span v-else>一键补差</span>
-    </button>
+          <svg
+            class="loading-icon"
+            viewBox="0 0 24 24"
+          >
+            <path
+              fill="currentColor"
+              d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
+            />
+          </svg>
+          执行中...
+        </span>
+        <span v-else-if="!isConnected">WebSocket未连接</span>
+        <span v-else>一键补差</span>
+      </button>
+    </div>
 
     <!-- 任务设置模态框 -->
     <n-modal
@@ -967,101 +973,39 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-.daily-task-container {
-  background: var(--bg-primary);
-  border-radius: var(--border-radius-xl);
+// 使用GameStatus中的统一卡片样式
+.daily-task {
+  border-left: 4px solid #f0a020; // 每日任务专用颜色
+  display: flex;
+  flex-direction: column;
+  min-height: 240px; // 继续缩小整体高度
   padding: var(--spacing-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid var(--primary-color);
-  transition: all var(--transition-normal);
+  gap: var(--spacing-md);
 
-  &:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
+  .status-badge {
+    &.completed {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success-color);
+
+      .status-dot {
+        background: var(--success-color);
+      }
+    }
   }
 }
 
-.task-header {
+.card-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  gap: var(--spacing-md);
   margin-bottom: var(--spacing-lg);
 }
 
-.header-left {
+.daily-task .card-content {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.task-icon {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
-.title-container {
-  h3 {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    margin: 0 0 var(--spacing-xs) 0;
-  }
-
-  p {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    margin: 0;
-  }
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--border-radius-full);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition: all var(--transition-fast);
-
-  &:hover {
-    background: var(--bg-secondary);
-  }
-
-  &.completed {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success-color);
-  }
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.settings-button {
-  padding: var(--spacing-xs);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: var(--border-radius-medium);
-  transition: background var(--transition-fast);
-
-  &:hover {
-    background: var(--bg-tertiary);
-  }
+  flex-direction: column;
+  justify-content: center; // 使进度和提示在可用空间内居中
 }
 
 .progress-container {
@@ -1071,11 +1015,56 @@ onBeforeUnmount(() => {
 .info-container {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  margin-bottom: var(--spacing-md);
   text-align: center;
 }
 
-.execute-button {
+// 使用GameStatus中的统一按钮样式
+.card-actions {
+  margin-top: auto;
+  padding-top: var(--spacing-sm);
+}
+
+.status-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+}
+
+.settings-gear {
+  width: 28px;
+  height: 28px;
+  padding: var(--spacing-xs);
+  border: none;
+  border-radius: var(--border-radius-medium);
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: rotate(90deg);
+  }
+}
+
+.action-button {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   border: none;
@@ -1151,7 +1140,7 @@ onBeforeUnmount(() => {
 }
 
 .settings-content {
-  padding: var(--spacing-md) 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .settings-grid {

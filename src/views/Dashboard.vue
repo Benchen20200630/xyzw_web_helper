@@ -258,6 +258,7 @@ const currentDate = computed(() => {
   })
 })
 
+
 const statistics = computed(() => [
   {
     id: 1,
@@ -615,6 +616,7 @@ onMounted(async () => {
   display: flex;
   gap: var(--spacing-md);
 }
+
 
 // 统计区域
 .stats-section {

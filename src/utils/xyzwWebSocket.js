@@ -4,6 +4,7 @@
  */
 
 import { bonProtocol, g_utils } from './bonProtocol.js'
+import { wsLogger, gameLogger } from './logger.js'
 
 /** 生成 [min,max] 的随机整数 */
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
@@ -191,6 +192,7 @@ export class XyzwWebSocketClient {
     this.messageListener = null
     this.showMsg = false
     this.connected = false
+    this.isReconnecting = false // 重连状态标志
 
     this.promises = Object.create(null)
     this.registry = registerDefaultCommands(new CommandRegistry(this.utils, this.enc))
@@ -205,12 +207,12 @@ export class XyzwWebSocketClient {
 
   /** 初始化连接 */
   init() {
-    console.log(`🔗 连接: ${this.url.split('?')[0]}`)
+    wsLogger.info(`连接: ${this.url.split('?')[0]}`)
 
     this.socket = new WebSocket(this.url)
 
     this.socket.onopen = () => {
-      console.log(`✅ 连接成功`)
+      wsLogger.info('连接成功')
       this.connected = true
       // 启动心跳机制
       this._setupHeartbeat()
@@ -237,7 +239,7 @@ export class XyzwWebSocketClient {
 
               // 处理消息体解码（ProtoMsg会自动解码）
               if (packet instanceof Object && packet.rawData !== undefined) {
-                console.log('✅ ProtoMsg Blob消息，使用rawData:', packet.rawData)
+                gameLogger.verbose('ProtoMsg Blob消息，使用rawData:', packet.rawData)
               } else if (packet.body && this.shouldDecodeBody(packet.body)) {
                 try {
                   if (this.utils && this.utils.bon && this.utils.bon.decode) {
@@ -245,15 +247,15 @@ export class XyzwWebSocketClient {
                     const bodyBytes = this.convertToUint8Array(packet.body)
                     if (bodyBytes) {
                       const decodedBody = this.utils.bon.decode(bodyBytes)
-                      console.log('🔓 BON Blob解码成功:', packet.cmd, decodedBody)
+                      gameLogger.debug('BON Blob解码成功:', packet.cmd, decodedBody)
                       // 不修改packet.body，而是创建一个新的属性存储解码后的数据
                       packet.decodedBody = decodedBody
                     }
                   } else {
-                    console.warn('⚠️ BON解码器不可用 (Blob)')
+                    gameLogger.warn('BON解码器不可用 (Blob)')
                   }
                 } catch (error) {
-                  console.error('❌ BON Blob消息体解码失败:', error.message, packet.cmd)
+                  gameLogger.error('BON Blob消息体解码失败:', error.message, packet.cmd)
                 }
               }
 
@@ -270,22 +272,22 @@ export class XyzwWebSocketClient {
               this._handlePromiseResponse(packet)
 
             } catch (error) {
-              console.error('Blob解析失败:', error.message)
+              gameLogger.error('Blob解析失败:', error.message)
             }
           })
           return // 异步处理，直接返回
         } else {
-          console.warn('⚠️ 未知数据类型:', typeof evt.data, evt.data)
+          gameLogger.warn('未知数据类型:', typeof evt.data, evt.data)
           packet = evt.data
         }
 
         if (this.showMsg) {
-          console.log(`📨 收到消息:`, packet)
+          gameLogger.verbose('收到消息:', packet)
         }
 
         // 处理消息体解码（ProtoMsg会自动解码）
         if (packet instanceof Object && packet.rawData !== undefined) {
-          console.log('✅ ProtoMsg消息，使用rawData:', packet.rawData)
+          gameLogger.verbose('ProtoMsg消息，使用rawData:', packet.rawData)
         } else {
           // 处理可能存在_raw包装的情况
           const actualPacket = packet._raw || packet
@@ -297,7 +299,7 @@ export class XyzwWebSocketClient {
                 const bodyBytes = this.convertToUint8Array(actualPacket.body)
                 if (bodyBytes) {
                   const decodedBody = this.utils.bon.decode(bodyBytes)
-                  console.log('🔓 BON解码成功:', actualPacket.cmd || packet.cmd, decodedBody)
+                  gameLogger.debug('BON解码成功:', actualPacket.cmd || packet.cmd, decodedBody)
                   // 将解码后的数据存储到原始packet中
                   packet.decodedBody = decodedBody
                   // 如果有_raw结构，也存储到_raw中
@@ -306,10 +308,10 @@ export class XyzwWebSocketClient {
                   }
                 }
               } else {
-                console.warn('⚠️ BON解码器不可用')
+                gameLogger.warn('BON解码器不可用')
               }
             } catch (error) {
-              console.error('❌ BON消息体解码失败:', error.message, actualPacket.cmd || packet.cmd)
+              gameLogger.error('BON消息体解码失败:', error.message, actualPacket.cmd || packet.cmd)
             }
           }
         }
@@ -323,13 +325,13 @@ export class XyzwWebSocketClient {
         this._handlePromiseResponse(packet)
 
       } catch (error) {
-        console.error(`消息处理失败:`, error.message)
+        gameLogger.error('消息处理失败:', error.message)
       }
     }
 
     this.socket.onclose = (evt) => {
-      console.log(`🔌 WebSocket 连接关闭:`, evt.code, evt.reason)
-      console.log(`🔍 关闭详情:`, {
+      wsLogger.info(`WebSocket 连接关闭: ${evt.code} ${evt.reason || ''}`)
+      wsLogger.debug('关闭详情:', {
         code: evt.code,
         reason: evt.reason || '未提供原因',
         wasClean: evt.wasClean,
@@ -341,7 +343,7 @@ export class XyzwWebSocketClient {
     }
 
     this.socket.onerror = (error) => {
-      console.error(`❌ WebSocket 错误:`, error)
+      wsLogger.error('WebSocket 错误:', error)
       this.connected = false
       this._clearTimers()
       if (this.onError) this.onError(error)
@@ -401,7 +403,7 @@ export class XyzwWebSocketClient {
             arr[index] = value
           }
         }
-        console.log('🔄 转换对象格式body为Uint8Array:', arr.length, 'bytes')
+        gameLogger.debug('转换对象格式body为Uint8Array:', arr.length, 'bytes')
         return new Uint8Array(arr)
       }
     }
@@ -409,10 +411,31 @@ export class XyzwWebSocketClient {
     return null
   }
 
-  /** 重连 */
+  /** 重连（防重复连接版本） */
   reconnect() {
+    // 防止重复重连
+    if (this.isReconnecting) {
+      wsLogger.debug('重连已在进行中，跳过此次重连请求')
+      return
+    }
+
+    this.isReconnecting = true
+    wsLogger.info('开始WebSocket重连...')
+
+    // 先断开现有连接
     this.disconnect()
-    setTimeout(() => this.init(), 1000)
+
+    // 延迟重连，避免过于频繁
+    setTimeout(() => {
+      try {
+        this.init()
+      } finally {
+        // 无论成功或失败都重置重连状态
+        setTimeout(() => {
+          this.isReconnecting = false
+        }, 2000) // 2秒后允许下次重连
+      }
+    }, 1000)
   }
 
   /** 断开连接 */
@@ -428,9 +451,11 @@ export class XyzwWebSocketClient {
   /** 发送消息 */
   send(cmd, params = {}, options = {}) {
     if (!this.connected) {
-      console.warn(`⚠️ WebSocket 未连接，消息已入队: ${cmd}`)
-      if (!this.dialogStatus) {
+      wsLogger.warn(`WebSocket 未连接，消息已入队: ${cmd}`)
+      // 防止频繁重连
+      if (!this.dialogStatus && !this.isReconnecting) {
         this.dialogStatus = true
+        wsLogger.info('自动触发重连...')
         this.reconnect()
         setTimeout(() => { this.dialogStatus = false }, 2000)
       }
@@ -481,7 +506,7 @@ export class XyzwWebSocketClient {
 
   /** 发送心跳 */
   sendHeartbeat() {
-    console.log('💓 发送心跳消息')
+    wsLogger.verbose('发送心跳消息')
     this.send("heart_beat", {}, { respKey: "_sys/ack" })
   }
 
@@ -512,7 +537,7 @@ export class XyzwWebSocketClient {
     // 延迟3秒后开始发送第一个心跳，避免连接刚建立就发送
     setTimeout(() => {
       if (this.connected && this.socket?.readyState === WebSocket.OPEN) {
-        console.log('💓 开始发送首次心跳')
+        wsLogger.debug('开始发送首次心跳')
         this.sendHeartbeat()
       }
     }, 3000)
@@ -522,7 +547,7 @@ export class XyzwWebSocketClient {
       if (this.connected && this.socket?.readyState === WebSocket.OPEN) {
         this.sendHeartbeat()
       } else {
-        console.log('⚠️ 心跳检查失败: 连接状态异常')
+        wsLogger.warn('心跳检查失败: 连接状态异常')
       }
     }, this.heartbeatInterval)
   }
@@ -555,13 +580,13 @@ export class XyzwWebSocketClient {
         this.socket?.send(bin)
 
         if (this.showMsg || task.cmd === "heart_beat") {
-          console.log(`📤 发送消息: ${task.cmd}`, task.params)
+          wsLogger.wsMessage('local', task.cmd, false)
           if (this.showMsg) {
-            console.log(`🔐 原始数据:`, raw)
-            console.log(`🚀 编码后数据:`, bin)
-            console.log(`🔧 编码类型:`, typeof bin, bin instanceof Uint8Array ? '✅ Uint8Array (加密)' : '❌ String (明文)')
+            wsLogger.verbose('原始数据:', raw)
+            wsLogger.verbose('编码后数据:', bin)
+            wsLogger.verbose('编码类型:', typeof bin, bin instanceof Uint8Array ? 'Uint8Array (加密)' : 'String (明文)')
             if (bin instanceof Uint8Array && bin.length > 0) {
-              console.log(`🎯 加密验证: 前8字节 [${Array.from(bin.slice(0, 8)).join(', ')}]`)
+              wsLogger.verbose(`加密验证: 前8字节 [${Array.from(bin.slice(0, 8)).join(', ')}]`)
             }
           }
         }
@@ -571,7 +596,7 @@ export class XyzwWebSocketClient {
           try {
             task.onSent(task.respKey, task.cmd)
           } catch (error) {
-            console.warn('发送回调执行失败:', error)
+            wsLogger.warn('发送回调执行失败:', error)
           }
         }
 
@@ -579,7 +604,7 @@ export class XyzwWebSocketClient {
         if (task.sleep) await sleep(task.sleep)
 
       } catch (error) {
-        console.error(`❌ 发送消息失败: ${task.cmd}`, error)
+        wsLogger.error(`发送消息失败: ${task.cmd}`, error)
       }
     }, 50)
   }

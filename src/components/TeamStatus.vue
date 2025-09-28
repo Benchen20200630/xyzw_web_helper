@@ -7,7 +7,7 @@
           class="team-icon"
       >
       <div class="team-info">
-        <h3>队伍阵容</h3>
+        <h3>身份牌</h3>
         <p>当前使用的战斗阵容</p>
       </div>
 
@@ -36,6 +36,39 @@
           <span class="refresh-text">刷新</span>
         </button>
       </div>
+    </div>
+
+    <!-- 角色身份卡区域 -->
+    <div v-if="roleInfo && Object.keys(roleInfo).length > 0" class="role-profile-header" :class="rankInfo.class">
+      <div class="role-profile-content">
+        <!-- 头像区域 -->
+        <div class="avatar-container">
+          <img
+            :src="roleAvatar"
+            :alt="roleInfo.name || '角色'"
+            class="role-avatar"
+            @error="handleAvatarError"
+          />
+        </div>
+
+        <!-- 角色信息区域 -->
+        <div class="role-info-section">
+          <div class="role-name">{{ roleInfo.name || '未知角色' }}</div>
+          <div class="role-stats">
+            <span class="level-text">Lv.{{ roleInfo.level || 1 }}</span>
+            <span class="power-value">战力 {{ formatPower(roleInfo.power) }}</span>
+          </div>
+        </div>
+
+        <!-- 段位信息 -->
+        <div class="rank-section">
+          <div class="rank-icon">{{ rankInfo.icon }}</div>
+          <div class="rank-title">{{ rankInfo.title }}</div>
+        </div>
+      </div>
+
+      <!-- 炫光边框 -->
+      <div class="glow-border"></div>
     </div>
 
     <div class="card-content">
@@ -86,6 +119,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage, NTag } from 'naive-ui'
 
+
 /**
  * 集成英雄字典（游戏ID -> { name, type }）
  * 你也可以独立出一个 heroDict.ts 后 import；按你的要求，这里整合到同一文件。
@@ -123,10 +157,172 @@ const switching = ref(false)
 const currentTeam = ref(1)
 const availableTeams = ref([1, 2, 3, 4])
 
+// —— 角色身份卡相关状态 ——
+// 默认头像列表（当角色头像为空时随机选择）
+const defaultAvatars = [
+  '/icons/1733492491706148.png',
+  '/icons/1733492491706152.png',
+  '/icons/1736425783912140.png',
+  '/icons/173746572831736.png',
+  '/icons/174023274867420.png'
+]
+
+const roleAvatar = ref('')
+const selectedDefaultAvatar = ref('')
+
+// 战力段位配置
+const powerRanks = [
+  {
+    min: 0,
+    max: 1000000,
+    title: '初出茅庐',
+    description: '初登江湖，尚显青涩。',
+    icon: '🌱',
+    class: 'rank-beginner',
+    color: '#6b7280'
+  },
+  {
+    min: 1000000,
+    max: 10000000,
+    title: '小有名气',
+    description: '已有名声，立足江湖。',
+    icon: '⚔️',
+    class: 'rank-known',
+    color: '#10b981'
+  },
+  {
+    min: 10000000,
+    max: 100000000,
+    title: '出入江湖',
+    description: '身经百战，渐成人物。',
+    icon: '🗡️',
+    class: 'rank-veteran',
+    color: '#3b82f6'
+  },
+  {
+    min: 100000000,
+    max: 500000000,
+    title: '纵横四方',
+    description: '武艺精进，名震一域。',
+    icon: '🏹',
+    class: 'rank-master',
+    color: '#8b5cf6'
+  },
+  {
+    min: 500000000,
+    max: 2000000000,
+    title: '盖世豪杰',
+    description: '豪迈英勇，威震四方。',
+    icon: '⚡',
+    class: 'rank-hero',
+    color: '#f59e0b'
+  },
+  {
+    min: 2000000000,
+    max: 4000000000,
+    title: '一方枭雄',
+    description: '才智兼备，呼风唤雨。',
+    icon: '👑',
+    class: 'rank-overlord',
+    color: '#ef4444'
+  },
+  {
+    min: 4000000000,
+    max: 6000000000,
+    title: '睥睨江湖',
+    description: '实力深不可测，世人仰望。',
+    icon: '🔱',
+    class: 'rank-supreme',
+    color: '#ec4899'
+  },
+  {
+    min: 6000000000,
+    max: 9000000000,
+    title: '独霸天下',
+    description: '威势登峰造极，号令天下。',
+    icon: '⚜️',
+    class: 'rank-emperor',
+    color: '#dc2626'
+  },
+  {
+    min: 9000000000,
+    max: 15000000000,
+    title: '不世之尊',
+    description: '超凡入圣，江湖传说。',
+    icon: '💎',
+    class: 'rank-legend',
+    color: '#7c3aed'
+  },
+  {
+    min: 15000000000,
+    max: Infinity,
+    title: '无极至尊',
+    description: '超越传说，无人能及。',
+    icon: '🌟',
+    class: 'rank-infinite',
+    color: '#fbbf24'
+  }
+]
+
 // WebSocket连接状态
 const wsStatus = computed(() => {
   if (!tokenStore.selectedToken) return 'disconnected'
   return tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)
+})
+
+// —— 角色身份卡计算属性 ——
+// 角色信息计算属性
+const roleInfo = computed(() => {
+  const gameData = tokenStore.gameData
+  if (gameData && gameData.roleInfo && gameData.roleInfo.role) {
+    const role = gameData.roleInfo.role
+    return {
+      roleId: role.roleId,
+      name: role.name,
+      headImg: role.headImg,
+      level: role.level,
+      power: role.power || role.fighting || 0, // 使用power或fighting字段作为战力
+      exp: role.exp,
+      vip: role.vip,
+      diamond: role.diamond,
+      gold: role.gold,
+      energy: role.energy,
+      maxEnergy: role.maxEnergy
+    }
+  }
+  return {}
+})
+
+// 计算当前段位信息
+const rankInfo = computed(() => {
+  const power = roleInfo.value.power || 0
+  const rank = powerRanks.find(rank => power >= rank.min && power < rank.max)
+  return rank || powerRanks[0]
+})
+
+// 计算下一个段位门槛
+const nextRankThreshold = computed(() => {
+  const currentRankIndex = powerRanks.findIndex(rank => rank === rankInfo.value)
+  if (currentRankIndex >= 0 && currentRankIndex < powerRanks.length - 1) {
+    return powerRanks[currentRankIndex + 1].min
+  }
+  return null
+})
+
+// 计算当前段位的进度百分比
+const progressPercentage = computed(() => {
+  const power = roleInfo.value.power || 0
+  const currentRank = rankInfo.value
+
+  if (!nextRankThreshold.value) {
+    return 100 // 已达最高段位
+  }
+
+  const rangeSize = nextRankThreshold.value - currentRank.min
+  const currentProgress = power - currentRank.min
+  const percentage = Math.min(100, Math.max(0, (currentProgress / rangeSize) * 100))
+
+  return Math.round(percentage)
 })
 
 // —— 缓存优先的 presetTeam 原始数据 ——
@@ -194,6 +390,7 @@ const currentTeamHeroes = computed(() => {
   return heroes
 })
 
+
 // —— 命令封装 ——
 const executeGameCommand = async (tokenId, cmd, params = {}, description = '', timeout = 8000) => {
   try {
@@ -260,10 +457,66 @@ const selectTeam = async (teamId) => {
 
 const refreshTeamData = async (force = false) => { await getTeamInfoWithCache(force) }
 
+// —— 角色身份卡方法 ——
+// 格式化战力数值
+const formatPower = (power) => {
+  if (!power || power === 0) return '0'
+
+  const yi = 100000000      // 1亿
+  const wan = 10000         // 1万
+
+  if (power >= yi) {
+    const value = (power / yi).toFixed(1)
+    return `${value}亿`
+  } else if (power >= wan) {
+    const value = (power / wan).toFixed(1)
+    return `${value}万`
+  } else {
+    return power.toLocaleString()
+  }
+}
+
+// 头像处理
+const initializeAvatar = () => {
+  if (roleInfo.value.headImg) {
+    roleAvatar.value = roleInfo.value.headImg
+  } else {
+    // 如果没有头像，生成一个稳定的随机头像
+    if (!selectedDefaultAvatar.value) {
+      const roleId = roleInfo.value.roleId || roleInfo.value.name || 'default'
+      const hash = Array.from(roleId.toString()).reduce((acc, char) => {
+        return acc + char.charCodeAt(0)
+      }, 0)
+      const index = hash % defaultAvatars.length
+      selectedDefaultAvatar.value = defaultAvatars[index]
+    }
+    roleAvatar.value = selectedDefaultAvatar.value
+  }
+}
+
+// 头像加载失败处理
+const handleAvatarError = () => {
+  if (!selectedDefaultAvatar.value) {
+    const index = Math.floor(Math.random() * defaultAvatars.length)
+    selectedDefaultAvatar.value = defaultAvatars[index]
+  }
+  roleAvatar.value = selectedDefaultAvatar.value
+}
+
 // —— 首次挂载：检查连接状态后获取数据 ——
 onMounted(async () => {
-  // 组件挂载时获取队伍信息
+  // 初始化角色头像
+  initializeAvatar()
+
+  // 组件挂载时获取队伍信息和角色信息
   if (tokenStore.selectedToken && wsStatus.value === 'connected') {
+    // 优先获取角色信息
+    try {
+      await tokenStore.sendMessage(tokenStore.selectedToken.id, 'role_getroleinfo')
+    } catch (error) {
+      console.warn('获取角色信息失败:', error)
+    }
+
     await refreshTeamData(false)
     updateAvailableTeams(); updateCurrentTeam()
     if (!presetTeamRaw.value) {
@@ -311,17 +564,32 @@ watch(() => tokenStore.selectedToken, async (newToken, oldToken) => {
 
 // —— 监听缓存变化（其他地方写入也能联动） ——
 watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTeam() }, { deep: true })
+
+// —— 监听角色信息变化 ——
+watch(() => roleInfo.value, initializeAvatar, { deep: true, immediate: true })
+
 </script>
 
 <style scoped lang="scss">
 .team-status-card {
+  position: relative;
   background: var(--bg-primary);
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-lg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all var(--transition-normal);
-  &:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); transform: translateY(-2px); }
+  overflow: hidden;
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+
+    .glow-border {
+      opacity: 1;
+    }
+  }
 }
+
 .card-header { display: flex; align-items: flex-start; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
 .team-icon { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 .team-info { flex: 1;
@@ -480,16 +748,16 @@ watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTe
 .empty-team { text-align: center; color: var(--text-secondary); p { margin: 0; font-size: var(--font-size-sm); }
 }
 @media (max-width: 768px) {
-  .card-header { 
-    flex-direction: column; 
-    gap: var(--spacing-sm); 
-    text-align: center; 
+  .card-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    text-align: center;
   }
-  .team-selector { 
-    justify-content: center; 
+  .team-selector {
+    justify-content: center;
   }
-  .heroes-inline { 
-    justify-content: center; 
+  .heroes-inline {
+    justify-content: center;
     gap: var(--spacing-xs);
   }
   .hero-item {
@@ -502,6 +770,329 @@ watch(() => presetTeamRaw.value, () => { updateAvailableTeams(); updateCurrentTe
   .hero-name {
     font-size: 10px;
     max-width: 45px;
+  }
+}
+
+// 角色身份卡区域
+.role-profile-header {
+  position: relative;
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-large);
+  background: linear-gradient(135deg,
+    var(--bg-primary) 0%,
+    rgba(102, 126, 234, 0.03) 100%
+  );
+  overflow: hidden;
+}
+
+.role-profile-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  position: relative;
+  z-index: 3;
+  height: 60px;
+  min-width: 0; // 确保弹性布局正确工作
+}
+
+.avatar-container {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.role-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  object-fit: cover;
+  background: var(--bg-tertiary);
+}
+
+.role-info-section {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+}
+
+.role-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.role-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.level-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+}
+
+.power-value {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-color);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.rank-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--border-radius-medium);
+  backdrop-filter: blur(10px);
+  min-width: 90px;
+  max-width: 140px;
+  white-space: nowrap;
+}
+
+.rank-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rank-title {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: visible;
+  line-height: 1.2;
+}
+
+
+// 炫光边框
+.glow-border {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+    rgba(102, 126, 234, 0.4),
+    rgba(118, 75, 162, 0.4),
+    rgba(254, 202, 87, 0.4),
+    rgba(102, 126, 234, 0.4)
+  );
+  background-size: 300% 300%;
+  border-radius: var(--border-radius-large);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+  animation: glowAnimation 3s ease-in-out infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: var(--bg-primary);
+    border-radius: calc(var(--border-radius-large) - 2px);
+    z-index: 2;
+  }
+}
+
+@keyframes glowAnimation {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+// 段位特定样式
+.rank-beginner {
+  .role-profile-header {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  }
+}
+
+.rank-known {
+  .role-profile-header {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  }
+}
+
+.rank-veteran {
+  .role-profile-header {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  }
+}
+
+.rank-master {
+  .role-profile-header {
+    background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+  }
+}
+
+.rank-hero {
+  .role-profile-header {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  }
+}
+
+.rank-overlord {
+  .role-profile-header {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  }
+}
+
+.rank-supreme {
+  .role-profile-header {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+  }
+}
+
+.rank-emperor {
+  .role-profile-header {
+    background: linear-gradient(135deg, #fee2e2 0%, #dc2626 20%);
+  }
+}
+
+.rank-legend {
+  .role-profile-header {
+    background: linear-gradient(135deg, #ede9fe 0%, #7c3aed 30%);
+  }
+}
+
+.rank-infinite {
+  .role-profile-header {
+    background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 30%, #f59e0b 100%);
+    animation: shimmer 3s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+// 深色主题优化
+[data-theme="dark"] .team-status-card {
+  .role-profile-header {
+    background: linear-gradient(135deg,
+      var(--bg-secondary) 0%,
+      rgba(102, 126, 234, 0.08) 100%
+    );
+  }
+
+  .role-name {
+    color: #ffffff;
+  }
+
+  .level-text {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .power-value {
+    color: #60a5fa;
+  }
+
+  .rank-title {
+    color: #ffffff;
+  }
+
+  .rank-section {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  // 深色主题段位背景优化
+  &.rank-beginner .role-profile-header {
+    background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  }
+
+  &.rank-known .role-profile-header {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  }
+
+  &.rank-veteran .role-profile-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+  }
+
+  &.rank-master .role-profile-header {
+    background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
+  }
+
+  &.rank-hero .role-profile-header {
+    background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+  }
+
+  &.rank-overlord .role-profile-header {
+    background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%);
+  }
+
+  &.rank-supreme .role-profile-header {
+    background: linear-gradient(135deg, #be185d 0%, #db2777 100%);
+  }
+
+  &.rank-emperor .role-profile-header {
+    background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%);
+  }
+
+  &.rank-legend .role-profile-header {
+    background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
+  }
+
+  &.rank-infinite .role-profile-header {
+    background: linear-gradient(135deg, #92400e 0%, #d97706 50%, #f59e0b 100%);
+  }
+}
+
+@media (max-width: 768px) {
+  .role-profile-content {
+    gap: var(--spacing-xs);
+    height: 50px;
+  }
+
+  .role-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .role-info-section {
+    max-width: 120px;
+  }
+
+  .role-name {
+    font-size: 12px;
+  }
+
+  .level-text, .power-value {
+    font-size: 10px;
+  }
+
+  .rank-section {
+    max-width: 70px;
+    padding: 2px 6px;
+  }
+
+  .rank-title {
+    font-size: 10px;
   }
 }
 </style>

@@ -1,16 +1,14 @@
 <template>
-  <div class="tower-status-card">
+  <div class="status-card tower-status">
     <div class="card-header">
-      <div class="header-info">
-        <img
-          src="/icons/1733492491706148.png"
-          alt="爬塔图标"
-          class="tower-icon"
-        >
-        <div class="tower-info">
-          <h3>咸将塔</h3>
-          <p>一个不小心就过了</p>
-        </div>
+      <img
+        src="/icons/1733492491706148.png"
+        alt="爬塔图标"
+        class="status-icon"
+      >
+      <div class="status-info">
+        <h3>咸将塔</h3>
+        <p>一个不小心就过了</p>
       </div>
       <div class="energy-display">
         <img
@@ -294,53 +292,27 @@ onMounted(() => {
 
 <style scoped lang="scss">
 
-.tower-status-card {
-  background: var(--bg-primary);
-  border-radius: var(--border-radius-xl);
+// 使用GameStatus中的统一卡片样式
+.tower-status {
+  border-left: 4px solid #6366f1; // 咸将塔专用颜色
+  display: flex;
+  flex-direction: column;
+  min-height: 240px; // 继续缩小整体高度
   padding: var(--spacing-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all var(--transition-normal);
-  border-left: 4px solid #6366f1;
-
-  &:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-  }
 }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--spacing-lg);
-}
-
-.header-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.tower-icon {
+.status-icon {
   width: 32px;
   height: 32px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
-.tower-info {
-  h3 {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    margin: 0 0 var(--spacing-xs) 0;
-  }
-
-  p {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    margin: 0;
-  }
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .energy-display {
@@ -350,6 +322,7 @@ onMounted(() => {
   background: var(--bg-tertiary);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius-medium);
+  margin-left: auto; // 使小鱼干展示靠右
 }
 
 .energy-icon {
@@ -367,8 +340,11 @@ onMounted(() => {
 .card-content {
   background: var(--bg-tertiary);
   border-radius: var(--border-radius-medium);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  flex: 1; // 占据可用空间，使上下分布更均衡
+  display: flex;
+  align-items: center; // 内容在中部更居中
 }
 
 .tower-floor {
@@ -390,10 +366,11 @@ onMounted(() => {
 }
 
 .card-actions {
-  margin-top: var(--spacing-lg);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  margin-top: auto;
+  padding-top: var(--spacing-sm);
 }
 
 

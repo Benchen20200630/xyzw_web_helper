@@ -3,6 +3,7 @@ import {ref, computed} from 'vue'
 import {bonProtocol, GameMessages, g_utils} from '../utils/bonProtocol.js'
 import {XyzwWebSocketClient} from '../utils/xyzwWebSocket.js'
 import {findAnswer} from '../utils/studyQuestionsFromJSON.js'
+import {tokenLogger, wsLogger, gameLogger} from '../utils/logger.js'
 
 /**
  * 重构后的Token管理存储
@@ -13,6 +14,8 @@ export const useTokenStore = defineStore('tokens', () => {
     const gameTokens = ref(JSON.parse(localStorage.getItem('gameTokens') || '[]'))
     const selectedTokenId = ref(localStorage.getItem('selectedTokenId') || null)
     const wsConnections = ref({}) // WebSocket连接状态
+    const connectionLocks = ref(new Map()) // 连接操作锁，防止竞态条件
+    const activeConnections = ref(new Map()) // 跨标签页连接协调
 
     // 游戏数据存储
     const gameData = ref({
@@ -96,21 +99,62 @@ export const useTokenStore = defineStore('tokens', () => {
         return true
     }
 
-    const selectToken = (tokenId) => {
+    const selectToken = (tokenId, forceReconnect = false) => {
         const token = gameTokens.value.find(t => t.id === tokenId)
-        if (token) {
-            selectedTokenId.value = tokenId
-            localStorage.setItem('selectedTokenId', tokenId)
-
-            // 更新最后使用时间
-            updateToken(tokenId, {lastUsed: new Date().toISOString()})
-
-            // 自动建立WebSocket连接
-            createWebSocketConnection(tokenId, token.token, token.wsUrl)
-
-            return token
+        if (!token) {
+            return null
         }
-        return null
+
+        // 检查是否已经是当前选中的token
+        const isAlreadySelected = selectedTokenId.value === tokenId
+        const existingConnection = wsConnections.value[tokenId]
+        const isConnected = existingConnection?.status === 'connected'
+        const isConnecting = existingConnection?.status === 'connecting'
+
+        tokenLogger.debug(`选择Token: ${tokenId}`, {
+            isAlreadySelected,
+            isConnected,
+            isConnecting,
+            forceReconnect
+        })
+
+        // 更新选中状态
+        selectedTokenId.value = tokenId
+        localStorage.setItem('selectedTokenId', tokenId)
+
+        // 更新最后使用时间
+        updateToken(tokenId, {lastUsed: new Date().toISOString()})
+
+        // 智能连接判断
+        const shouldCreateConnection =
+            forceReconnect ||                    // 强制重连
+            (!isAlreadySelected) ||              // 首次选择此token
+            (!existingConnection) ||             // 没有现有连接
+            (existingConnection.status === 'disconnected') ||  // 连接已断开
+            (existingConnection.status === 'error')            // 连接出错
+
+        if (shouldCreateConnection) {
+            if (isAlreadySelected && !forceReconnect) {
+                wsLogger.info(`Token已选中但无连接，创建新连接: ${tokenId}`)
+            } else if (!isAlreadySelected) {
+                wsLogger.info(`切换到新Token，创建连接: ${tokenId}`)
+            } else if (forceReconnect) {
+                wsLogger.info(`强制重连Token: ${tokenId}`)
+            }
+
+            // 创建WebSocket连接
+            createWebSocketConnection(tokenId, token.token, token.wsUrl)
+        } else {
+            if (isConnected) {
+                wsLogger.debug(`Token已连接，跳过连接创建: ${tokenId}`)
+            } else if (isConnecting) {
+                wsLogger.debug(`Token连接中，跳过连接创建: ${tokenId}`)
+            } else {
+                wsLogger.debug(`Token已选中且有连接，跳过连接创建: ${tokenId}`)
+            }
+        }
+
+        return token
     }
 
     // 辅助函数：分析数据结构
@@ -166,12 +210,12 @@ export const useTokenStore = defineStore('tokens', () => {
         scanForTeamData(data)
 
         if (teamFields.length > 0) {
-            console.log(`👥 找到 ${teamFields.length} 个队伍相关字段:`, teamFields)
+            gameLogger.debug(`找到 ${teamFields.length} 个队伍相关字段:`, teamFields)
 
             // 尝试更新游戏数据
             teamFields.forEach(field => {
                 if (field.key === 'presetTeamInfo' || field.path.includes('presetTeamInfo')) {
-                    console.log(`👥 发现预设队伍信息，准备更新:`, field.value)
+                    gameLogger.debug(`发现预设队伍信息，准备更新:`, field.value)
                     if (!gameData.value.presetTeam) {
                         gameData.value.presetTeam = {}
                     }
@@ -187,11 +231,11 @@ export const useTokenStore = defineStore('tokens', () => {
     // 处理学习答题响应的核心函数
     const handleStudyResponse = async (tokenId, body) => {
         try {
-            console.log('📚 开始处理学习答题响应:', body)
+            gameLogger.info('开始处理学习答题响应')
 
             const connection = wsConnections.value[tokenId]
             if (!connection || connection.status !== 'connected' || !connection.client) {
-                console.error('❌ WebSocket连接不可用，无法进行答题')
+                gameLogger.error('WebSocket连接不可用，无法进行答题')
                 return
             }
 
@@ -200,16 +244,16 @@ export const useTokenStore = defineStore('tokens', () => {
             const studyId = body.role?.study?.id
 
             if (!questionList || !Array.isArray(questionList)) {
-                console.error('❌ 未找到题目列表')
+                gameLogger.error('未找到题目列表')
                 return
             }
 
             if (!studyId) {
-                console.error('❌ 未找到学习ID')
+                gameLogger.error('未找到学习ID')
                 return
             }
 
-            console.log(`📝 找到 ${questionList.length} 道题目，学习ID: ${studyId}`)
+            gameLogger.info(`找到 ${questionList.length} 道题目，学习ID: ${studyId}`)
 
             // 更新答题状态
             gameData.value.studyStatus = {
@@ -226,17 +270,16 @@ export const useTokenStore = defineStore('tokens', () => {
                 const questionText = question.question
                 const questionId = question.id
 
-                console.log(`📖 题目 ${i + 1}: ${questionText}`)
+                gameLogger.debug(`题目 ${i + 1}: ${questionText.substring(0, 20)}...`)
 
                 // 查找答案（异步）
                 let answer = await findAnswer(questionText)
 
                 if (answer === null) {
-                    // 如果没有找到答案，默认选择选项1
                     answer = 1
-                    console.log(`⚠️ 未找到匹配答案，使用默认答案: ${answer}`)
+                    gameLogger.verbose(`未找到匹配答案，使用默认答案: ${answer}`)
                 } else {
-                    console.log(`✅ 找到答案: ${answer}`)
+                    gameLogger.debug(`找到答案: ${answer}`)
                 }
 
                 // 发送答案
@@ -246,9 +289,9 @@ export const useTokenStore = defineStore('tokens', () => {
                         option: [answer],
                         questionId: [questionId]
                     })
-                    console.log(`📤 已提交题目 ${i + 1} 的答案: ${answer}`)
+                    gameLogger.verbose(`已提交题目 ${i + 1} 的答案: ${answer}`)
                 } catch (error) {
-                    console.error(`❌ 提交答案失败 (题目 ${i + 1}):`, error)
+                    gameLogger.error(`提交答案失败 (题目 ${i + 1}):`, error)
                 }
 
                 // 更新已回答题目数量
@@ -262,7 +305,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
             // 等待一下让所有答案提交完成，然后领取奖励
             setTimeout(() => {
-                console.log('🎁 开始领取答题奖励...')
+                gameLogger.info('开始领取答题奖励')
 
                 // 更新状态为正在领取奖励
                 gameData.value.studyStatus.status = 'claiming_rewards'
@@ -275,13 +318,13 @@ export const useTokenStore = defineStore('tokens', () => {
                             rewardId: rewardId
                         })
                         rewardPromises.push(promise)
-                        console.log(`🎯 已发送奖励领取请求: rewardId=${rewardId}`)
+                        gameLogger.verbose(`已发送奖励领取请求: rewardId=${rewardId}`)
                     } catch (error) {
-                        console.error(`❌ 发送奖励领取请求失败 (rewardId=${rewardId}):`, error)
+                        gameLogger.error(`发送奖励领取请求失败 (rewardId=${rewardId}):`, error)
                     }
                 }
 
-                console.log('🎊 一键答题完成！已尝试领取所有奖励')
+                gameLogger.info('一键答题完成！已尝试领取所有奖励')
 
                 // 更新状态为完成
                 gameData.value.studyStatus.status = 'completed'
@@ -301,16 +344,16 @@ export const useTokenStore = defineStore('tokens', () => {
                 setTimeout(() => {
                     try {
                         connection.client.send('role_getroleinfo', {})
-                        console.log('📊 已请求更新角色信息')
+                        gameLogger.debug('已请求更新角色信息')
                     } catch (error) {
-                        console.error('❌ 请求角色信息更新失败:', error)
+                        gameLogger.error('请求角色信息更新失败:', error)
                     }
                 }, 1000)
 
             }, 500) // 延迟500ms后领取奖励
 
         } catch (error) {
-            console.error('❌ 处理学习答题响应失败:', error)
+            gameLogger.error('处理学习答题响应失败:', error)
         }
     }
 
@@ -340,7 +383,7 @@ export const useTokenStore = defineStore('tokens', () => {
     const handleGameMessage = (tokenId, message) => {
         try {
             if (!message || message.error) {
-                console.warn(`⚠️ 消息处理跳过 [${tokenId}]:`, message?.error || '无效消息')
+                gameLogger.warn(`消息处理跳过 [${tokenId}]:`, message?.error || '无效消息')
                 return
             }
 
@@ -350,21 +393,64 @@ export const useTokenStore = defineStore('tokens', () => {
                 message.decodedBody !== undefined ? message.decodedBody :
                     message.body
 
-            // 简化消息处理日志（移除详细结构信息）
-            if (cmd !== '_sys/ack') { // 过滤心跳消息
-                console.log(`📋 处理 [${tokenId}] ${cmd}`, body ? '✓' : '✗')
-            }
+            gameLogger.gameMessage(tokenId, cmd, !!body)
 
             // 过滤塔相关消息的详细打印
 
             // 处理角色信息 - 支持多种可能的响应命令
             if (cmd === 'role_getroleinfo' || cmd === 'role_getroleinforesp' || cmd.includes('role') && cmd.includes('info')) {
-                console.log(`📊 角色信息 [${tokenId}]`)
+                gameLogger.debug(`角色信息响应: ${tokenId}`)
 
                 if (body) {
                     gameData.value.roleInfo = body
                     gameData.value.lastUpdated = new Date().toISOString()
-                    console.log('📊 角色信息已更新')
+                    gameLogger.verbose('角色信息已更新')
+
+                    // 详细打印角色信息 - 添加日志查看获取的数据
+                    console.group(`🎮 [${tokenId}] role_getroleinfo 响应详情`)
+                    console.log('📊 完整响应数据:', JSON.stringify(body, null, 2))
+
+                    if (body.role) {
+                        console.log('👤 角色基本信息:', {
+                            roleId: body.role.roleId,
+                            name: body.role.name,
+                            level: body.role.level,
+                            exp: body.role.exp,
+                            vip: body.role.vip,
+                            diamond: body.role.diamond,
+                            gold: body.role.gold,
+                            energy: body.role.energy,
+                            maxEnergy: body.role.maxEnergy
+                        })
+
+                        if (body.role.study) {
+                            console.log('📚 答题信息:', body.role.study)
+                        }
+
+                        if (body.role.tower) {
+                            console.log('🏗️ 爬塔信息:', body.role.tower)
+                        }
+
+                        if (body.role.bag) {
+                            console.log('🎒 背包信息:', body.role.bag)
+                        }
+
+                        if (body.role.equips) {
+                            console.log('⚔️ 装备信息:', body.role.equips)
+                        }
+                    }
+
+                    if (body.heros && Array.isArray(body.heros)) {
+                        console.log('🦸 英雄信息:', body.heros.map(hero => ({
+                            heroId: hero.heroId,
+                            name: hero.name || '未知',
+                            level: hero.level,
+                            star: hero.star,
+                            fighting: hero.fighting
+                        })))
+                    }
+
+                    console.groupEnd()
 
                     // 检查答题完成状态
                     if (body.role?.study?.maxCorrectNum !== undefined) {
@@ -379,7 +465,7 @@ export const useTokenStore = defineStore('tokens', () => {
                         gameData.value.studyStatus.isCompleted = isStudyCompleted
                         gameData.value.studyStatus.maxCorrectNum = maxCorrectNum
 
-                        console.log(`📚 答题状态更新: maxCorrectNum=${maxCorrectNum}, 完成状态=${isStudyCompleted}`)
+                        gameLogger.info(`答题状态更新: maxCorrectNum=${maxCorrectNum}, 完成状态=${isStudyCompleted}`)
                     }
 
                     // 检查塔信息
@@ -387,7 +473,7 @@ export const useTokenStore = defineStore('tokens', () => {
                         // 塔信息已更新
                     }
                 } else {
-                    console.log('📊 角色信息响应为空')
+                    gameLogger.debug('角色信息响应为空')
                 }
             }
 
@@ -395,7 +481,7 @@ export const useTokenStore = defineStore('tokens', () => {
             else if (cmd === 'legion_getinfo') {
                 if (body) {
                     gameData.value.legionInfo = body
-                    console.log('🏛️ 军团信息已更新')
+                    gameLogger.verbose('军团信息已更新')
                 }
             }
 
@@ -405,7 +491,7 @@ export const useTokenStore = defineStore('tokens', () => {
                 cmd === 'presetteam_saveteam' || cmd === 'presetteam_saveteamresp' ||
                 cmd === 'role_gettargetteam' || cmd === 'role_gettargetteamresp' ||
                 (cmd && cmd.includes('presetteam')) || (cmd && cmd.includes('team'))) {
-                console.log(`👥 队伍信息 [${tokenId}] ${cmd}`)
+                gameLogger.debug(`队伍信息响应: ${tokenId} ${cmd}`)
 
                 if (body) {
                     // 更新队伍数据
@@ -434,15 +520,15 @@ export const useTokenStore = defineStore('tokens', () => {
                     }
 
                     gameData.value.lastUpdated = new Date().toISOString()
-                    console.log('👥 队伍信息已更新')
+                    gameLogger.verbose('队伍信息已更新')
 
                     // 简化队伍数据结构日志
                     if (gameData.value.presetTeam.presetTeamInfo) {
                         const teamCount = Object.keys(gameData.value.presetTeam.presetTeamInfo).length
-                        console.log(`👥 队伍数量: ${teamCount}`)
+                        gameLogger.debug(`队伍数量: ${teamCount}`)
                     }
                 } else {
-                    console.log('👥 队伍信息响应为空')
+                    gameLogger.debug('队伍信息响应为空')
                 }
             }
 
@@ -526,14 +612,14 @@ export const useTokenStore = defineStore('tokens', () => {
             // 处理学习答题响应 - 一键答题功能
             else if (cmd === 'studyresp' || cmd === 'study_startgame' || cmd === 'study_startgameresp') {
                 if (body) {
-                    console.log(`📚 学习答题响应 [${tokenId}]`, body)
+                    gameLogger.info(`学习答题响应: ${tokenId}`)
                     handleStudyResponse(tokenId, body)
                 }
             }
 
             // 处理加钟相关响应
             else if (cmd === 'system_mysharecallback' || cmd === 'syncresp' || cmd === 'system_claimhangupreward' || cmd === 'system_claimhanguprewardresp') {
-                console.log(`🕐 加钟/挂机 [${tokenId}] ${cmd}`)
+                gameLogger.debug(`加钟/挂机响应: ${tokenId} ${cmd}`)
 
                 // 加钟操作完成后，延迟更新角色信息
                 if (cmd === 'syncresp' || cmd === 'system_mysharecallback') {
@@ -559,16 +645,16 @@ export const useTokenStore = defineStore('tokens', () => {
             // 处理心跳响应（静默处理，不打印日志）
             else if (cmd === '_sys/ack') {
                 // 心跳响应 - 静默处理
-                return
+
             }
 
             // 处理其他消息
             else {
-                console.log(`📋 游戏消息 [${tokenId}] ${cmd}`)
+                gameLogger.verbose(`其他消息: ${tokenId} ${cmd}`)
 
                 // 特别关注队伍相关的未处理消息
                 if (cmd && (cmd.includes('team') || cmd.includes('preset') || cmd.includes('formation'))) {
-                    console.log(`👥 未处理队伍消息 [${tokenId}] ${cmd}`)
+                    gameLogger.debug(`未处理队伍消息: ${tokenId} ${cmd}`)
 
                     // 尝试自动解析队伍数据
                     if (body && typeof body === 'object') {
@@ -583,7 +669,7 @@ export const useTokenStore = defineStore('tokens', () => {
             }
 
         } catch (error) {
-            console.error(`处理消息失败 [${tokenId}]:`, error.message)
+            gameLogger.error(`处理消息失败 [${tokenId}]:`, error)
         }
     }
 
@@ -696,23 +782,120 @@ export const useTokenStore = defineStore('tokens', () => {
         }
     }
 
-    // WebSocket连接管理
-    const createWebSocketConnection = (tokenId, base64Token, customWsUrl = null) => {
-        if (wsConnections.value[tokenId]) {
-            closeWebSocketConnection(tokenId)
+    // 连接管理辅助函数
+    const generateSessionId = () => 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    const currentSessionId = generateSessionId()
+
+    // 获取连接锁
+    const acquireConnectionLock = async (tokenId, operation = 'connect') => {
+        const lockKey = `${tokenId}_${operation}`
+        if (connectionLocks.value.has(lockKey)) {
+            wsLogger.debug(`等待连接锁释放: ${tokenId} (${operation})`)
+            // 等待现有操作完成，最多等待10秒
+            let attempts = 0
+            while (connectionLocks.value.has(lockKey) && attempts < 100) {
+                await new Promise(resolve => setTimeout(resolve, 100))
+                attempts++
+            }
+            if (connectionLocks.value.has(lockKey)) {
+                wsLogger.warn(`连接锁等待超时: ${tokenId} (${operation})`)
+                return false
+            }
+        }
+
+        connectionLocks.value.set(lockKey, {
+            tokenId,
+            operation,
+            timestamp: Date.now(),
+            sessionId: currentSessionId
+        })
+        wsLogger.connectionLock(tokenId, operation, true)
+        return true
+    }
+
+    // 释放连接锁
+    const releaseConnectionLock = (tokenId, operation = 'connect') => {
+        const lockKey = `${tokenId}_${operation}`
+        if (connectionLocks.value.has(lockKey)) {
+            connectionLocks.value.delete(lockKey)
+            wsLogger.connectionLock(tokenId, operation, false)
+        }
+    }
+
+    // 更新跨标签页连接状态
+    const updateCrossTabConnectionState = (tokenId, action, sessionId = currentSessionId) => {
+        const storageKey = `ws_connection_${tokenId}`
+        const state = {
+            action, // 'connecting', 'connected', 'disconnecting', 'disconnected'
+            sessionId,
+            timestamp: Date.now(),
+            url: window.location.href
         }
 
         try {
-            // 使用统一的token解析逻辑
-            const parseResult = parseBase64Token(base64Token)
+            localStorage.setItem(storageKey, JSON.stringify(state))
+            activeConnections.value.set(tokenId, state)
+        } catch (error) {
+            wsLogger.warn('无法更新跨标签页连接状态:', error)
+        }
+    }
 
+    // 检查是否有其他标签页的活跃连接
+    const checkCrossTabConnection = (tokenId) => {
+        const storageKey = `ws_connection_${tokenId}`
+        try {
+            const stored = localStorage.getItem(storageKey)
+            if (stored) {
+                const state = JSON.parse(stored)
+                const isRecent = (Date.now() - state.timestamp) < 30000 // 30秒内的状态认为是活跃的
+                const isDifferentSession = state.sessionId !== currentSessionId
+
+                if (isRecent && isDifferentSession && (state.action === 'connecting' || state.action === 'connected')) {
+                    wsLogger.debug(`检测到其他标签页的活跃连接: ${tokenId}`)
+                    return state
+                }
+            }
+        } catch (error) {
+            wsLogger.warn('检查跨标签页连接状态失败:', error)
+        }
+        return null
+    }
+
+    // WebSocket连接管理（重构版 - 防重连）
+    const createWebSocketConnection = async (tokenId, base64Token, customWsUrl = null) => {
+        wsLogger.info(`开始创建连接: ${tokenId}`)
+
+        // 1. 获取连接锁，防止竞态条件
+        const lockAcquired = await acquireConnectionLock(tokenId, 'connect')
+        if (!lockAcquired) {
+            wsLogger.error(`无法获取连接锁: ${tokenId}`)
+            return null
+        }
+
+        try {
+            // 2. 检查跨标签页连接状态
+            const crossTabState = checkCrossTabConnection(tokenId)
+            if (crossTabState) {
+                wsLogger.debug(`跳过创建，其他标签页已有连接: ${tokenId}`)
+                releaseConnectionLock(tokenId, 'connect')
+                return null
+            }
+
+            // 3. 更新跨标签页状态为连接中
+            updateCrossTabConnectionState(tokenId, 'connecting')
+
+            // 4. 如果存在现有连接，先优雅关闭
+            if (wsConnections.value[tokenId]) {
+                wsLogger.debug(`优雅关闭现有连接: ${tokenId}`)
+                await closeWebSocketConnectionAsync(tokenId)
+            }
+
+            // 5. 解析token
+            const parseResult = parseBase64Token(base64Token)
             let actualToken
             if (parseResult.success) {
                 actualToken = parseResult.data.actualToken
-                // Token解析成功
             } else {
-                // Token解析失败，使用原始token
-                // 如果解析失败，尝试直接使用原始token
                 if (validateToken(base64Token)) {
                     actualToken = base64Token
                 } else {
@@ -720,60 +903,56 @@ export const useTokenStore = defineStore('tokens', () => {
                 }
             }
 
-            // 使用固定的WebSocket基础地址，将token带入占位符
+            // 6. 构建WebSocket URL
             const baseWsUrl = 'wss://xxz-xyzw.hortorgames.com/agent?p=%s&e=x&lang=chinese'
             const wsUrl = customWsUrl || baseWsUrl.replace('%s', encodeURIComponent(actualToken))
 
-            console.log(`🔗 创建WebSocket连接:`, wsUrl)
-            console.log(`🎯 Token ID: ${tokenId}`)
-            console.log(`🔑 使用Token: ${actualToken.substring(0, 20)}...`)
+            wsLogger.debug(`Token: ${actualToken.substring(0, 10)}...${actualToken.slice(-4)}`)
 
-            // 检查g_utils结构
-            console.log('🔍 g_utils结构检查:', {
-                hasGetEnc: !!g_utils.getEnc,
-                hasEncode: !!g_utils.encode,
-                hasParse: !!g_utils.parse,
-                hasBon: !!g_utils.bon,
-                bonHasDecode: !!(g_utils.bon && g_utils.bon.decode)
-            })
-
-            // 创建新的WebSocket客户端
+            // 7. 创建新的WebSocket客户端（增强版）
             const wsClient = new XyzwWebSocketClient({
                 url: wsUrl,
                 utils: g_utils,
-                heartbeatMs: 5000  // 5秒心跳间隔
+                heartbeatMs: 5000
             })
 
-            // 设置连接状态
+            // 8. 设置连接状态（带会话ID）
             wsConnections.value[tokenId] = {
                 client: wsClient,
                 status: 'connecting',
                 tokenId,
                 wsUrl,
                 actualToken,
+                sessionId: currentSessionId,
                 connectedAt: null,
                 lastMessage: null,
-                lastError: null
+                lastError: null,
+                reconnectAttempts: 0
             }
 
-            // 设置事件监听
+            // 9. 设置事件监听（增强版）
             wsClient.onConnect = () => {
-                console.log(`✅ WebSocket连接已建立: ${tokenId}`)
+                wsLogger.wsConnect(tokenId)
                 if (wsConnections.value[tokenId]) {
                     wsConnections.value[tokenId].status = 'connected'
                     wsConnections.value[tokenId].connectedAt = new Date().toISOString()
+                    wsConnections.value[tokenId].reconnectAttempts = 0
                 }
+                updateCrossTabConnectionState(tokenId, 'connected')
+                releaseConnectionLock(tokenId, 'connect')
             }
 
             wsClient.onDisconnect = (event) => {
-                console.log(`🔌 WebSocket连接已断开: ${tokenId}`, event)
+                const reason = event.code === 1006 ? '异常断开' : event.reason || ''
+                wsLogger.wsDisconnect(tokenId, reason)
                 if (wsConnections.value[tokenId]) {
                     wsConnections.value[tokenId].status = 'disconnected'
                 }
+                updateCrossTabConnectionState(tokenId, 'disconnected')
             }
 
             wsClient.onError = (error) => {
-                console.error(`❌ WebSocket错误 [${tokenId}]:`, error)
+                wsLogger.wsError(tokenId, error)
                 if (wsConnections.value[tokenId]) {
                     wsConnections.value[tokenId].status = 'error'
                     wsConnections.value[tokenId].lastError = {
@@ -782,48 +961,86 @@ export const useTokenStore = defineStore('tokens', () => {
                         url: wsUrl
                     }
                 }
+                releaseConnectionLock(tokenId, 'connect')
             }
 
-            // 设置消息监听
+            // 10. 设置消息监听
             wsClient.setMessageListener((message) => {
-                // 只打印消息命令，不打印完整结构
                 const cmd = message?.cmd || 'unknown'
-                if (cmd !== '_sys/ack') { // 过滤心跳消息
-                    console.log(`📨 [${tokenId}] ${cmd}`)
-                }
+                wsLogger.wsMessage(tokenId, cmd, true)
 
-                // 更新连接状态中的最后接收消息
                 if (wsConnections.value[tokenId]) {
                     wsConnections.value[tokenId].lastMessage = {
                         timestamp: new Date().toISOString(),
-                        data: message, // 保存完整消息数据
+                        data: message,
                         cmd: message?.cmd
                     }
                 }
 
-                // 处理游戏消息
                 handleGameMessage(tokenId, message)
             })
 
-            // 开启调试模式
-            wsClient.setShowMsg(true)
-
-            // 初始化连接
+            // 11. 初始化连接
             wsClient.init()
 
+            wsLogger.verbose(`WebSocket客户端创建成功: ${tokenId}`)
             return wsClient
+
         } catch (error) {
-            console.error(`创建WebSocket连接失败 [${tokenId}]:`, error)
+            wsLogger.error(`创建连接失败 [${tokenId}]:`, error)
+            updateCrossTabConnectionState(tokenId, 'disconnected')
+            releaseConnectionLock(tokenId, 'connect')
             return null
         }
     }
 
-    const closeWebSocketConnection = (tokenId) => {
-        const connection = wsConnections.value[tokenId]
-        if (connection && connection.client) {
-            connection.client.disconnect()
-            delete wsConnections.value[tokenId]
+    // 异步版本的关闭连接（优雅关闭）
+    const closeWebSocketConnectionAsync = async (tokenId) => {
+        const lockAcquired = await acquireConnectionLock(tokenId, 'disconnect')
+        if (!lockAcquired) {
+            wsLogger.warn(`无法获取断开连接锁: ${tokenId}`)
+            return
         }
+
+        try {
+            const connection = wsConnections.value[tokenId]
+            if (connection && connection.client) {
+                wsLogger.debug(`开始优雅关闭连接: ${tokenId}`)
+
+                connection.status = 'disconnecting'
+                updateCrossTabConnectionState(tokenId, 'disconnecting')
+
+                connection.client.disconnect()
+
+                // 等待连接完全关闭
+                await new Promise(resolve => {
+                    const checkDisconnected = () => {
+                        if (!connection.client.connected) {
+                            resolve()
+                        } else {
+                            setTimeout(checkDisconnected, 100)
+                        }
+                    }
+                    setTimeout(resolve, 5000) // 最多等待5秒
+                    checkDisconnected()
+                })
+
+                delete wsConnections.value[tokenId]
+                updateCrossTabConnectionState(tokenId, 'disconnected')
+                wsLogger.info(`连接已优雅关闭: ${tokenId}`)
+            }
+        } catch (error) {
+            wsLogger.error(`关闭连接失败 [${tokenId}]:`, error)
+        } finally {
+            releaseConnectionLock(tokenId, 'disconnect')
+        }
+    }
+
+    // 同步版本的关闭连接（保持向后兼容）
+    const closeWebSocketConnection = (tokenId) => {
+        closeWebSocketConnectionAsync(tokenId).catch(error => {
+            wsLogger.error(`关闭连接异步操作失败 [${tokenId}]:`, error)
+        })
     }
 
     const getWebSocketStatus = (tokenId) => {
@@ -860,23 +1077,23 @@ export const useTokenStore = defineStore('tokens', () => {
     const sendMessage = (tokenId, cmd, params = {}, options = {}) => {
         const connection = wsConnections.value[tokenId]
         if (!connection || connection.status !== 'connected') {
-            console.error(`❌ WebSocket未连接，无法发送消息 [${tokenId}]`)
+            wsLogger.error(`WebSocket未连接，无法发送消息 [${tokenId}]`)
             return false
         }
 
         try {
             const client = connection.client
             if (!client) {
-                console.error(`❌ WebSocket客户端不存在 [${tokenId}]`)
+                wsLogger.error(`WebSocket客户端不存在 [${tokenId}]`)
                 return false
             }
 
             client.send(cmd, params, options)
-            console.log(`📤 [${tokenId}] ${cmd}`)
+            wsLogger.wsMessage(tokenId, cmd, false)
 
             return true
         } catch (error) {
-            console.error(`❌ 发送失败 [${tokenId}] ${cmd}:`, error.message)
+            wsLogger.error(`发送失败 [${tokenId}] ${cmd}:`, error.message)
             return false
         }
     }
@@ -914,12 +1131,12 @@ export const useTokenStore = defineStore('tokens', () => {
             if (roleInfo) {
                 gameData.value.roleInfo = roleInfo
                 gameData.value.lastUpdated = new Date().toISOString()
-                console.log('📊 角色信息已通过 Promise 更新')
+                gameLogger.verbose('角色信息已通过 Promise 更新')
             }
 
             return roleInfo
         } catch (error) {
-            console.error(`❌ 获取角色信息失败 [${tokenId}]:`, error.message)
+            gameLogger.error(`获取角色信息失败 [${tokenId}]:`, error.message)
             throw error
         }
     }
@@ -959,13 +1176,13 @@ export const useTokenStore = defineStore('tokens', () => {
             // 从游戏数据中获取塔信息
             const roleInfo = gameData.value.roleInfo
             if (!roleInfo || !roleInfo.role) {
-                console.warn('⚠️ 角色信息不存在')
+                gameLogger.warn('角色信息不存在')
                 return null
             }
 
             const tower = roleInfo.role.tower
             if (!tower) {
-                console.warn('⚠️ 塔信息不存在')
+                gameLogger.warn('塔信息不存在')
                 return null
             }
 
@@ -975,7 +1192,7 @@ export const useTokenStore = defineStore('tokens', () => {
             // 当前塔层数
             return level
         } catch (error) {
-            console.error('❌ 获取塔层数失败:', error)
+            gameLogger.error('获取塔层数失败:', error)
             return null
         }
     }
@@ -990,7 +1207,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
             return roleInfo.role.tower || null
         } catch (error) {
-            console.error('❌ 获取塔信息失败:', error)
+            gameLogger.error('获取塔信息失败:', error)
             return null
         }
     }
@@ -1039,7 +1256,7 @@ export const useTokenStore = defineStore('tokens', () => {
             if (token.importMethod === 'url') {
                 return true
             }
-            
+
             // 手动导入的token按原逻辑处理（24小时过期）
             const lastUsed = new Date(token.lastUsed || token.createdAt)
             return lastUsed > oneDayAgo
@@ -1070,6 +1287,157 @@ export const useTokenStore = defineStore('tokens', () => {
         localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
     }
 
+    // 连接唯一性验证和监控
+    const validateConnectionUniqueness = (tokenId) => {
+        const connections = Object.values(wsConnections.value).filter(conn =>
+            conn.tokenId === tokenId &&
+            (conn.status === 'connecting' || conn.status === 'connected')
+        )
+
+        if (connections.length > 1) {
+            wsLogger.warn(`检测到重复连接: ${tokenId}, 连接数: ${connections.length}`)
+            // 保留最新的连接，关闭旧连接
+            const sortedConnections = connections.sort((a, b) =>
+                new Date(b.connectedAt || 0) - new Date(a.connectedAt || 0)
+            )
+
+            for (let i = 1; i < sortedConnections.length; i++) {
+                const oldConnection = sortedConnections[i]
+                wsLogger.debug(`关闭重复连接: ${tokenId}`)
+                closeWebSocketConnectionAsync(oldConnection.tokenId)
+            }
+
+            return false // 检测到重复连接
+        }
+
+        return true // 连接唯一
+    }
+
+    // 连接监控和清理
+    const connectionMonitor = {
+        // 定期检查连接状态
+        startMonitoring: () => {
+            setInterval(() => {
+                const now = Date.now()
+
+                // 检查连接超时（超过30秒未活动）
+                Object.entries(wsConnections.value).forEach(([tokenId, connection]) => {
+                    const lastActivity = connection.lastMessage?.timestamp || connection.connectedAt
+                    if (lastActivity) {
+                        const timeSinceActivity = now - new Date(lastActivity).getTime()
+
+                        if (timeSinceActivity > 30000 && connection.status === 'connected') {
+                            wsLogger.warn(`检测到连接可能已断开: ${tokenId}`)
+                            // 发送心跳检测
+                            if (connection.client) {
+                                connection.client.sendHeartbeat()
+                            }
+                        }
+                    }
+                })
+
+                // 清理过期的连接锁（超过10分钟）
+                connectionLocks.value.forEach((lock, key) => {
+                    if (now - lock.timestamp > 600000) {
+                        wsLogger.debug(`清理过期连接锁: ${key}`)
+                        connectionLocks.value.delete(key)
+                    }
+                })
+
+                // 清理过期的跨标签页状态（超过5分钟）
+                activeConnections.value.forEach((state, tokenId) => {
+                    if (now - state.timestamp > 300000) {
+                        wsLogger.debug(`清理过期跨标签页状态: ${tokenId}`)
+                        activeConnections.value.delete(tokenId)
+                        localStorage.removeItem(`ws_connection_${tokenId}`)
+                    }
+                })
+
+            }, 10000) // 每10秒检查一次
+        },
+
+        // 获取连接统计信息
+        getStats: () => {
+            const stats = {
+                totalConnections: Object.keys(wsConnections.value).length,
+                connectedCount: 0,
+                connectingCount: 0,
+                disconnectedCount: 0,
+                errorCount: 0,
+                duplicateTokens: [],
+                activeLocks: connectionLocks.value.size,
+                crossTabStates: activeConnections.value.size
+            }
+
+            // 统计连接状态
+            const tokenCounts = new Map()
+            Object.values(wsConnections.value).forEach(connection => {
+                stats[connection.status + 'Count']++
+
+                // 检测重复token
+                const count = tokenCounts.get(connection.tokenId) || 0
+                tokenCounts.set(connection.tokenId, count + 1)
+
+                if (count > 0) {
+                    stats.duplicateTokens.push(connection.tokenId)
+                }
+            })
+
+            return stats
+        },
+
+        // 强制清理所有连接
+        forceCleanup: async () => {
+            wsLogger.info('开始强制清理所有连接...')
+
+            const cleanupPromises = Object.keys(wsConnections.value).map(tokenId =>
+                closeWebSocketConnectionAsync(tokenId)
+            )
+
+            await Promise.all(cleanupPromises)
+
+            // 清理所有锁和状态
+            connectionLocks.value.clear()
+            activeConnections.value.clear()
+
+            // 清理localStorage中的跨标签页状态
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('ws_connection_')) {
+                    localStorage.removeItem(key)
+                }
+            })
+
+            wsLogger.info('强制清理完成')
+        }
+    }
+
+    // 监听localStorage变化（跨标签页通信）
+    const setupCrossTabListener = () => {
+        window.addEventListener('storage', (event) => {
+            if (event.key?.startsWith('ws_connection_')) {
+                const tokenId = event.key.replace('ws_connection_', '')
+                wsLogger.debug(`检测到跨标签页连接状态变化: ${tokenId}`, event.newValue)
+
+                // 如果其他标签页建立了连接，考虑关闭本标签页的连接
+                if (event.newValue) {
+                    try {
+                        const newState = JSON.parse(event.newValue)
+                        const localConnection = wsConnections.value[tokenId]
+
+                        if (newState.action === 'connected' &&
+                            newState.sessionId !== currentSessionId &&
+                            localConnection?.status === 'connected') {
+                            wsLogger.info(`检测到其他标签页已连接同一token，关闭本地连接: ${tokenId}`)
+                            closeWebSocketConnectionAsync(tokenId)
+                        }
+                    } catch (error) {
+                        wsLogger.warn('解析跨标签页状态失败:', error)
+                    }
+                }
+            }
+        })
+    }
+
     // 初始化
     const initTokenStore = () => {
         // 恢复数据
@@ -1080,7 +1448,7 @@ export const useTokenStore = defineStore('tokens', () => {
             try {
                 gameTokens.value = JSON.parse(savedTokens)
             } catch (error) {
-                console.error('解析Token数据失败:', error.message)
+                tokenLogger.error('解析Token数据失败:', error.message)
                 gameTokens.value = []
             }
         }
@@ -1091,6 +1459,14 @@ export const useTokenStore = defineStore('tokens', () => {
 
         // 清理过期token
         cleanExpiredTokens()
+
+        // 启动连接监控
+        connectionMonitor.startMonitoring()
+
+        // 设置跨标签页监听
+        setupCrossTabListener()
+
+        tokenLogger.info('Token Store 初始化完成，连接监控已启动')
     }
 
     return {
@@ -1156,6 +1532,27 @@ export const useTokenStore = defineStore('tokens', () => {
                 console.log('Token有效性:', validateToken(parseResult.data.actualToken))
             }
             return parseResult
+        },
+
+        // 连接管理增强功能
+        validateConnectionUniqueness,
+        connectionMonitor,
+        currentSessionId: () => currentSessionId,
+
+        // 开发者工具
+        devTools: {
+            getConnectionStats: () => connectionMonitor.getStats(),
+            forceCleanup: () => connectionMonitor.forceCleanup(),
+            showConnectionLocks: () => Array.from(connectionLocks.value.entries()),
+            showCrossTabStates: () => Array.from(activeConnections.value.entries()),
+            testDuplicateConnection: (tokenId) => {
+                console.log(`🧪 测试重复连接: ${tokenId}`)
+                const token = gameTokens.value.find(t => t.id === tokenId)
+                if (token) {
+                    // 故意创建第二个连接进行测试
+                    createWebSocketConnection(tokenId + '_test', token.token)
+                }
+            }
         }
     }
 })

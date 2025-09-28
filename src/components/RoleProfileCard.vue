@@ -267,11 +267,9 @@ const loadRoleData = async () => {
 
   if (status === 'connected') {
     // 优先请求角色信息
-    // 降噪
     try {
       await tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     } catch (error) {
-      // 降噪
     }
   }
 }
@@ -300,7 +298,6 @@ const wsStatus = computed(() => {
 
 watch(wsStatus, async (newStatus) => {
   if (newStatus === 'connected' && tokenStore.selectedToken) {
-    // 降噪
     await loadRoleData()
   }
 })

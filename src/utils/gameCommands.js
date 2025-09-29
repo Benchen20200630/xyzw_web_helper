@@ -25,10 +25,8 @@ export class GameCommands {
   heart_beat(ack = 0, seq = 0, params = {}) {
     return {
       ack,
-      body: undefined,
-      c: undefined,
+      body: {},
       cmd: "_sys/ack",
-      hint: undefined,
       seq,
       time: Date.now()
     }
@@ -50,8 +48,6 @@ export class GameCommands {
       }),
       ack: ack || 0,
       seq: seq || 0,
-      rtt: randomInt(0, 500),
-      code: 0,
       time: Date.now()
     }
   }
@@ -68,8 +64,6 @@ export class GameCommands {
       }),
       ack: ack || 0,
       seq: seq || 0,
-      rtt: randomInt(0, 500),
-      code: 0,
       time: Date.now()
     }
   }
@@ -332,7 +326,7 @@ export class GameCommands {
   }
 
   /**
-   * 神器抽奖
+   * 钓鱼
    */
   artifact_lottery(ack = 0, seq = 0, params = {}) {
     return {

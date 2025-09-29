@@ -382,8 +382,18 @@ export const useTokenStore = defineStore('tokens', () => {
     // 游戏消息处理
     const handleGameMessage = (tokenId, message) => {
         try {
-            if (!message || message.error) {
-                gameLogger.warn(`消息处理跳过 [${tokenId}]:`, message?.error || '无效消息')
+            if (!message) { gameLogger.warn(`消息处理跳过 [${tokenId}]: 无效消息`); return }
+            if (message.error) {
+                const errText = String(message.error).toLowerCase()
+                gameLogger.warn(`消息处理跳过 [${tokenId}]:`, message.error)
+                if (errText.includes('token') && errText.includes('expired')) {
+                    const conn = wsConnections.value[tokenId]
+                    if (conn) {
+                        conn.status = 'error'
+                        conn.lastError = { timestamp: new Date().toISOString(), error: 'token expired' }
+                    }
+                    wsLogger.error(`Token 已过期，需要重新导入 [${tokenId}]`)
+                }
                 return
             }
 
@@ -407,50 +417,7 @@ export const useTokenStore = defineStore('tokens', () => {
                     gameLogger.verbose('角色信息已更新')
 
                     // 详细打印角色信息 - 添加日志查看获取的数据
-                    console.group(`🎮 [${tokenId}] role_getroleinfo 响应详情`)
-                    console.log('📊 完整响应数据:', JSON.stringify(body, null, 2))
-
-                    if (body.role) {
-                        console.log('👤 角色基本信息:', {
-                            roleId: body.role.roleId,
-                            name: body.role.name,
-                            level: body.role.level,
-                            exp: body.role.exp,
-                            vip: body.role.vip,
-                            diamond: body.role.diamond,
-                            gold: body.role.gold,
-                            energy: body.role.energy,
-                            maxEnergy: body.role.maxEnergy
-                        })
-
-                        if (body.role.study) {
-                            console.log('📚 答题信息:', body.role.study)
-                        }
-
-                        if (body.role.tower) {
-                            console.log('🏗️ 爬塔信息:', body.role.tower)
-                        }
-
-                        if (body.role.bag) {
-                            console.log('🎒 背包信息:', body.role.bag)
-                        }
-
-                        if (body.role.equips) {
-                            console.log('⚔️ 装备信息:', body.role.equips)
-                        }
-                    }
-
-                    if (body.heros && Array.isArray(body.heros)) {
-                        console.log('🦸 英雄信息:', body.heros.map(hero => ({
-                            heroId: hero.heroId,
-                            name: hero.name || '未知',
-                            level: hero.level,
-                            star: hero.star,
-                            fighting: hero.fighting
-                        })))
-                    }
-
-                    console.groupEnd()
+                    // 清理详细控制台输出，保留必要的状态更新
 
                     // 检查答题完成状态
                     if (body.role?.study?.maxCorrectNum !== undefined) {
@@ -1111,8 +1078,19 @@ export const useTokenStore = defineStore('tokens', () => {
         }
 
         try {
-            return await client.sendWithPromise(cmd, params, timeout)
+            const result = await client.sendWithPromise(cmd, params, timeout)
+
+            // 特殊日志：fight_starttower 响应
+            if (cmd === 'fight_starttower') {
+                wsLogger.info(`🗼 [咸将塔] 收到爬塔响应 [${tokenId}]:`, result)
+            }
+
+            return result
         } catch (error) {
+            // 特殊日志：fight_starttower 错误
+            if (cmd === 'fight_starttower') {
+                wsLogger.error(`🗼 [咸将塔] 爬塔请求失败 [${tokenId}]:`, error.message)
+            }
             return Promise.reject(error)
         }
     }
@@ -1546,7 +1524,7 @@ export const useTokenStore = defineStore('tokens', () => {
             showConnectionLocks: () => Array.from(connectionLocks.value.entries()),
             showCrossTabStates: () => Array.from(activeConnections.value.entries()),
             testDuplicateConnection: (tokenId) => {
-                console.log(`🧪 测试重复连接: ${tokenId}`)
+                // 降噪
                 const token = gameTokens.value.find(t => t.id === tokenId)
                 if (token) {
                     // 故意创建第二个连接进行测试

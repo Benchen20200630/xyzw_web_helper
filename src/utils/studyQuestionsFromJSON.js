@@ -25,7 +25,7 @@ export async function loadQuestionsData() {
 
   try {
     isLoading = true
-    console.log('📚 正在加载答题数据...')
+    // 精简日志：移除加载提示
     
     // 从 public 目录加载答题数据
     const response = await fetch('/answer.json')
@@ -43,7 +43,7 @@ export async function loadQuestionsData() {
       // 直接尝试 JSON.parse
       questionsData = JSON.parse(jsonText)
     } catch (parseError) {
-      console.warn('标准 JSON.parse 失败，尝试转换 JavaScript 对象格式')
+      // 降噪：解析失败不刷屏
       
       // 处理 JavaScript 对象格式为 JSON 格式
       // 将 name: "..." 转换为 "name": "..."
@@ -57,7 +57,7 @@ export async function loadQuestionsData() {
         questionsData = JSON.parse(jsonText)
       } catch (secondParseError) {
         // 如果还是失败，尝试使用 eval（本地文件，相对安全）
-        console.warn('JSON 转换失败，尝试使用 eval 解析')
+        // 降噪
         if (text.trim().startsWith('[') && text.trim().endsWith(']')) {
           try {
             // 创建一个安全的执行环境
@@ -76,7 +76,7 @@ export async function loadQuestionsData() {
       throw new Error('加载的数据不是数组格式')
     }
     
-    console.log(`📖 成功加载 ${questionsData.length} 道题目`)
+    // 降噪
     return questionsData
     
   } catch (error) {
@@ -121,7 +121,7 @@ export async function findAnswer(question) {
     const questions = await loadQuestionsData()
     
     if (!questions || questions.length === 0) {
-      console.warn('⚠️ 题目数据为空')
+      // 降噪
       return null
     }
     
@@ -131,12 +131,12 @@ export async function findAnswer(question) {
       if (!item.name || !item.value) continue
       
       if (matchQuestion(item.name, question, 1)) {
-        console.log(`✅ 找到匹配题目: "${item.name}" -> 答案: ${item.value}`)
+        // 降噪
         return item.value
       }
     }
     
-    console.log(`⚠️ 未找到题目匹配: "${question}"`)
+    // 降噪
     return null // 未找到匹配的题目
     
   } catch (error) {
@@ -161,7 +161,7 @@ export async function getQuestionCount() {
 export async function preloadQuestions() {
   try {
     await loadQuestionsData()
-    console.log('📚 答题数据预加载完成')
+  // 降噪
   } catch (error) {
     console.error('❌ 答题数据预加载失败:', error)
   }
@@ -172,5 +172,5 @@ export async function preloadQuestions() {
  */
 export function clearCache() {
   questionsData = null
-  console.log('🔄 答题数据缓存已清除')
+  // 降噪
 }

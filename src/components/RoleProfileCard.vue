@@ -267,11 +267,11 @@ const loadRoleData = async () => {
 
   if (status === 'connected') {
     // 优先请求角色信息
-    console.log('🎭 身份卡组件：优先加载角色信息')
+    // 降噪
     try {
       await tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     } catch (error) {
-      console.warn('身份卡：获取角色信息失败', error)
+      // 降噪
     }
   }
 }
@@ -300,7 +300,7 @@ const wsStatus = computed(() => {
 
 watch(wsStatus, async (newStatus) => {
   if (newStatus === 'connected' && tokenStore.selectedToken) {
-    console.log('🎭 身份卡组件：WebSocket已连接，重新加载角色信息')
+    // 降噪
     await loadRoleData()
   }
 })

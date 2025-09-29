@@ -608,7 +608,7 @@ const handleImport = async () => {
       message.success(result.message)
       // 显示token详情信息（如果有）
       if (result.details) {
-        console.log('Token导入详情:', result.details)
+        // 降噪
       }
       resetImportForm()
       showImportForm.value = false
@@ -690,7 +690,7 @@ const handleUrlImport = async () => {
       message.success(result.message)
       // 显示token详情信息（如果有）
       if (result.details) {
-        console.log('URL Token导入详情:', result.details)
+        // 降噪
       }
       resetUrlForm()
       showImportForm.value = false
@@ -844,11 +844,7 @@ const selectToken = (token, forceReconnect = false) => {
   const isAlreadySelected = tokenStore.selectedTokenId === token.id
   const connectionStatus = getConnectionStatus(token.id)
 
-  console.log(`🎯 点击Token卡片: ${token.name}`, {
-    isAlreadySelected,
-    connectionStatus,
-    forceReconnect
-  })
+  // 降噪日志已移除
 
   // 如果已经选中且已连接，不执行任何操作
   if (isAlreadySelected && connectionStatus === 'connected' && !forceReconnect) {
@@ -1209,7 +1205,7 @@ const handleUrlParams = async () => {
 
       if (props.api) {
         // 通过API获取token
-        console.log('通过API获取token:', props.api)
+        // 降噪
         message.info('正在从API获取token...')
 
         const response = await fetch(props.api, {
@@ -1243,7 +1239,7 @@ const handleUrlParams = async () => {
         )
       } else if (props.token) {
         // 直接使用URL中的token
-        console.log('直接导入URL token:', props.token.substring(0, 20) + '...')
+        // 降噪
         message.info('正在导入token...')
 
         tokenResult = tokenStore.importBase64Token(

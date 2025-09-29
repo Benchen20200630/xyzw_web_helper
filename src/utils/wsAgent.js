@@ -264,10 +264,8 @@ export class WsAgent {
   _sendHeartbeat() {
     const heartbeatMsg = {
       ack: this.ack,
-      body: undefined,
-      c: undefined,
+      body: {},
       cmd: '_sys/ack',
-      hint: undefined,
       seq: 0, // 心跳消息seq为0
       time: Date.now()
     }
@@ -330,10 +328,7 @@ export class WsAgent {
       seq: cmd === this.heartbeatCmd ? 0 : this.seq++,
       time: Date.now(),
       cmd,
-      body,
-      respKey,
-      rtt,
-      code: 0
+      body
     }
 
     return packet
@@ -345,6 +340,17 @@ export class WsAgent {
    */
   _rawSend(packet) {
     try {
+      // 发送前日志（仅标准五段）
+      if (packet?.cmd && packet.cmd !== '_sys/ack') {
+        const bodyForLog = (packet.body instanceof Uint8Array || Array.isArray(packet.body)) ? '[BON]' : (packet.body || {})
+        console.info('📤 发送报文', {
+          cmd: packet.cmd,
+          ack: packet.ack ?? 0,
+          seq: packet.seq ?? 0,
+          time: packet.time,
+          body: bodyForLog
+        })
+      }
       // 使用g_utils编码和加密
       const data = g_utils.encode(packet, this.channel)
       this.ws.send(data)

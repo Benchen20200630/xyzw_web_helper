@@ -5,7 +5,65 @@
     
     <!-- 每日任务状态 -->
     <DailyTaskStatus />
-    
+
+    <!-- 月度任务进度 -->
+    <div class="status-card monthly-tasks">
+      <div class="card-header">
+        <img
+          src="/icons/1736425783912140.png"
+          alt="月度任务"
+          class="status-icon"
+        >
+        <div class="status-info">
+          <h3>月度任务</h3>
+          <p>进度与一键补齐</p>
+        </div>
+        <div class="status-badge" :class="{ active: monthHasData }">
+          <div class="status-dot" />
+          <span v-if="remainingDays > 0">剩余 {{ remainingDays }} 天</span>
+          <span v-else>本月最后一天</span>
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="monthly-row">
+          <div class="row-title">钓鱼进度</div>
+          <div class="row-value">{{ fishNum }} / {{ FISH_TARGET }}（{{ fishPercent }}%）</div>
+        </div>
+        <div class="monthly-row">
+          <div class="row-title">竞技场进度</div>
+          <div class="row-value">{{ arenaNum }} / {{ ARENA_TARGET }}（{{ arenaPercent }}%）</div>
+        </div>
+        <div class="action-row">
+          <button class="action-button secondary" :disabled="monthLoading || fishToppingUp || arenaToppingUp" @click="fetchMonthlyActivity">
+            {{ monthLoading ? '刷新中...' : '刷新进度' }}
+          </button>
+
+          <!-- 钓鱼：补齐 + 下拉更多（隐藏一键完成） -->
+          <n-button-group>
+            <n-button class="action-button" :disabled="monthLoading || fishToppingUp" @click="topUpMonthly('fish')">
+              {{ fishToppingUp ? '补齐中...' : '钓鱼补齐' }}
+            </n-button>
+            <n-dropdown :options="fishMoreOptions" trigger="click" @select="onFishMoreSelect">
+              <n-button :disabled="monthLoading || fishToppingUp">▾</n-button>
+            </n-dropdown>
+          </n-button-group>
+
+          <!-- 竞技场：补齐 + 下拉更多（隐藏一键完成） -->
+          <n-button-group>
+            <n-button class="action-button" :disabled="monthLoading || arenaToppingUp" @click="topUpMonthly('arena')">
+              {{ arenaToppingUp ? '补齐中...' : '竞技场补齐' }}
+            </n-button>
+            <n-dropdown :options="arenaMoreOptions" trigger="click" @select="onArenaMoreSelect">
+              <n-button :disabled="monthLoading || arenaToppingUp">▾</n-button>
+            </n-dropdown>
+          </n-button-group>
+        </div>
+        <p class="description muted">
+          补齐规则：让“当前天数比例”和“完成比例”一致；若无剩余天数则按满额（{{FISH_TARGET}}/{{ARENA_TARGET}}）计算。
+        </p>
+      </div>
+    </div>
+
     <!-- 咸将塔状态 -->
     <TowerStatus />
     
@@ -293,6 +351,285 @@ const legionSignin = ref({
 // 使用 tokenStore 中的答题状态
 const study = computed(() => tokenStore.gameData.studyStatus)
 
+// 月度任务相关
+const FISH_TARGET = 320
+const ARENA_TARGET = 240
+const monthLoading = ref(false)
+const fishToppingUp = ref(false)
+const arenaToppingUp = ref(false)
+const monthActivity = ref(null)
+
+const now = new Date()
+const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+const dayOfMonth = now.getDate()
+const remainingDays = computed(() => Math.max(0, daysInMonth - dayOfMonth))
+// 显示用百分比（取整），与计算用比例（不取整）分离，避免舍入带来的偏差
+const monthPercent = computed(() => Math.min(100, Math.round((dayOfMonth / daysInMonth) * 100)))
+const monthProgress = computed(() => Math.min(1, Math.max(0, dayOfMonth / daysInMonth)))
+
+const monthHasData = computed(() => !!monthActivity.value)
+const myMonthInfo = computed(() => monthActivity.value?.myMonthInfo || {})
+const myArenaInfo = computed(() => monthActivity.value?.myArenaInfo || {})
+
+const fishNum = computed(() => Number(myMonthInfo.value?.['2']?.num || 0))
+const arenaNum = computed(() => Number(myArenaInfo.value?.num || 0))
+const fishPercent = computed(() => Math.min(100, Math.round((fishNum.value / FISH_TARGET) * 100)))
+const arenaPercent = computed(() => Math.min(100, Math.round((arenaNum.value / ARENA_TARGET) * 100)))
+
+const fishShouldBe = computed(() => remainingDays.value === 0 ? FISH_TARGET : Math.min(FISH_TARGET, Math.ceil(monthProgress.value * FISH_TARGET)))
+const arenaShouldBe = computed(() => remainingDays.value === 0 ? ARENA_TARGET : Math.min(ARENA_TARGET, Math.ceil(monthProgress.value * ARENA_TARGET)))
+const fishNeeded = computed(() => Math.max(0, fishShouldBe.value - fishNum.value))
+const arenaNeeded = computed(() => Math.max(0, arenaShouldBe.value - arenaNum.value))
+
+// 下拉菜单选项
+const fishMoreOptions = [
+  { label: '一键完成', key: 'complete-fish' }
+]
+const arenaMoreOptions = [
+  { label: '一键完成', key: 'complete-arena' }
+]
+
+const fetchMonthlyActivity = async () => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择Token')
+    return
+  }
+  const status = tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)
+  if (status !== 'connected') {
+    // 等待连接建立后再获取
+    return
+  }
+  monthLoading.value = true
+  try {
+    const tokenId = tokenStore.selectedToken.id
+    const result = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+    const act = result?.activity || result?.body?.activity || result
+    monthActivity.value = act || null
+    if (act) message.success('月度任务进度已更新')
+  } catch (e) {
+    message.error(`获取月度任务失败：${e.message}`)
+  } finally {
+    monthLoading.value = false
+  }
+}
+
+const topUpMonthly = (type) => {
+  const isFish = type === 'fish'
+  const target = isFish ? FISH_TARGET : ARENA_TARGET
+  const current = isFish ? fishNum.value : arenaNum.value
+  const shouldBe = remainingDays.value === 0 ? target : Math.min(target, Math.ceil((monthProgress.value * target)))
+  const need = Math.max(0, shouldBe - current)
+
+  if (need <= 0) {
+    message.success('当前进度已达标，无需补齐')
+    return
+  }
+  if (isFish) {
+    // 自动补齐钓鱼
+    autoTopUpFish(need, shouldBe, target)
+  } else {
+    // 自动补齐竞技场
+    autoTopUpArena(need, shouldBe, target)
+  }
+}
+
+// 完成本项任务（直接以满额为目标）
+const completeMonthly = (type) => {
+  const isFish = type === 'fish'
+  const target = isFish ? FISH_TARGET : ARENA_TARGET
+  const current = isFish ? fishNum.value : arenaNum.value
+  const need = Math.max(0, target - current)
+
+  if (need <= 0) {
+    message.success('已满额，无需完成')
+    return
+  }
+  if (isFish) {
+    autoTopUpFish(need, target, target)
+  } else {
+    autoTopUpArena(need, target, target)
+  }
+}
+
+// 下拉菜单选择处理
+const onFishMoreSelect = (key) => {
+  if (key === 'complete-fish') completeMonthly('fish')
+}
+const onArenaMoreSelect = (key) => {
+  if (key === 'complete-arena') completeMonthly('arena')
+}
+
+// 辅助：获取当日零点时间戳（秒）
+const getTodayStartSec = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return Math.floor(d.getTime() / 1000)
+}
+
+// 判断今天是否可用（用于免费钓鱼），当最后一次时间不在今天时认为可用
+const isTodayAvailable = (lastTimeSec) => {
+  if (!lastTimeSec || typeof lastTimeSec !== 'number') return true
+  const todayStart = getTodayStartSec()
+  return lastTimeSec < todayStart
+}
+
+// 自动补齐钓鱼：优先消耗免费3次，再按 need 批量抽（每次最多10）
+const autoTopUpFish = async (need, shouldBe, target) => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择Token')
+    return
+  }
+  if (tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) !== 'connected') {
+    message.warning('请先建立WS连接')
+    return
+  }
+
+  fishToppingUp.value = true
+  try {
+    const tokenId = tokenStore.selectedToken.id
+
+    // 1) 检查免费次数（通过角色 statisticsTime 判断今天是否可用）
+    let role = tokenStore.gameData?.roleInfo?.role
+    if (!role) {
+      try { await tokenStore.sendGetRoleInfo(tokenId) } catch {}
+      role = tokenStore.gameData?.roleInfo?.role
+    }
+
+    let freeUsed = 0
+    const lastFreeTime = Number(role?.statisticsTime?.['artifact:normal:lottery:time'] || 0)
+    if (isTodayAvailable(lastFreeTime)) {
+      message.info('检测到今日免费钓鱼次数，开始消耗 3 次')
+      for (let i = 0; i < 3; i++) {
+        try {
+          await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: 1, newFree: true, type: 1 }, 8000)
+          freeUsed++
+          await new Promise(r => setTimeout(r, 500))
+        } catch (e) {
+          // 若免费次数已用尽或被限制，停止免费尝试
+          break
+        }
+      }
+      if (freeUsed > 0) {
+        await fetchMonthlyActivity()
+      }
+    }
+
+    // 2) 计算剩余需要次数（以目标 shouldBe 为准）
+    const currentAfterFree = fishNum.value
+    let remaining = Math.max(0, shouldBe - currentAfterFree)
+    if (remaining <= 0) {
+      message.success('已通过免费次数完成当日目标')
+      return
+    }
+
+    message.info(`开始付费钓鱼补齐：共需 ${remaining} 次（每次最多10）`)
+    
+    // 3) 批量执行，每指令最多10次
+    while (remaining > 0) {
+      const batch = Math.min(10, remaining)
+      try {
+        await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: batch, newFree: false, type: 1 }, 12000)
+      } catch (e) {
+        message.error(`钓鱼失败：${e.message}`)
+        break
+      }
+      remaining -= batch
+      await new Promise(r => setTimeout(r, 800))
+    }
+
+    // 4) 刷新进度
+    await fetchMonthlyActivity()
+    if (fishNum.value >= shouldBe || fishNum.value >= target) {
+      message.success('钓鱼补齐完成')
+    } else {
+      message.warning('钓鱼补齐已停止，未达到目标')
+    }
+  } finally {
+    fishToppingUp.value = false
+  }
+}
+
+// 自动补齐竞技场（贪心）：
+// 1) 假设每场胜利+2（最佳），先执行 ceil(need/2) 场
+// 2) 拉一次 activity_get 校准；
+// 3) 重复步骤1-2直到达标或触发安全上限
+const autoTopUpArena = async (need, shouldBe, target) => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择Token')
+    return
+  }
+  if (tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) !== 'connected') {
+    message.warning('请先建立WS连接')
+    return
+  }
+
+  arenaToppingUp.value = true
+  try {
+    const tokenId = tokenStore.selectedToken.id
+    // 开始竞技场
+    try {
+      await tokenStore.sendMessageWithPromise(tokenId, 'arena_startarea', {}, 6000)
+    } catch {}
+    
+    let safetyCounter = 0
+    const safetyMaxFights = 100
+    let round = 1
+    let remaining = need
+    
+    while (remaining > 0 && safetyCounter < safetyMaxFights) {
+      const planFights = Math.ceil(remaining / 2)
+      message.info(`竞技场补齐 第${round}轮：计划战斗 ${planFights} 场（估算每胜+2）`)
+
+      for (let i = 0; i < planFights && safetyCounter < safetyMaxFights; i++) {
+        // 获取目标（尝试不刷新，失败再刷新）
+        let targets
+        try {
+          targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', { refresh: false }, 8000)
+        } catch (e) {
+          try {
+            targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', { refresh: true }, 8000)
+          } catch (e2) {
+            message.error(`获取竞技场目标失败：${e2.message}`)
+            break
+          }
+        }
+
+        const targetId = targets?.roleList?.[0]?.roleId || targets?.targets?.[0]?.roleId || targets?.targets?.[0]?.id
+        if (!targetId) {
+          message.warning('未找到可用的竞技场目标，已停止此轮')
+          break
+        }
+
+        try {
+          await tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }, 15000)
+        } catch (e) {
+          message.error(`竞技场对决失败：${e.message}`)
+          // 失败也计入一次（至少+1），继续
+        }
+
+        safetyCounter++
+        await new Promise(r => setTimeout(r, 1200))
+      }
+
+      // 校准一次
+      await fetchMonthlyActivity()
+      const cur = arenaNum.value
+      remaining = Math.max(0, shouldBe - cur)
+      round++
+    }
+
+    if (arenaNum.value >= shouldBe || arenaNum.value >= target) {
+      message.success('竞技场补齐完成')
+    } else if (safetyCounter >= safetyMaxFights) {
+      message.warning('达到安全上限，已停止竞技场补齐')
+    } else {
+      message.warning('竞技场补齐已停止，未达到目标')
+    }
+  } finally {
+    arenaToppingUp.value = false
+  }
+}
+
 
 // 计算属性
 const roleInfo = computed(() => {
@@ -326,12 +663,7 @@ const updateGameStatus = () => {
     bottleHelper.value.isRunning = role.bottleHelpers.helperStopTime > now
     // 确保剩余时间为整数秒
     bottleHelper.value.remainingTime = Math.max(0, Math.floor(role.bottleHelpers.helperStopTime - now))
-    console.log('🤖 盐罐机器人状态更新:', {
-      stopTime: role.bottleHelpers.helperStopTime,
-      now: now,
-      remainingTime: bottleHelper.value.remainingTime,
-      isRunning: bottleHelper.value.isRunning
-    })
+    // 控制台精简，避免频繁刷屏
   }
 
   // 更新挂机状态
@@ -351,15 +683,7 @@ const updateGameStatus = () => {
     }
     // 确保已挂机时间为整数秒
     hangUp.value.elapsedTime = Math.floor(hangUp.value.hangUpTime - hangUp.value.remainingTime)
-    
-    console.log('⏰ 挂机状态更新:', {
-      lastTime: hangUp.value.lastTime,
-      hangUpTime: hangUp.value.hangUpTime,
-      elapsed: elapsed,
-      remainingTime: hangUp.value.remainingTime,
-      elapsedTime: hangUp.value.elapsedTime,
-      isActive: hangUp.value.isActive
-    })
+    // 控制台精简
   }
 
   // 更新俱乐部排位状态
@@ -437,7 +761,7 @@ const extendHangUp = async () => {
   const tokenId = tokenStore.selectedToken.id
   
   try {
-    console.log('🕐 开始加钟操作...')
+    // 降噪
     hangUp.value.isExtending = true
     message.info('正在加钟...')
     
@@ -446,7 +770,7 @@ const extendHangUp = async () => {
     for (let i = 0; i < 4; i++) {
       const promise = new Promise((resolve) => {
         setTimeout(() => {
-          console.log(`🕐 发送第${i+1}次加钟请求`)
+          // 降噪
           const result = tokenStore.sendMessage(tokenId, 'system_mysharecallback', {
             isSkipShareCard: true,
             type: 2
@@ -460,11 +784,11 @@ const extendHangUp = async () => {
     // 等待所有请求完成
     await Promise.all(promises)
     
-    console.log('🕐 所有加钟请求已发送')
+    // 降噪
     
     // 延迟获取最新角色信息
     setTimeout(() => {
-      console.log('🕐 加钟后获取最新角色信息')
+      // 降噪
       tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     }, 1500)
     
@@ -490,7 +814,7 @@ const claimHangUpReward = async () => {
   const tokenId = tokenStore.selectedToken.id
   
   try {
-    console.log('🎁 开始领取挂机奖励...')
+    // 降噪
     hangUp.value.isClaiming = true
     message.info('正在领取挂机奖励...')
     
@@ -522,7 +846,7 @@ const claimHangUpReward = async () => {
       hangUp.value.isClaiming = false
     }, 1200)
     
-    console.log('🎁 挂机奖励领取操作序列已启动')
+    // 降噪
     
   } catch (error) {
     console.error('🎁 领取挂机奖励失败:', error)
@@ -610,14 +934,31 @@ watch(roleInfo, (newValue) => {
   }
 }, { deep: true, immediate: true })
 
+// 监听 WebSocket 连接状态，连接成功后获取月度任务数据（仅触发一次）
+const hasFetchedMonthlyOnce = ref(false)
+watch(
+  () => tokenStore.selectedToken ? tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) : 'disconnected',
+  (status) => {
+    if (status === 'connected' && !hasFetchedMonthlyOnce.value) {
+      hasFetchedMonthlyOnce.value = true
+      fetchMonthlyActivity()
+    }
+  }
+)
+
 // 生命周期
 onMounted(() => {
   updateGameStatus()
   startTimer()
+  // 拉取一次月度任务数据
+  // 如果已连接，拉取一次月度任务数据
+  if (tokenStore.selectedToken && tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) === 'connected') {
+    fetchMonthlyActivity()
+  }
   
   // 预加载答题数据
   preloadQuestions().then(() => {
-    console.log('📚 答题数据预加载完成')
+    // 降噪
   }).catch(error => {
     console.error('❌ 答题数据预加载失败:', error)
   })
@@ -739,6 +1080,18 @@ onUnmounted(() => {
     color: var(--success-color);
     border: 1px solid rgba(34, 197, 94, 0.3);
   }
+}
+
+.monthly-tasks .description.muted {
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-sm);
+}
+
+.monthly-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
 }
 
 .status-dot {

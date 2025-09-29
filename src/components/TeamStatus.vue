@@ -523,19 +523,12 @@ onMounted(async () => {
       await refreshTeamData(true)
       updateAvailableTeams(); updateCurrentTeam()
     }
-  } else if (!tokenStore.selectedToken) {
-    console.log('🛡️ 没有选中的Token，无法获取队伍信息')
-  } else {
-    console.log('🛡️ WebSocket未连接，等待连接后自动获取队伍信息')
   }
 })
 
 // —— 监听WebSocket连接状态变化 ——
 watch(wsStatus, (newStatus, oldStatus) => {
-  console.log(`🛡️ WebSocket状态变化: ${oldStatus} -> ${newStatus}`)
-  
   if (newStatus === 'connected' && oldStatus !== 'connected' && tokenStore.selectedToken) {
-    console.log('🛡️ WebSocket已连接，自动获取队伍信息')
     // 延迟一点时间让WebSocket完全就绪
     setTimeout(async () => {
       await refreshTeamData(false)
@@ -551,8 +544,7 @@ watch(wsStatus, (newStatus, oldStatus) => {
 // —— 监听Token变化 ——
 watch(() => tokenStore.selectedToken, async (newToken, oldToken) => {
   if (newToken && newToken.id !== oldToken?.id) {
-    console.log('🛡️ Token已切换，重新获取队伍信息')
-    
+    // Token切换，刷新队伍信息
     // 检查WebSocket是否已连接
     const status = tokenStore.getWebSocketStatus(newToken.id)
     if (status === 'connected') {

@@ -135,7 +135,10 @@ const startTowerClimb = async () => {
   try {
     const tokenId = tokenStore.selectedToken.id
 
-    // 发送爬塔命令
+    // 发送爬塔命令（日志精简：不输出控制台）
+
+    // 实际请求体将会是: {"ack":0,"body":{},"cmd":"fight_starttower","seq":XX,"time":TIMESTAMP}
+
     await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 10000)
 
     message.success('爬塔命令已发送')
@@ -181,10 +184,7 @@ const resetClimbingState = () => {
 }
 
 const getTowerInfo = async () => {
-  if (!tokenStore.selectedToken) {
-    console.warn('🗼 getTowerInfo: 没有选中的Token')
-    return
-  }
+  if (!tokenStore.selectedToken) { return }
 
   try {
     const tokenId = tokenStore.selectedToken.id
@@ -198,11 +198,9 @@ const getTowerInfo = async () => {
     const roleResult = tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     // 直接请求塔信息
     const towerResult = tokenStore.sendMessage(tokenId, 'tower_getinfo')
-    if (!roleResult && !towerResult) {
-      console.error('🗼 getTowerInfo: 所有请求都失败了')
-    }
+    if (!roleResult && !towerResult) {}
   } catch (error) {
-    console.error('🗼 getTowerInfo: 获取塔信息失败:', error)
+    // 获取塔信息失败：静默，避免噪声
   }
 }
 
@@ -217,10 +215,7 @@ const wsStatus = computed(() => {
 
 // 监听WebSocket连接状态，连接成功后自动获取塔信息
 watch(wsStatus, (newStatus, oldStatus) => {
-  console.log(`🗼 WebSocket状态变化: ${oldStatus} -> ${newStatus}`)
-
   if (newStatus === 'connected' && oldStatus !== 'connected') {
-    console.log('🗼 WebSocket已连接，自动获取塔信息')
     // 延迟一点时间让WebSocket完全就绪
     setTimeout(() => {
       getTowerInfo()
@@ -231,7 +226,6 @@ watch(wsStatus, (newStatus, oldStatus) => {
 // 监听选中Token变化
 watch(() => tokenStore.selectedToken, (newToken, oldToken) => {
   if (newToken && newToken.id !== oldToken?.id) {
-    console.log('🗼 Token已切换，获取新的塔信息')
     // 检查WebSocket是否已连接
     const status = tokenStore.getWebSocketStatus(newToken.id)
     if (status === 'connected') {
@@ -243,8 +237,6 @@ watch(() => tokenStore.selectedToken, (newToken, oldToken) => {
 // 监听爬塔结果
 watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
   if (newResult && newResult.timestamp !== oldResult?.timestamp) {
-    console.log('🗼 收到新的爬塔结果:', newResult)
-
     // 显示爬塔结果消息
     if (newResult.success) {
       message.success('咸将塔挑战成功！')
@@ -260,7 +252,6 @@ watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
 
     // 重置爬塔状态
     setTimeout(() => {
-      console.log('🗼 爬塔结果处理完成，重置状态')
       if (climbTimeout.value) {
         clearTimeout(climbTimeout.value)
         climbTimeout.value = null
@@ -282,10 +273,6 @@ onMounted(() => {
   // 组件挂载时获取塔信息
   if (tokenStore.selectedToken && wsStatus.value === 'connected') {
     getTowerInfo()
-  } else if (!tokenStore.selectedToken) {
-    console.log('🗼 没有选中的Token，无法获取塔信息')
-  } else {
-    console.log('🗼 WebSocket未连接，等待连接后自动获取塔信息')
   }
 })
 </script>

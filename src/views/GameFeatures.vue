@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
@@ -164,6 +164,8 @@ const handleFeatureAction = (featureType) => {
     },
     'tower-challenge': () => {
       message.info('开始爬塔挑战...')
+      // 关键业务：只提示 UI，不打印冗余日志
+      // 实际请求体: {"ack":0,"body":{},"cmd":"fight_starttower","seq":XX,"time":TIMESTAMP}
       tokenStore.sendMessage(tokenId, 'fight_starttower')
     }
   }
@@ -241,32 +243,38 @@ onMounted(() => {
   }
 })
 
+// 监听当前选中 Token 的连接错误（如 token 过期）并给出明确提示
+watch(
+  () => {
+    if (!tokenStore.selectedToken) return { status: 'disconnected', lastError: null }
+    const conn = tokenStore.wsConnections[tokenStore.selectedToken.id]
+    return { status: conn?.status, lastError: conn?.lastError }
+  },
+  (cur) => {
+    if (!cur) return
+    if (cur.status === 'error' && cur.lastError) {
+      const err = String(cur.lastError.error || '').toLowerCase()
+      if (err.includes('token') && err.includes('expired')) {
+        message.error('当前 Token 已过期，请重新导入后再试')
+        router.push('/tokens')
+      }
+    }
+  },
+  { deep: true }
+)
+
 // 初始化游戏数据
 const initializeGameData = async () => {
   if (!tokenStore.selectedToken) return
   
   try {
     const tokenId = tokenStore.selectedToken.id
-    console.log('🎮 初始化游戏数据...')
-    
-    // 获取角色信息
-    console.log('🎮 正在获取角色信息...')
-    const roleResult = tokenStore.sendMessage(tokenId, 'role_getroleinfo')
-    console.log('🎮 角色信息请求结果:', roleResult)
-    
-    // 获取塔信息
-    console.log('🎮 正在获取塔信息...')
-    const towerResult = tokenStore.sendMessage(tokenId, 'tower_getinfo')
-    console.log('🎮 塔信息请求结果:', towerResult)
-    
-    // 获取队伍信息
-    console.log('🎮 正在获取队伍信息...')
-    const teamResult = tokenStore.sendMessage(tokenId, 'presetteam_getinfo')
-    console.log('🎮 队伍信息请求结果:', teamResult)
-    
-    console.log('🎮 游戏数据初始化请求已发送')
+    // 获取初始化数据（静默）
+    tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+    tokenStore.sendMessage(tokenId, 'tower_getinfo')
+    tokenStore.sendMessage(tokenId, 'presetteam_getinfo')
   } catch (error) {
-    console.warn('初始化游戏数据失败:', error)
+    // 静默处理初始化异常
   }
 }
 

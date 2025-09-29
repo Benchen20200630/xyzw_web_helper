@@ -28,14 +28,10 @@ export class CommandRegistry {
       cmd,
       ack,
       seq,
-      code: 0,
-      rtt: randInt(0, 500),
       time: Date.now(),
       body: this.encoder?.bon?.encode
         ? this.encoder.bon.encode({ ...defaultBody, ...params })
-        : undefined,
-      c: undefined,
-      hint: undefined,
+        : { ...defaultBody, ...params },
     }))
     return this
   }
@@ -47,9 +43,7 @@ export class CommandRegistry {
       ack,
       seq,
       time: Date.now(),
-      body: undefined,
-      c: undefined,
-      hint: undefined,
+      body: {},
     }))
     return this
   }
@@ -169,6 +163,8 @@ export function registerDefaultCommands(reg) {
 
     // 梦魇相关
     .register("nightmare_getroleinfo")
+    // 活动/任务
+    .register("activity_get")
 }
 
 /**
@@ -181,7 +177,7 @@ export class XyzwWebSocketClient {
     this.enc = this.utils?.getEnc ? this.utils.getEnc("auto") : undefined
 
     this.socket = null
-    this.ack = 1
+    this.ack = 0
     this.seq = 0
     this.sendQueue = []
     this.sendQueueTimer = null
@@ -229,6 +225,8 @@ export class XyzwWebSocketClient {
         } else if (evt.data instanceof ArrayBuffer) {
           // 二进制数据需要自动检测并解码
           packet = this.utils?.parse ? this.utils.parse(evt.data, "auto") : evt.data
+
+          // 移除特定命令的控制台直出日志，统一用 wsLogger/gameLogger 控制
         } else if (evt.data instanceof Blob) {
           // 处理Blob数据
           // 收到Blob数据
@@ -257,6 +255,14 @@ export class XyzwWebSocketClient {
                 } catch (error) {
                   gameLogger.error('BON Blob消息体解码失败:', error.message, packet.cmd)
                 }
+              }
+
+              // 更新 ack 为服务端最新的 seq（若存在）
+              const actualPacket = packet._raw || packet
+              const incomingSeq = (typeof actualPacket?.seq === 'number') ? actualPacket.seq :
+                                   (typeof packet?.seq === 'number') ? packet.seq : undefined
+              if (typeof incomingSeq === 'number' && incomingSeq >= 0) {
+                this.ack = incomingSeq
               }
 
               if (this.showMsg) {
@@ -291,6 +297,13 @@ export class XyzwWebSocketClient {
         } else {
           // 处理可能存在_raw包装的情况
           const actualPacket = packet._raw || packet
+
+          // 更新 ack 为服务端最新的 seq（若存在）
+          const incomingSeq = (typeof actualPacket.seq === 'number') ? actualPacket.seq :
+                               (typeof packet.seq === 'number') ? packet.seq : undefined
+          if (typeof incomingSeq === 'number' && incomingSeq >= 0) {
+            this.ack = incomingSeq
+          }
 
           if (actualPacket.body && this.shouldDecodeBody(actualPacket.body)) {
             try {
@@ -461,10 +474,17 @@ export class XyzwWebSocketClient {
       }
     }
 
+    // 移除特定命令的控制台直出日志，统一用 wsLogger 控制
+
+    // 统一在入队时分配 seq，避免与 Promise 版本竞争导致重复
+    const assignedSeq = (options.seq !== undefined)
+      ? options.seq
+      : (cmd === 'heart_beat' ? 0 : ++this.seq)
+
     const task = {
       cmd,
       params,
-      seq: options.seq, // 支持传递自定义seq
+      seq: assignedSeq,
       respKey: options.respKey || cmd,
       sleep: options.sleep || 0,
       onSent: options.onSent
@@ -564,16 +584,33 @@ export class XyzwWebSocketClient {
       if (!task) return
 
       try {
-        // 使用任务指定的seq或者当前seq
-        const taskSeq = task.seq !== undefined ? task.seq : this.seq
-        
-        // 构建报文
-        const raw = this.registry.build(task.cmd, this.ack, taskSeq, task.params)
-        
-        // 只有在没有指定seq的情况下才自增（普通消息）
-        if (task.seq === undefined && task.cmd !== "heart_beat") {
-          this.seq++
+        // 直接使用任务指定的 seq（已在入队时分配）
+        const raw = this.registry.build(task.cmd, this.ack, task.seq, task.params)
+
+        // 发送前日志（仅标准五段）
+        if (raw && raw.cmd !== '_sys/ack') {
+          let bodyForLog
+          try {
+            if (raw.body instanceof Uint8Array || Array.isArray(raw.body)) {
+              bodyForLog = '[BON]'
+            } else if (raw.body && typeof raw.body === 'object' && raw.body.constructor === Object && Object.keys(raw.body).every(k => !isNaN(parseInt(k)))) {
+              bodyForLog = '[BON]'
+            } else {
+              bodyForLog = raw.body || {}
+            }
+          } catch {
+            bodyForLog = '[BODY]'
+          }
+          wsLogger.info('📤 发送报文', {
+            cmd: raw.cmd,
+            ack: raw.ack ?? 0,
+            seq: raw.seq ?? 0,
+            time: raw.time,
+            body: bodyForLog
+          })
         }
+
+        // 自增逻辑已在入队时统一处理，这里不再修改 this.seq
 
         // 编码并发送
         const bin = this.registry.encodePacket(raw)

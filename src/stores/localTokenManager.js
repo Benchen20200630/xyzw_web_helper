@@ -125,7 +125,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
 
       // 设置事件监听器
       wsAgent.onOpen = () => {
-        console.log(`✅ WebSocket连接已建立: ${roleId}`)
+        // 降噪
         
         // 更新连接状态
         wsConnections.value[roleId].status = 'connected'
@@ -142,7 +142,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
       }
 
       wsAgent.onMessage = (message) => {
-        console.log(`📨 收到消息 [${roleId}]:`, message)
+        // 降噪
         
         // 处理不同类型的消息
         if (message.cmd) {
@@ -159,14 +159,14 @@ export const useLocalTokenStore = defineStore('localToken', () => {
       }
 
       wsAgent.onClose = (event) => {
-        console.log(`🔌 WebSocket连接已关闭 [${roleId}]:`, event.code, event.reason)
+        // 降噪
         if (wsConnections.value[roleId]) {
           wsConnections.value[roleId].status = 'disconnected'
         }
       }
 
       wsAgent.onReconnect = (attempt) => {
-        console.log(`🔄 WebSocket重连中 [${roleId}] 第${attempt}次`)
+        // 降噪
         if (wsConnections.value[roleId]) {
           wsConnections.value[roleId].status = 'reconnecting'
           wsConnections.value[roleId].reconnectAttempt = attempt
@@ -214,23 +214,23 @@ export const useLocalTokenStore = defineStore('localToken', () => {
     
     switch (cmd) {
       case 'role_getroleinfo':
-        console.log(`角色信息 [${roleId}]:`, body)
+        // 降噪
         break
         
       case 'system_getdatabundlever':
-        console.log(`数据包版本 [${roleId}]:`, body)
+        // 降噪
         break
         
       case 'task_claimdailyreward':
-        console.log(`每日任务奖励 [${roleId}]:`, body)
+        // 降噪
         break
         
       case 'system_signinreward':
-        console.log(`签到奖励 [${roleId}]:`, body)
+        // 降噪
         break
         
       default:
-        console.log(`未处理的消息 [${roleId}] ${cmd}:`, body)
+        // 降噪
     }
   }
   
@@ -258,12 +258,12 @@ export const useLocalTokenStore = defineStore('localToken', () => {
   const sendGameCommand = (roleId, commandName, params = {}) => {
     const connection = wsConnections.value[roleId]
     if (!connection || !connection.agent) {
-      console.warn(`角色 ${roleId} 的WebSocket连接不存在`)
+      // 降噪
       return false
     }
 
     if (connection.status !== 'connected') {
-      console.warn(`角色 ${roleId} 的WebSocket未连接`)
+      // 降噪
       return false
     }
 
@@ -273,7 +273,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
       if (typeof gameCommands[commandName] === 'function') {
         const command = gameCommands[commandName](0, 0, params)
         connection.agent.send(command)
-        console.log(`发送游戏命令 [${roleId}] ${commandName}:`, params)
+        // 降噪
         return true
       } else {
         console.error(`未知的游戏命令: ${commandName}`)
@@ -305,7 +305,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
           body: params,
           timeout
         })
-        console.log(`游戏命令响应 [${roleId}] ${commandName}:`, response)
+        // 降噪
         return response
       } else {
         throw new Error(`未知的游戏命令: ${commandName}`)

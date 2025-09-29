@@ -269,16 +269,16 @@ const bulkActionOptions = [
 
 // 等待WebSocket连接并加载阵容数据
 const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 2000) => {
-  console.log('每日页面进入，开始检查WebSocket连接状态...')
+  // 降噪
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // 检查WebSocket连接状态
       const wsStatus = tokenStore.getWebSocketStatus(tokenId)
-      console.log(`第${attempt}次检查，WebSocket状态:`, wsStatus)
+      // 降噪
       
       if (wsStatus !== 'connected') {
-        console.log('WebSocket未连接，尝试建立连接...')
+        // 降噪
         
         // 尝试建立WebSocket连接
         const tokenData = tokenStore.gameTokens.find(t => t.id === tokenId)
@@ -293,7 +293,7 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
           const newStatus = tokenStore.getWebSocketStatus(tokenId)
           if (newStatus !== 'connected') {
             if (attempt < maxRetries) {
-              console.log(`连接未建立，${retryDelay / 1000}秒后重试...`)
+              // 降噪
               continue
             } else {
               throw new Error('WebSocket连接超时')
@@ -305,7 +305,7 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
       }
       
       // WebSocket已连接，开始加载阵容数据
-      console.log('WebSocket已连接，开始加载阵容数据...')
+      // 降噪
       const result = await tokenStore.sendMessageWithPromise(
         tokenId, 
         'presetteam_getinfo', 
@@ -318,7 +318,7 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
         tokenStore.$patch((state) => {
           state.gameData = { ...(state.gameData ?? {}), presetTeam: result }
         })
-        console.log('阵容数据加载成功:', result)
+        // 降噪
         message.success('阵容数据已更新')
         return result
       }
@@ -327,7 +327,7 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
       console.error(`第${attempt}次尝试失败:`, error)
       
       if (attempt < maxRetries) {
-        console.log(`${retryDelay / 1000}秒后进行第${attempt + 1}次重试...`)
+        // 降噪
         await new Promise(resolve => setTimeout(resolve, retryDelay))
       } else {
         console.error('所有重试均失败，阵容数据加载失败')
@@ -478,7 +478,7 @@ const executeTask = async (taskId) => {
     }
     
     // 模拟通过WebSocket执行任务
-    console.log(`通过WebSocket执行任务: ${taskId}`)
+    // 降噪
     
     // 更新本地任务状态
     const taskIndex = tasks.value.findIndex(task => task.id === taskId)

@@ -244,15 +244,30 @@
         >
           尚未加入任何俱乐部
         </p>
-        <button 
-          class="action-button"
-          :disabled="legionSignin.isSignedIn"
-          @click="signInLegion"
-        >
-          {{ legionSignin.isSignedIn ? '已签到' : '立即签到' }}
-        </button>
+        <div class="action-row">
+          <button
+            class="action-button"
+            :disabled="legionSignin.isSignedIn"
+            @click="signInLegion"
+          >
+            {{ legionSignin.isSignedIn ? '已签到' : '立即签到' }}
+          </button>
+          <button
+            class="action-button secondary"
+            :disabled="!isConnected"
+            @click="handleBattleRecordsClick"
+          >
+            盐场战绩
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- 俱乐部战绩弹窗 -->
+    <ClubBattleRecords
+      ref="battleRecordsRef"
+      v-model:visible="showBattleRecords"
+    />
 
     <!-- 咸鱼大冲关 -->
     <div class="status-card study">
@@ -311,18 +326,22 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage } from 'naive-ui'
 import { preloadQuestions, getQuestionCount } from '@/utils/studyQuestionsFromJSON.js'
 import TeamStatus from './TeamStatus.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
+import ClubBattleRecords from './ClubBattleRecords.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
 
 // 响应式数据
+const showBattleRecords = ref(false)
+const battleRecordsRef = ref(null)
+
 const bottleHelper = ref({
   isRunning: false,
   remainingTime: 0,
@@ -636,6 +655,13 @@ const roleInfo = computed(() => {
   return tokenStore.gameData?.roleInfo || null
 })
 
+// WebSocket连接状态
+const isConnected = computed(() => {
+  if (!tokenStore.selectedToken) return false
+  const status = tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)
+  return status === 'connected'
+})
+
 // 格式化时间 - 确保显示到秒
 const formatTime = (seconds) => {
   // 确保传入值为数字，并向下取整到秒
@@ -868,12 +894,18 @@ const registerLegionMatch = () => {
 // 俱乐部签到
 const signInLegion = () => {
   if (!tokenStore.selectedToken || legionSignin.value.isSignedIn) return
-  
+
   const tokenId = tokenStore.selectedToken.id
   tokenStore.sendMessage(tokenId, 'legion_signin')
   tokenStore.sendMessage(tokenId, 'role_getroleinfo')
-  
+
   message.info('俱乐部签到')
+}
+
+// 处理盐场战绩按钮点击
+const handleBattleRecordsClick = () => {
+  console.log('点击盐场战绩按钮, isConnected:', isConnected.value)
+  showBattleRecords.value = true
 }
 
 // 学习答题
@@ -945,6 +977,16 @@ watch(
     }
   }
 )
+
+// 监听战绩弹窗打开，自动加载数据
+watch(showBattleRecords, (newVal) => {
+  if (newVal && battleRecordsRef.value) {
+    // 延迟执行，确保弹窗已经完全打开
+    nextTick(() => {
+      battleRecordsRef.value.fetchBattleRecords()
+    })
+  }
+})
 
 // 生命周期
 onMounted(() => {

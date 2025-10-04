@@ -110,6 +110,7 @@ export function registerDefaultCommands(reg) {
     .register("legion_getinfo")
     .register("legion_signin")
     .register("legion_getwarrank")
+    .register("legionwar_getdetails")
 
     // 邮件
     .register("mail_getlist", { category: [0, 4, 5], lastId: 0, size: 60 })

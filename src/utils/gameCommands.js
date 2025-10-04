@@ -659,6 +659,22 @@ export class GameCommands {
       time: Date.now()
     }
   }
+
+  /**
+   * 获取俱乐部战争详情
+   */
+  legionwar_getdetails(ack = 0, seq = 0, params = {}) {
+    return {
+      ack,
+      body: this.g_utils.bon.encode({
+        date: "2025/10/04",
+        ...params
+      }),
+      cmd: "legionwar_getdetails",
+      seq,
+      time: Date.now()
+    }
+  }
 }
 
 // 三国答题题库（基于mirror代码中的题目）

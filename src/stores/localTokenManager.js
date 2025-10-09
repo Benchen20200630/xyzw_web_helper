@@ -1,14 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import {
+  getUserToken as dbGetUserToken,
+  setUserToken as dbSetUserToken,
+  clearUserToken as dbClearUserToken,
+  getAllGameTokens as dbGetAllGameTokens,
+  putGameToken as dbPutGameToken,
+  deleteGameToken as dbDeleteGameToken,
+  clearGameTokens as dbClearGameTokens,
+  migrateFromLocalStorageIfNeeded
+} from '@/utils/tokenDb'
 
 /**
  * 本地Token管理器
  * 用于管理用户认证token和游戏角色token的本地存储
  */
 export const useLocalTokenStore = defineStore('localToken', () => {
-  // 状态
-  const userToken = ref(localStorage.getItem('userToken') || null)
-  const gameTokens = ref(JSON.parse(localStorage.getItem('gameTokens') || '{}'))
+  // 状态（内存态，实际持久化到 IndexedDB）
+  const userToken = ref(null)
+  const gameTokens = ref({})
   const wsConnections = ref({}) // WebSocket连接状态
   
   // 计算属性
@@ -18,12 +28,13 @@ export const useLocalTokenStore = defineStore('localToken', () => {
   // 用户认证token管理
   const setUserToken = (token) => {
     userToken.value = token
-    localStorage.setItem('userToken', token)
+    // 持久化到 IndexedDB（异步，不阻塞 UI）
+    dbSetUserToken(token).catch((e) => console.warn('保存用户Token失败:', e))
   }
   
   const clearUserToken = () => {
     userToken.value = null
-    localStorage.removeItem('userToken')
+    dbClearUserToken().catch((e) => console.warn('清除用户Token失败:', e))
   }
   
   // 游戏token管理
@@ -36,7 +47,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
     }
     
     gameTokens.value[roleId] = newTokenData
-    localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
+    dbPutGameToken(roleId, newTokenData).catch((e) => console.warn('保存游戏Token失败:', e))
     
     return newTokenData
   }
@@ -46,7 +57,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
     if (token) {
       // 更新最后使用时间
       token.lastUsed = new Date().toISOString()
-      localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
+      dbPutGameToken(roleId, token).catch((e) => console.warn('更新游戏Token失败:', e))
     }
     return token
   }
@@ -58,13 +69,13 @@ export const useLocalTokenStore = defineStore('localToken', () => {
         ...updates,
         updatedAt: new Date().toISOString()
       }
-      localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
+      dbPutGameToken(roleId, gameTokens.value[roleId]).catch((e) => console.warn('更新游戏Token失败:', e))
     }
   }
   
   const removeGameToken = (roleId) => {
     delete gameTokens.value[roleId]
-    localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
+    dbDeleteGameToken(roleId).catch((e) => console.warn('删除游戏Token失败:', e))
     
     // 同时断开对应的WebSocket连接
     if (wsConnections.value[roleId]) {
@@ -79,7 +90,7 @@ export const useLocalTokenStore = defineStore('localToken', () => {
     })
     
     gameTokens.value = {}
-    localStorage.removeItem('gameTokens')
+    dbClearGameTokens().catch((e) => console.warn('清空游戏Token失败:', e))
   }
   
   // WebSocket连接管理 - 使用新的WsAgent
@@ -356,7 +367,10 @@ export const useLocalTokenStore = defineStore('localToken', () => {
       
       if (tokenData.gameTokens) {
         gameTokens.value = tokenData.gameTokens
-        localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
+        // 持久化到 DB
+        Object.entries(gameTokens.value).forEach(([rid, data]) => {
+          dbPutGameToken(rid, { ...data, roleId: rid }).catch(() => {})
+        })
       }
       
       return { success: true, message: 'Token导入成功' }
@@ -384,36 +398,38 @@ export const useLocalTokenStore = defineStore('localToken', () => {
         if (wsConnections.value[roleId]) {
           closeWebSocketConnection(roleId)
         }
+        // 从 DB 删除
+        dbDeleteGameToken(roleId).catch(() => {})
       }
     })
     
     gameTokens.value = cleanedTokens
-    localStorage.setItem('gameTokens', JSON.stringify(gameTokens.value))
     
     return cleanedCount
   }
   
   // 初始化
-  const initTokenManager = () => {
-    // 从localStorage恢复数据
-    const savedUserToken = localStorage.getItem('userToken')
-    const savedGameTokens = localStorage.getItem('gameTokens')
-    
-    if (savedUserToken) {
-      userToken.value = savedUserToken
+  const initTokenManager = async () => {
+    try {
+      // 一次性迁移旧 localStorage 数据（如有）
+      await migrateFromLocalStorageIfNeeded()
+
+      // 从 IndexedDB 恢复
+      const [dbUser, dbTokens] = await Promise.all([
+        dbGetUserToken(),
+        dbGetAllGameTokens()
+      ])
+
+      if (dbUser) userToken.value = dbUser
+      gameTokens.value = dbTokens || {}
+
+      // 清理过期token（会同步更新 DB）
+      cleanExpiredTokens()
+    } catch (e) {
+      console.warn('初始化Token管理器失败，回退为空:', e)
+      userToken.value = null
+      gameTokens.value = {}
     }
-    
-    if (savedGameTokens) {
-      try {
-        gameTokens.value = JSON.parse(savedGameTokens)
-      } catch (error) {
-        console.error('解析游戏token数据失败:', error)
-        gameTokens.value = {}
-      }
-    }
-    
-    // 清理过期token
-    cleanExpiredTokens()
   }
   
   return {

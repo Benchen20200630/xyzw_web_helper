@@ -1,193 +1,215 @@
 <template>
-  <n-modal
-    v-model:show="showModal"
-    preset="card"
-    title="俱乐部盐场战绩"
-    style="width: 90%; max-width: 800px"
-    @after-leave="handleClose"
-  >
-    <template #header-extra>
-      <div class="header-actions">
-        <n-button
-          size="small"
-          :disabled="loading"
-          @click="handleRefresh"
-        >
-          <template #icon>
-            <n-icon><Refresh /></n-icon>
-          </template>
-          刷新
-        </n-button>
-        <n-button
-          type="primary"
-          size="small"
-          :disabled="!battleRecords || loading"
-          @click="handleExport"
-        >
-          <template #icon>
-            <n-icon><Copy /></n-icon>
-          </template>
-          导出
-        </n-button>
-      </div>
-    </template>
-
-    <div class="battle-records-content">
-      <!-- 加载状态 -->
-      <div
-        v-if="loading"
-        class="loading-state"
-      >
-        <n-spin size="large">
-          <template #description>
-            正在加载战绩数据...
-          </template>
-        </n-spin>
+  <div>
+    <!-- Inline 模式：卡片渲染 -->
+    <div v-if="inline" class="inline-wrapper">
+      <div class="inline-header">
+        <div class="inline-title">俱乐部盐场战绩</div>
+        <div class="header-actions">
+          <n-button size="small" :disabled="loading" @click="handleRefresh">
+            <template #icon>
+              <n-icon><Refresh /></n-icon>
+            </template>
+            刷新
+          </n-button>
+          <n-button type="primary" size="small" :disabled="!battleRecords || loading" @click="handleExport">
+            <template #icon>
+              <n-icon><Copy /></n-icon>
+            </template>
+            导出
+          </n-button>
+        </div>
       </div>
 
-      <!-- 战绩列表 -->
-      <div
-        v-else-if="battleRecords && battleRecords.roleDetailsList"
-        class="records-list"
-      >
-        <div class="records-info">
-          <n-tag type="info">
-            查询日期: {{ queryDate }}
-          </n-tag>
-          <n-tag type="success">
-            总成员: {{ battleRecords.roleDetailsList.length }}
-          </n-tag>
+      <div class="battle-records-content">
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-state">
+          <n-spin size="large">
+            <template #description>正在加载战绩数据...</template>
+          </n-spin>
         </div>
 
-        <div
-          v-for="member in battleRecords.roleDetailsList"
-          :key="member.roleId"
-          class="member-card"
-        >
-          <div class="member-header">
-            <div class="member-info">
-              <img
-                v-if="member.headImg"
-                :src="member.headImg"
-                :alt="member.name"
-                class="member-avatar"
-                @error="handleImageError"
-              >
-              <div
-                v-else
-                class="member-avatar-placeholder"
-              >
-                {{ member.name?.charAt(0) || '?' }}
-              </div>
-              <span class="member-name">{{ member.name }}</span>
-            </div>
-            <div class="member-stats-inline">
-              <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
-              <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
-              <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
-            </div>
-            <n-button
-              text
-              size="small"
-              class="details-button"
-              @click="toggleMemberDetails(member.roleId)"
-            >
-              <template #icon>
-                <n-icon>
-                  <ChevronDown v-if="!expandedMembers.has(member.roleId)" />
-                  <ChevronUp v-else />
-                </n-icon>
-              </template>
-            </n-button>
+        <!-- 战绩列表 -->
+        <div v-else-if="battleRecords && battleRecords.roleDetailsList" class="records-list">
+          <div class="records-info">
+            <n-tag type="info">查询日期: {{ queryDate }}</n-tag>
+            <n-tag type="success">总成员: {{ battleRecords.roleDetailsList.length }}</n-tag>
           </div>
 
-          <!-- 战斗详情（可展开） -->
-          <n-collapse-transition :show="expandedMembers.has(member.roleId)">
-            <div class="battle-details">
-              <div
-                v-if="member.targetRoleList && member.targetRoleList.length > 0"
-                class="battles-list"
-              >
-                <div
-                  v-for="(battle, index) in member.targetRoleList"
-                  :key="index"
-                  class="battle-item"
-                  :class="getBattleClass(battle)"
-                >
-                  <div class="battle-participants">
-                    <div class="participant attacker">
-                      <img
-                        v-if="battle.roleInfo?.headImg"
-                        :src="battle.roleInfo.headImg"
-                        :alt="battle.roleInfo.name"
-                        class="participant-avatar"
-                        @error="handleImageError"
-                      >
-                      <span class="participant-name">{{ battle.roleInfo?.name || '未知' }}</span>
+          <div v-for="member in battleRecords.roleDetailsList" :key="member.roleId" class="member-card">
+            <div class="member-header">
+              <div class="member-info">
+                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar" @error="handleImageError">
+                <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
+                <span class="member-name">{{ member.name }}</span>
+              </div>
+              <div class="member-stats-inline">
+                <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
+                <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
+                <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
+              </div>
+              <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
+                <template #icon>
+                  <n-icon>
+                    <ChevronDown v-if="!expandedMembers.has(member.roleId)" />
+                    <ChevronUp v-else />
+                  </n-icon>
+                </template>
+              </n-button>
+            </div>
+
+            <!-- 战斗详情（可展开） -->
+            <n-collapse-transition :show="expandedMembers.has(member.roleId)">
+              <div class="battle-details">
+                <div v-if="member.targetRoleList && member.targetRoleList.length > 0" class="battles-list">
+                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item" :class="getBattleClass(battle)">
+                    <div class="battle-participants">
+                      <div class="participant attacker">
+                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <span class="participant-name">{{ battle.roleInfo?.name || '未知' }}</span>
+                      </div>
+                      <div class="battle-vs">
+                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{ parseAttackType(battle.attackType) }}</n-tag>
+                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{ parseBattleResult(battle.newWinFlag) }}</n-tag>
+                      </div>
+                      <div class="participant defender">
+                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg" :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <span class="participant-name">{{ battle.targetRoleInfo?.name || '未知' }}</span>
+                      </div>
                     </div>
-                    <div class="battle-vs">
-                      <n-tag
-                        :type="battle.attackType === 0 ? 'warning' : 'info'"
-                        size="small"
-                      >
-                        {{ parseAttackType(battle.attackType) }}
-                      </n-tag>
-                      <n-tag
-                        :type="battle.newWinFlag === 2 ? 'success' : 'error'"
-                        size="small"
-                      >
-                        {{ parseBattleResult(battle.newWinFlag) }}
-                      </n-tag>
-                    </div>
-                    <div class="participant defender">
-                      <img
-                        v-if="battle.targetRoleInfo?.headImg"
-                        :src="battle.targetRoleInfo.headImg"
-                        :alt="battle.targetRoleInfo.name"
-                        class="participant-avatar"
-                        @error="handleImageError"
-                      >
-                      <span class="participant-name">{{ battle.targetRoleInfo?.name || '未知' }}</span>
-                    </div>
-                  </div>
-                  <div class="battle-time">
-                    {{ formatTimestamp(battle.timestamp) }}
+                    <div class="battle-time">{{ formatTimestamp(battle.timestamp) }}</div>
                   </div>
                 </div>
+                <div v-else class="no-battles">
+                  <n-empty description="暂无战斗记录" size="small" />
+                </div>
               </div>
-              <div
-                v-else
-                class="no-battles"
-              >
-                <n-empty description="暂无战斗记录" size="small" />
-              </div>
-            </div>
-          </n-collapse-transition>
+            </n-collapse-transition>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="empty-state">
+          <n-empty description="暂无战绩数据" size="large">
+            <template #icon>
+              <n-icon>
+                <DocumentText />
+              </n-icon>
+            </template>
+          </n-empty>
         </div>
       </div>
-
-      <!-- 空状态 -->
-      <div
-        v-else
-        class="empty-state"
-      >
-        <n-empty
-          description="暂无战绩数据"
-          size="large"
-        >
-          <template #icon>
-            <n-icon>
-              <DocumentText />
-            </n-icon>
-          </template>
-        </n-empty>
-      </div>
     </div>
-  </n-modal>
+
+    <!-- Modal 模式 -->
+    <n-modal
+      v-else
+      v-model:show="showModal"
+      preset="card"
+      title="俱乐部盐场战绩"
+      style="width: 90%; max-width: 800px"
+      @after-leave="handleClose"
+    >
+      <template #header-extra>
+        <div class="header-actions">
+          <n-button size="small" :disabled="loading" @click="handleRefresh">
+            <template #icon>
+              <n-icon><Refresh /></n-icon>
+            </template>
+            刷新
+          </n-button>
+          <n-button type="primary" size="small" :disabled="!battleRecords || loading" @click="handleExport">
+            <template #icon>
+              <n-icon><Copy /></n-icon>
+            </template>
+            导出
+          </n-button>
+        </div>
+      </template>
+
+      <div class="battle-records-content">
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-state">
+          <n-spin size="large">
+            <template #description>正在加载战绩数据...</template>
+          </n-spin>
+        </div>
+
+        <!-- 战绩列表 -->
+        <div v-else-if="battleRecords && battleRecords.roleDetailsList" class="records-list">
+          <div class="records-info">
+            <n-tag type="info">查询日期: {{ queryDate }}</n-tag>
+            <n-tag type="success">总成员: {{ battleRecords.roleDetailsList.length }}</n-tag>
+          </div>
+
+          <div v-for="member in battleRecords.roleDetailsList" :key="member.roleId" class="member-card">
+            <div class="member-header">
+              <div class="member-info">
+                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar" @error="handleImageError">
+                <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
+                <span class="member-name">{{ member.name }}</span>
+              </div>
+              <div class="member-stats-inline">
+                <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
+                <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
+                <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
+              </div>
+              <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
+                <template #icon>
+                  <n-icon>
+                    <ChevronDown v-if="!expandedMembers.has(member.roleId)" />
+                    <ChevronUp v-else />
+                  </n-icon>
+                </template>
+              </n-button>
+            </div>
+
+            <!-- 战斗详情（可展开） -->
+            <n-collapse-transition :show="expandedMembers.has(member.roleId)">
+              <div class="battle-details">
+                <div v-if="member.targetRoleList && member.targetRoleList.length > 0" class="battles-list">
+                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item" :class="getBattleClass(battle)">
+                    <div class="battle-participants">
+                      <div class="participant attacker">
+                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <span class="participant-name">{{ battle.roleInfo?.name || '未知' }}</span>
+                      </div>
+                      <div class="battle-vs">
+                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{ parseAttackType(battle.attackType) }}</n-tag>
+                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{ parseBattleResult(battle.newWinFlag) }}</n-tag>
+                      </div>
+                      <div class="participant defender">
+                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg" :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <span class="participant-name">{{ battle.targetRoleInfo?.name || '未知' }}</span>
+                      </div>
+                    </div>
+                    <div class="battle-time">{{ formatTimestamp(battle.timestamp) }}</div>
+                  </div>
+                </div>
+                <div v-else class="no-battles">
+                  <n-empty description="暂无战斗记录" size="small" />
+                </div>
+              </div>
+            </n-collapse-transition>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="empty-state">
+          <n-empty description="暂无战绩数据" size="large">
+            <template #icon>
+              <n-icon>
+                <DocumentText />
+              </n-icon>
+            </template>
+          </n-empty>
+        </div>
+      </div>
+    </n-modal>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import {
@@ -209,6 +231,10 @@ import {
 
 const props = defineProps({
   visible: {
+    type: Boolean,
+    default: false
+  },
+  inline: {
     type: Boolean,
     default: false
   }
@@ -348,9 +374,34 @@ const handleClose = () => {
 defineExpose({
   fetchBattleRecords
 })
+
+// Inline 模式：挂载后自动拉取
+onMounted(() => {
+  if (props.inline) {
+    fetchBattleRecords()
+  }
+})
 </script>
 
 <style scoped lang="scss">
+.inline-wrapper {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-medium);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-md);
+}
+
+.inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.inline-title {
+  font-weight: var(--font-weight-semibold);
+}
+
 .header-actions {
   display: flex;
   gap: var(--spacing-sm);

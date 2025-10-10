@@ -30,7 +30,7 @@
           </n-space>
         </div>
 
-        <n-tabs type="line" animated>
+        <n-tabs v-model:value="activeTab" type="line" animated>
           <n-tab-pane name="overview" tab="概览" display-directive="show:lazy">
             <div class="overview">
               <div class="club-header">
@@ -43,11 +43,11 @@
               <div class="grid">
                 <div class="item">
                   <div class="label">战力</div>
-                  <div class="value">{{ formatNumber(info.power || 0) }}</div>
+                  <div class="value">{{ formatNumber(clubOverview.power) }}</div>
                 </div>
                 <div class="item">
                   <div class="label">段位</div>
-                  <div class="value">{{ info.dan ?? '-' }}</div>
+                  <div class="value">{{ clubOverview.dan }}</div>
                 </div>
                 <div class="item">
                   <div class="label">成员数</div>
@@ -55,16 +55,9 @@
                 </div>
                 <div class="item">
                   <div class="label">红洗次数</div>
-                  <div class="value">{{ info.redQuenchCnt ?? info.statistics?.['red:quench'] ?? 0 }}</div>
+                  <div class="value">{{ clubOverview.redQuench }}</div>
                 </div>
-                <div class="item">
-                  <div class="label">上次排位名次</div>
-                  <div class="value">{{ info.statistics?.['last:war:rank'] ?? '-' }}</div>
-                </div>
-                <div class="item">
-                  <div class="label">是否禁止申请</div>
-                  <div class="value">{{ info.noApply ? '是' : '否' }}</div>
-                </div>
+                
               </div>
               <div v-if="club.announcement" class="announcement">
                 <div class="label">公告</div>
@@ -97,6 +90,10 @@
               <div v-if="memberCount > topMembers.length" class="hint">仅显示前 {{ topMembers.length }} 名(按战力)</div>
             </div>
           </n-tab-pane>
+
+          <n-tab-pane name="records" tab="盐场战绩" display-directive="show:lazy">
+            <ClubBattleRecords inline />
+          </n-tab-pane>
         </n-tabs>
       </div>
     </div>
@@ -104,8 +101,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
+import ClubBattleRecords from './ClubBattleRecords.vue'
 
 const tokenStore = useTokenStore()
 
@@ -126,6 +124,29 @@ const topMembers = computed(() => {
   return [...members.value]
     .sort((a, b) => (Number(b.power || b.custom?.s_power || 0) - Number(a.power || a.custom?.s_power || 0)))
     .slice(0, 20)
+})
+
+const activeTab = ref('overview')
+
+// 兼容不同服务端字段：从 info.info 和顶层 info 以及 statistics 中聚合
+const clubOverview = computed(() => {
+  const i = info.value || {}
+  const base = i.info || {}
+  const stats = i.statistics || i.stat || {}
+
+  const power = Number(
+    base.power ?? i.power ?? base.s_power ?? i.s_power ?? 0
+  )
+  const dan = base.dan ?? i.dan ?? base.rank ?? i.rank ?? '-'
+  const redQuench = Number(
+    base.redQuenchCnt ?? i.redQuenchCnt ?? stats['red:quench'] ?? stats['red_quench'] ?? 0
+  )
+  const lastWarRank = (
+    stats['last:war:rank'] ?? stats['lastWarRank'] ?? stats['legion:last:war:rank'] ?? '-'
+  )
+  const noApply = Boolean(base.noApply ?? i.noApply)
+
+  return { power, dan: dan ?? '-', redQuench, lastWarRank, noApply }
 })
 
 const refreshClub = () => {

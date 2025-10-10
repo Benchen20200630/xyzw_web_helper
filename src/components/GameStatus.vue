@@ -1,13 +1,31 @@
 <template>
   <div class="game-status-container">
-    <!-- 队伍状态 -->
-    <TeamStatus />
+    <!-- 身份牌常驻（嵌入式，Tabs 上方） -->
+    <IdentityCard embedded />
 
-    <!-- 每日任务状态 -->
-    <DailyTaskStatus />
+    
+
+    <!-- 下方选卡分区切换（Tabs）：日常｜俱乐部｜活动 -->
+    <n-tabs
+      class="section-tabs"
+      v-model:value="activeSection"
+      type="line"
+      animated
+      size="small"
+    >
+      <n-tab-pane name="daily" tab="日常" />
+      <n-tab-pane name="club" tab="俱乐部" />
+      <n-tab-pane name="activity" tab="活动" />
+    </n-tabs>
+
+    <!-- 阵容（仅日常） -->
+    <TeamFormation v-show="activeSection === 'daily'" />
+
+    <!-- 每日任务状态（仅日常） -->
+    <DailyTaskStatus v-show="activeSection === 'daily'" />
 
     <!-- 月度任务进度 -->
-    <div class="status-card monthly-tasks">
+    <div class="status-card monthly-tasks" v-show="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"
@@ -65,11 +83,11 @@
     </div>
 
     <!-- 咸将塔状态 -->
-    <TowerStatus />
+    <TowerStatus v-show="activeSection === 'daily'" />
 
     <!-- 其他游戏状态卡片 -->
     <!-- 盐罐机器人状态 -->
-    <div class="status-card bottle-helper">
+    <div class="status-card bottle-helper" v-show="activeSection === 'daily'">
       <div class="card-header">
         <img
           src="/icons/173746572831736.png"
@@ -103,7 +121,7 @@
     </div>
 
     <!-- 挂机状态 -->
-    <div class="status-card hang-up">
+    <div class="status-card hang-up" v-show="activeSection === 'daily'">
       <div class="card-header">
         <img
           src="/icons/174061875626614.png"
@@ -176,7 +194,7 @@
     </div>
 
     <!-- 俱乐部排位 -->
-    <div class="status-card legion-match">
+    <div class="status-card legion-match" v-show="activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706152.png"
@@ -211,7 +229,7 @@
     </div>
 
     <!-- 俱乐部签到 -->
-    <div class="status-card legion-signin">
+    <div class="status-card legion-signin" v-show="activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706148.png"
@@ -252,25 +270,15 @@
           >
             {{ legionSignin.isSignedIn ? '已签到' : '立即签到' }}
           </button>
-          <button
-            class="action-button secondary"
-            :disabled="!isConnected"
-            @click="handleBattleRecordsClick"
-          >
-            盐场战绩
-          </button>
+          
         </div>
       </div>
     </div>
 
-    <!-- 俱乐部战绩弹窗 -->
-    <ClubBattleRecords
-      ref="battleRecordsRef"
-      v-model:visible="showBattleRecords"
-    />
+    
 
     <!-- 咸鱼大冲关 -->
-    <div class="status-card study">
+    <div class="status-card study" v-show="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"
@@ -324,27 +332,27 @@
     </div>
 
     <!-- 俱乐部信息（选项卡） -->
-    <ClubInfo />
+    <ClubInfo v-show="activeSection === 'club'" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage } from 'naive-ui'
 import { preloadQuestions, getQuestionCount } from '@/utils/studyQuestionsFromJSON.js'
-import TeamStatus from './TeamStatus.vue'
+import IdentityCard from './IdentityCard.vue'
+import TeamFormation from './TeamFormation.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
-import ClubBattleRecords from './ClubBattleRecords.vue'
 import ClubInfo from './ClubInfo.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
 
 // 响应式数据
-const showBattleRecords = ref(false)
-const battleRecordsRef = ref(null)
+const showIdentity = ref(false)
+const activeSection = ref('daily')
 
 const bottleHelper = ref({
   isRunning: false,
@@ -906,11 +914,7 @@ const signInLegion = () => {
   message.info('俱乐部签到')
 }
 
-// 处理盐场战绩按钮点击
-const handleBattleRecordsClick = () => {
-  console.log('点击盐场战绩按钮, isConnected:', isConnected.value)
-  showBattleRecords.value = true
-}
+// 盐场战绩入口已移动至俱乐部信息模块
 
 // 学习答题
 const startStudy = async () => {
@@ -990,15 +994,7 @@ watch(
   }
 )
 
-// 监听战绩弹窗打开，自动加载数据
-watch(showBattleRecords, (newVal) => {
-  if (newVal && battleRecordsRef.value) {
-    // 延迟执行，确保弹窗已经完全打开
-    nextTick(() => {
-      battleRecordsRef.value.fetchBattleRecords()
-    })
-  }
-})
+// 战绩加载逻辑现由俱乐部信息模块负责
 
 // 生命周期
 onMounted(() => {
@@ -1036,7 +1032,7 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .game-status-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: var(--spacing-lg);
   padding: var(--spacing-lg);
 
@@ -1049,7 +1045,7 @@ onUnmounted(() => {
 
   // 在中等屏幕上确保有足够空间
   @media (max-width: 1200px) {
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   }
 
   // 在较小屏幕上使用单列布局
@@ -1058,6 +1054,12 @@ onUnmounted(() => {
     gap: var(--spacing-md);
   }
 }
+
+.section-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 8px var(--spacing-lg); }
+.identity-toggle { padding: 6px 12px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-primary); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; }
+
+.section-tabs { margin: 0 var(--spacing-lg) var(--spacing-md) var(--spacing-lg); grid-column: 1 / -1; border-bottom: 1px solid var(--border-light); }
+.section-tabs :deep(.n-tabs-pane-wrapper) { display: none; }
 
 .status-card {
   background: var(--bg-primary);

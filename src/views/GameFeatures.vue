@@ -5,6 +5,16 @@
       <div class="container">
         <div class="header-content">
           <div class="header-left">
+            <n-button
+              text
+              class="back-button"
+              @click="router.push('/dashboard')"
+            >
+              <template #icon>
+                <n-icon><ArrowBack /></n-icon>
+              </template>
+              返回控制台
+            </n-button>
             <h1 class="page-title">
               游戏功能
             </h1>
@@ -85,7 +95,7 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import GameStatus from '@/components/GameStatus.vue'
-import { CloudDone } from '@vicons/ionicons5'
+import { CloudDone, ArrowBack } from '@vicons/ionicons5'
 
 const router = useRouter()
 const message = useMessage()
@@ -311,6 +321,24 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.back-button {
+  margin-bottom: var(--spacing-sm);
+  color: var(--primary-color);
+  font-size: var(--font-size-md);
+
+  &:hover {
+    color: var(--primary-color-dark);
+  }
+
+  :deep(.n-button__icon) {
+    margin-right: var(--spacing-xs);
+  }
 }
 
 .page-title {

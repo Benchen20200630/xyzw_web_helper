@@ -444,8 +444,14 @@ export const useTokenStore = defineStore('tokens', () => {
                 }
             }
 
-            // 处理军团信息
-            else if (cmd === 'legion_getinfo') {
+            // 处理军团信息（兼容大小写与 Resp 后缀）
+            else if (
+                cmd === 'legion_getinfo' ||
+                cmd === 'legion_getinforesp' ||
+                (cmd && cmd.includes('legion_getinfo')) ||
+                cmd === 'legion_getinfor' || // 兼容部分服务端拼写
+                cmd === 'legion_getinforresp'
+            ) {
                 if (body) {
                     gameData.value.legionInfo = body
                     gameLogger.verbose('军团信息已更新')

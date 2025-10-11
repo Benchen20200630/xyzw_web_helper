@@ -703,7 +703,7 @@ const executeDailyTasks = async (roleInfoResp, logFn, progressFn) => {
   // 4. 固定奖励领取
   const fixedRewards = [
     { name: '福利签到', cmd: 'system_signinreward' },
-    { name: '俱乐部签到', cmd: 'legion_signin' },
+    { name: '俱乐部', cmd: 'legion_signin' },
     { name: '领取每日礼包', cmd: 'discount_claimreward' },
     { name: '领取免费礼包', cmd: 'card_claimreward' },
     { name: '领取永久卡礼包', cmd: 'card_claimreward', params: { cardId: 4003 } }

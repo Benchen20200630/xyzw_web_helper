@@ -137,7 +137,19 @@ localTokenStore.importTokens(backupData)
 
 ## 注意事项
 
-1. 所有数据存储在浏览器localStorage中
-2. 清除浏览器数据会丢失所有token
-3. 建议定期使用导出功能备份token数据
+1. Token与配置已持久化到浏览器 IndexedDB（库：原生 API，自实现封装）
+2. 首次初始化会自动从 localStorage 迁移到 IndexedDB（若 DB 为空）
+3. 清除站点数据会同时清除 IndexedDB，建议定期导出备份
 4. WebSocket连接使用模拟URL，需要根据实际情况修改
+
+## 持久化实现说明（IndexedDB）
+
+- 存储结构：
+  - `kv` 表：保存 `userToken`
+  - `gameTokens` 表：按 `roleId` 分条存储 token 记录
+- 读写方式：
+  - Store 内存态与 UI 同步，写操作异步持久化到 DB（不阻塞界面）
+  - `initTokenManager()` 异步加载 DB 数据并填充内存态
+- 兼容迁移：
+  - 若 DB 为空且 localStorage 有旧数据，则一次性迁移至 DB
+  - 迁移后仍保留 localStorage 数据以避免意外数据丢失（可后续手动清理）

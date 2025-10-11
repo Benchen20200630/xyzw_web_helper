@@ -1,13 +1,31 @@
 <template>
   <div class="game-status-container">
-    <!-- 队伍状态 -->
-    <TeamStatus />
+    <!-- 身份牌常驻（嵌入式，Tabs 上方） -->
+    <IdentityCard embedded />
+
     
-    <!-- 每日任务状态 -->
-    <DailyTaskStatus />
+
+    <!-- 下方选卡分区切换（Tabs）：日常｜俱乐部｜活动 -->
+    <n-tabs
+      class="section-tabs"
+      v-model:value="activeSection"
+      type="line"
+      animated
+      size="small"
+    >
+      <n-tab-pane name="daily" tab="日常" />
+      <n-tab-pane name="club" tab="俱乐部" />
+      <n-tab-pane name="activity" tab="活动" />
+    </n-tabs>
+
+    <!-- 阵容（仅日常） -->
+    <TeamFormation v-show="activeSection === 'daily'" />
+
+    <!-- 每日任务状态（仅日常） -->
+    <DailyTaskStatus v-show="activeSection === 'daily'" />
 
     <!-- 月度任务进度 -->
-    <div class="status-card monthly-tasks">
+    <div class="status-card monthly-tasks" v-show="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"
@@ -65,11 +83,11 @@
     </div>
 
     <!-- 咸将塔状态 -->
-    <TowerStatus />
-    
+    <TowerStatus v-show="activeSection === 'daily'" />
+
     <!-- 其他游戏状态卡片 -->
     <!-- 盐罐机器人状态 -->
-    <div class="status-card bottle-helper">
+    <div class="status-card bottle-helper" v-show="activeSection === 'daily'">
       <div class="card-header">
         <img
           src="/icons/173746572831736.png"
@@ -92,7 +110,7 @@
         <div class="time-display">
           {{ formatTime(bottleHelper.remainingTime) }}
         </div>
-        <button 
+        <button
           class="action-button"
           :class="{ active: bottleHelper.isRunning }"
           @click="handleBottleHelper"
@@ -103,7 +121,7 @@
     </div>
 
     <!-- 挂机状态 -->
-    <div class="status-card hang-up">
+    <div class="status-card hang-up" v-show="activeSection === 'daily'">
       <div class="card-header">
         <img
           src="/icons/174061875626614.png"
@@ -127,8 +145,8 @@
           {{ formatTime(hangUp.remainingTime) }}
         </div>
         <div class="action-row">
-          <button 
-            class="action-button secondary" 
+          <button
+            class="action-button secondary"
             :disabled="hangUp.isExtending"
             @click="extendHangUp"
           >
@@ -149,8 +167,8 @@
             </span>
             <span v-else>加钟</span>
           </button>
-          <button 
-            class="action-button primary" 
+          <button
+            class="action-button primary"
             :disabled="hangUp.isClaiming"
             @click="claimHangUpReward"
           >
@@ -176,7 +194,7 @@
     </div>
 
     <!-- 俱乐部排位 -->
-    <div class="status-card legion-match">
+    <div class="status-card legion-match" v-show="activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706152.png"
@@ -200,7 +218,7 @@
           每逢周三周四周五有比赛<br>
           立即报名参与精彩对决！
         </p>
-        <button 
+        <button
           class="action-button"
           :disabled="legionMatch.isRegistered"
           @click="registerLegionMatch"
@@ -211,7 +229,7 @@
     </div>
 
     <!-- 俱乐部签到 -->
-    <div class="status-card legion-signin">
+    <div class="status-card legion-signin" v-show="activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706148.png"
@@ -244,18 +262,23 @@
         >
           尚未加入任何俱乐部
         </p>
-        <button 
-          class="action-button"
-          :disabled="legionSignin.isSignedIn"
-          @click="signInLegion"
-        >
-          {{ legionSignin.isSignedIn ? '已签到' : '立即签到' }}
-        </button>
+        <div class="action-row">
+          <button
+            class="action-button"
+            :disabled="legionSignin.isSignedIn"
+            @click="signInLegion"
+          >
+            {{ legionSignin.isSignedIn ? '已签到' : '立即签到' }}
+          </button>
+          
+        </div>
       </div>
     </div>
 
+    
+
     <!-- 咸鱼大冲关 -->
-    <div class="status-card study">
+    <div class="status-card study" v-show="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"
@@ -275,7 +298,7 @@
         <p class="description">
           没有什么可以阻挡我求知的欲望！
         </p>
-        <button 
+        <button
           class="action-button"
           :class="{ 'completed': study.isCompleted }"
           :disabled="study.isAnswering || study.isCompleted"
@@ -307,6 +330,9 @@
         </button>
       </div>
     </div>
+
+    <!-- 俱乐部信息（选项卡） -->
+    <ClubInfo v-show="activeSection === 'club'" />
   </div>
 </template>
 
@@ -315,14 +341,19 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage } from 'naive-ui'
 import { preloadQuestions, getQuestionCount } from '@/utils/studyQuestionsFromJSON.js'
-import TeamStatus from './TeamStatus.vue'
+import IdentityCard from './IdentityCard.vue'
+import TeamFormation from './TeamFormation.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
+import ClubInfo from './ClubInfo.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
 
 // 响应式数据
+const showIdentity = ref(false)
+const activeSection = ref('daily')
+
 const bottleHelper = ref({
   isRunning: false,
   remainingTime: 0,
@@ -523,12 +554,12 @@ const autoTopUpFish = async (need, shouldBe, target) => {
     }
 
     message.info(`开始付费钓鱼补齐：共需 ${remaining} 次（每次最多10）`)
-    
+
     // 3) 批量执行，每指令最多10次
     while (remaining > 0) {
       const batch = Math.min(10, remaining)
       try {
-        await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: batch, newFree: false, type: 1 }, 12000)
+        await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: batch, newFree: true, type: 1 }, 12000)
       } catch (e) {
         message.error(`钓鱼失败：${e.message}`)
         break
@@ -570,12 +601,12 @@ const autoTopUpArena = async (need, shouldBe, target) => {
     try {
       await tokenStore.sendMessageWithPromise(tokenId, 'arena_startarea', {}, 6000)
     } catch {}
-    
+
     let safetyCounter = 0
     const safetyMaxFights = 100
     let round = 1
     let remaining = need
-    
+
     while (remaining > 0 && safetyCounter < safetyMaxFights) {
       const planFights = Math.ceil(remaining / 2)
       message.info(`竞技场补齐 第${round}轮：计划战斗 ${planFights} 场（估算每胜+2）`)
@@ -636,17 +667,24 @@ const roleInfo = computed(() => {
   return tokenStore.gameData?.roleInfo || null
 })
 
+// WebSocket连接状态
+const isConnected = computed(() => {
+  if (!tokenStore.selectedToken) return false
+  const status = tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)
+  return status === 'connected'
+})
+
 // 格式化时间 - 确保显示到秒
 const formatTime = (seconds) => {
   // 确保传入值为数字，并向下取整到秒
   const totalSeconds = Math.floor(Number(seconds) || 0)
-  
+
   if (totalSeconds <= 0) return '00:00:00'
-  
+
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
@@ -671,7 +709,7 @@ const updateGameStatus = () => {
     const now = Date.now() / 1000
     hangUp.value.lastTime = role.hangUp.lastTime
     hangUp.value.hangUpTime = role.hangUp.hangUpTime
-    
+
     const elapsed = now - hangUp.value.lastTime
     if (elapsed <= hangUp.value.hangUpTime) {
       // 确保剩余时间为整数秒
@@ -691,8 +729,8 @@ const updateGameStatus = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayTimestamp = today.getTime() / 1000
-    
-    legionMatch.value.isRegistered = 
+
+    legionMatch.value.isRegistered =
       Number(role.statistics['last:legion:match:sign:up:time']) > todayTimestamp
   }
 
@@ -701,8 +739,8 @@ const updateGameStatus = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayTimestamp = today.getTime() / 1000
-    
-    legionSignin.value.isSignedIn = 
+
+    legionSignin.value.isSignedIn =
       role.statisticsTime['legion:sign:in'] > todayTimestamp
   }
 
@@ -720,7 +758,7 @@ const startTimer = () => {
         bottleHelper.value.isRunning = false
       }
     }
-    
+
     // 更新挂机剩余时间
     if (hangUp.value.isActive && hangUp.value.remainingTime > 0) {
       hangUp.value.remainingTime = Math.max(0, hangUp.value.remainingTime - 1)
@@ -740,14 +778,14 @@ const handleBottleHelper = () => {
   }
 
   const tokenId = tokenStore.selectedToken.id
-  
+
   // 停止后重启
   tokenStore.sendMessage(tokenId, 'bottlehelper_stop')
   setTimeout(() => {
     tokenStore.sendMessage(tokenId, 'bottlehelper_start')
     tokenStore.sendMessage(tokenId, 'role_getroleinfo')
   }, 500)
-  
+
   message.info(bottleHelper.value.isRunning ? '重启盐罐机器人' : '启动盐罐机器人')
 }
 
@@ -757,14 +795,14 @@ const extendHangUp = async () => {
     message.warning('请先选择Token')
     return
   }
-  
+
   const tokenId = tokenStore.selectedToken.id
-  
+
   try {
     // 降噪
     hangUp.value.isExtending = true
     message.info('正在加钟...')
-    
+
     // 按照参考代码的逻辑，发送4次分享回调请求
     const promises = []
     for (let i = 0; i < 4; i++) {
@@ -780,24 +818,24 @@ const extendHangUp = async () => {
       })
       promises.push(promise)
     }
-    
+
     // 等待所有请求完成
     await Promise.all(promises)
-    
+
     // 降噪
-    
+
     // 延迟获取最新角色信息
     setTimeout(() => {
       // 降噪
       tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     }, 1500)
-    
+
     // 延迟显示完成消息和重置状态
     setTimeout(() => {
       message.success('加钟操作已完成，请查看挂机剩余时间')
       hangUp.value.isExtending = false
     }, 2500)
-    
+
   } catch (error) {
     console.error('🕐 加钟操作失败:', error)
     message.error('加钟操作失败: ' + (error.message || '未知错误'))
@@ -810,23 +848,23 @@ const claimHangUpReward = async () => {
     message.warning('请先选择Token')
     return
   }
-  
+
   const tokenId = tokenStore.selectedToken.id
-  
+
   try {
     // 降噪
     hangUp.value.isClaiming = true
     message.info('正在领取挂机奖励...')
-    
+
     // 参考HangUpStatus的S函数逻辑
     // 1. 发送初始分享回调
     tokenStore.sendMessage(tokenId, 'system_mysharecallback')
-    
+
     // 2. 领取挂机奖励
     setTimeout(() => {
       tokenStore.sendMessage(tokenId, 'system_claimhangupreward')
     }, 200)
-    
+
     // 3. 发送跳过分享卡片的回调
     setTimeout(() => {
       tokenStore.sendMessage(tokenId, 'system_mysharecallback', {
@@ -834,12 +872,12 @@ const claimHangUpReward = async () => {
         type: 2
       })
     }, 400)
-    
+
     // 4. 获取最新角色信息
     setTimeout(() => {
       tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     }, 600)
-    
+
     // 5. 显示完成消息并重置状态
     setTimeout(() => {
       message.success('挂机奖励领取完成')
@@ -868,29 +906,31 @@ const registerLegionMatch = () => {
 // 俱乐部签到
 const signInLegion = () => {
   if (!tokenStore.selectedToken || legionSignin.value.isSignedIn) return
-  
+
   const tokenId = tokenStore.selectedToken.id
   tokenStore.sendMessage(tokenId, 'legion_signin')
   tokenStore.sendMessage(tokenId, 'role_getroleinfo')
-  
+
   message.info('俱乐部签到')
 }
+
+// 盐场战绩入口已移动至俱乐部信息模块
 
 // 学习答题
 const startStudy = async () => {
   if (!tokenStore.selectedToken || study.value.isAnswering) return
-  
+
   // 检查是否已完成
   if (study.value.isCompleted) {
     message.success('✅ 咸鱼大冲关任务已完成，无需重复作答！')
     return
   }
-  
+
   try {
     // 确保答题数据已加载
     await preloadQuestions()
     const questionCount = await getQuestionCount()
-    
+
     // 通过 tokenStore 重置状态
     tokenStore.gameData.studyStatus = {
       ...tokenStore.gameData.studyStatus, // 保留isCompleted等状态
@@ -900,10 +940,10 @@ const startStudy = async () => {
       status: 'starting',
       timestamp: Date.now()
     }
-    
+
     const tokenId = tokenStore.selectedToken.id
     tokenStore.sendMessage(tokenId, 'study_startgame')
-    
+
     // 设置超时保护，最多30秒后自动重置
     setTimeout(() => {
       if (tokenStore.gameData.studyStatus.isAnswering) {
@@ -918,7 +958,7 @@ const startStudy = async () => {
         message.warning('答题超时，已自动重置状态')
       }
     }, 30000)
-    
+
     message.info(`🚀 开始一键答题... (题库包含 ${questionCount} 道题目)`)
   } catch (error) {
     console.error('启动答题失败:', error)
@@ -936,15 +976,25 @@ watch(roleInfo, (newValue) => {
 
 // 监听 WebSocket 连接状态，连接成功后获取月度任务数据（仅触发一次）
 const hasFetchedMonthlyOnce = ref(false)
+const hasFetchedLegionOnce = ref(false)
 watch(
   () => tokenStore.selectedToken ? tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) : 'disconnected',
   (status) => {
-    if (status === 'connected' && !hasFetchedMonthlyOnce.value) {
-      hasFetchedMonthlyOnce.value = true
-      fetchMonthlyActivity()
+    if (status === 'connected') {
+      if (!hasFetchedMonthlyOnce.value) {
+        hasFetchedMonthlyOnce.value = true
+        fetchMonthlyActivity()
+      }
+      if (!hasFetchedLegionOnce.value && tokenStore.selectedToken) {
+        hasFetchedLegionOnce.value = true
+        const tokenId = tokenStore.selectedToken.id
+        tokenStore.sendMessage(tokenId, 'legion_getinfo')
+      }
     }
   }
 )
+
+// 战绩加载逻辑现由俱乐部信息模块负责
 
 // 生命周期
 onMounted(() => {
@@ -955,18 +1005,19 @@ onMounted(() => {
   if (tokenStore.selectedToken && tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) === 'connected') {
     fetchMonthlyActivity()
   }
-  
+
   // 预加载答题数据
   preloadQuestions().then(() => {
     // 降噪
   }).catch(error => {
     console.error('❌ 答题数据预加载失败:', error)
   })
-  
+
   // 获取俱乐部信息
-  if (tokenStore.selectedToken) {
+  if (tokenStore.selectedToken && tokenStore.getWebSocketStatus(tokenStore.selectedToken.id) === 'connected') {
     const tokenId = tokenStore.selectedToken.id
     tokenStore.sendMessage(tokenId, 'legion_getinfo')
+    hasFetchedLegionOnce.value = true
   }
 })
 
@@ -981,7 +1032,7 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .game-status-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: var(--spacing-lg);
   padding: var(--spacing-lg);
 
@@ -994,7 +1045,7 @@ onUnmounted(() => {
 
   // 在中等屏幕上确保有足够空间
   @media (max-width: 1200px) {
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   }
 
   // 在较小屏幕上使用单列布局
@@ -1003,6 +1054,12 @@ onUnmounted(() => {
     gap: var(--spacing-md);
   }
 }
+
+.section-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 8px var(--spacing-lg); }
+.identity-toggle { padding: 6px 12px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-primary); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; }
+
+.section-tabs { margin: 0 var(--spacing-lg) var(--spacing-md) var(--spacing-lg); grid-column: 1 / -1; border-bottom: 1px solid var(--border-light); }
+.section-tabs :deep(.n-tabs-pane-wrapper) { display: none; }
 
 .status-card {
   background: var(--bg-primary);

@@ -110,6 +110,7 @@ export function registerDefaultCommands(reg) {
     .register("legion_getinfo")
     .register("legion_signin")
     .register("legion_getwarrank")
+    .register("legionwar_getdetails")
 
     // 邮件
     .register("mail_getlist", { category: [0, 4, 5], lastId: 0, size: 60 })
@@ -669,6 +670,7 @@ export class XyzwWebSocketClient {
     // 兼容旧的基于cmd名称的匹配方式（保留为向后兼容）
     const cmd = packet.cmd
     if (!cmd) return
+    const respCmdKey = typeof cmd === 'string' ? cmd.toLowerCase() : cmd
 
     // 命令到响应的映射 - 处理响应命令与原始命令不匹配的情况
     const responseToCommandMap = {
@@ -695,6 +697,9 @@ export class XyzwWebSocketClient {
       'system_getdatabundleverresp': 'system_getdatabundlever',
       'tower_claimrewardresp': 'tower_claimreward',
       'fight_starttowerresp': 'fight_starttower',
+      // 军团信息
+      'legion_getinforesp': 'legion_getinfo',
+      'legion_getinforresp': 'legion_getinfo',
 
       // 特殊响应映射 - 有些命令有独立响应，有些用同步响应
       'task_claimdailyrewardresp': 'task_claimdailyreward',
@@ -707,9 +712,10 @@ export class XyzwWebSocketClient {
     }
 
     // 获取原始命令名（支持一对一和一对多映射）
-    let originalCmds = responseToCommandMap[cmd]
+    // 使用小写进行映射匹配，兼容服务端大小写差异
+    let originalCmds = responseToCommandMap[respCmdKey]
     if (!originalCmds) {
-      originalCmds = [cmd] // 如果没有映射，使用响应命令本身
+      originalCmds = [respCmdKey] // 如果没有映射，使用响应命令本身（小写）
     } else if (typeof originalCmds === 'string') {
       originalCmds = [originalCmds] // 转换为数组
     }

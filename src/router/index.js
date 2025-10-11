@@ -65,6 +65,15 @@ const routes = [
     }
   },
   {
+    path: '/changelog',
+    name: 'Changelog',
+    component: () => import('@/views/Changelog.vue'),
+    meta: {
+      title: '更新日志',
+      requiresToken: false
+    }
+  },
+  {
     path: '/message-test',
     name: 'MessageTest',
     component: () => import('@/components/MessageTester.vue'),

@@ -169,6 +169,12 @@
             <span class="footer-text">XYZW 游戏管理系统</span>
           </div>
           <div class="footer-links">
+            <router-link
+              to="/changelog"
+              class="footer-link"
+            >
+              更新日志
+            </router-link>
             <a
               href="#"
               class="footer-link"

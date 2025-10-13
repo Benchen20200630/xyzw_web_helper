@@ -40,6 +40,13 @@
                   <div class="sub">ID {{ club.id }} · Lv.{{ club.level }} · 服务器 {{ club.serverId }}</div>
                 </div>
               </div>
+              <div class="overview-actions">
+                <n-space size="small">
+                  <n-button size="small" :disabled="legionSignedIn" type="primary" @click="signInLegion">
+                    {{ legionSignedIn ? '已签到' : '俱乐部签到' }}
+                  </n-button>
+                </n-space>
+              </div>
               <div class="grid">
                 <div class="item">
                   <div class="label">战力</div>
@@ -94,6 +101,8 @@
           <n-tab-pane name="records" tab="盐场战绩" display-directive="show:lazy">
             <ClubBattleRecords inline />
           </n-tab-pane>
+
+          
         </n-tabs>
       </div>
     </div>
@@ -102,10 +111,12 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import ClubBattleRecords from './ClubBattleRecords.vue'
 
 const tokenStore = useTokenStore()
+const message = useMessage()
 
 const info = computed(() => tokenStore.gameData?.legionInfo || null)
 const club = computed(() => info.value?.info || null)
@@ -127,6 +138,24 @@ const topMembers = computed(() => {
 })
 
 const activeTab = ref('overview')
+
+// 今日是否已进行俱乐部签到
+const legionSignedIn = computed(() => {
+  const ts = Number(tokenStore.gameData?.roleInfo?.role?.statisticsTime?.['legion:sign:in'] || 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todaySec = Math.floor(today.getTime() / 1000)
+  return ts > todaySec
+})
+
+const signInLegion = () => {
+  const token = tokenStore.selectedToken
+  if (!token || legionSignedIn.value) return
+  tokenStore.sendMessage(token.id, 'legion_signin')
+  tokenStore.sendMessage(token.id, 'role_getroleinfo')
+  message.info('俱乐部签到')
+}
+
 
 // 兼容不同服务端字段：从 info.info 和顶层 info 以及 statistics 中聚合
 const clubOverview = computed(() => {
@@ -181,6 +210,11 @@ const formatNumber = (num) => {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+  }
+
+  .overview-actions {
+    display: flex;
+    justify-content: flex-start;
   }
 
   .club-header {
@@ -247,9 +281,10 @@ const formatNumber = (num) => {
 }
 
 .status-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 8px;
   margin-right: var(--spacing-md);
 }
 

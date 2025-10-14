@@ -14,7 +14,7 @@
               <n-button
                 type="primary"
                 size="large"
-                @click="router.push('/game-features')"
+                @click="router.push('/admin/game-features')"
               >
                 进入游戏功能
               </n-button>
@@ -269,19 +269,19 @@ const handleManageTokens = () => {
 const handleQuickAction = (action) => {
   switch (action.action) {
     case 'game-features':
-      router.push('/game-features')
+      router.push('/admin/game-features')
       break
     case 'add-token':
       handleManageTokens()
       break
     case 'execute-tasks':
-      router.push('/game-features')
+      router.push('/admin/game-features')
       break
     case 'websocket-test':
       router.push('/websocket-test')
       break
     case 'open-settings':
-      router.push('/profile')
+      router.push('/admin/profile')
       break
   }
 }

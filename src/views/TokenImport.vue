@@ -28,7 +28,7 @@
               <n-icon><Add /></n-icon>
               添加游戏Token
             </h2>
-            
+
             <!-- 导入方式选择 -->
             <n-radio-group
               v-model:value="importMethod"
@@ -373,9 +373,9 @@
                     {{ token.importMethod === 'url' ? '长期有效' : '临时存储' }}
                   </n-tag>
                 </div>
-                
+
                 <!-- 升级选项（仅对临时存储的token显示） -->
-                <div 
+                <div
                   v-if="token.importMethod !== 'url'"
                   class="storage-upgrade"
                 >
@@ -638,13 +638,13 @@ const handleUrlImport = async () => {
 
     // 获取Token数据 - 处理跨域问题
     let response
-    
+
     // 检查是否为本地或相同域名的URL
-    const isLocalUrl = urlForm.url.startsWith(window.location.origin) || 
+    const isLocalUrl = urlForm.url.startsWith(window.location.origin) ||
                       urlForm.url.startsWith('/') ||
                       urlForm.url.startsWith('http://localhost') ||
                       urlForm.url.startsWith('http://127.0.0.1')
-    
+
     if (isLocalUrl) {
       // 本地URL直接请求
       response = await fetch(urlForm.url)
@@ -666,9 +666,9 @@ const handleUrlImport = async () => {
     if (!response.ok) {
       throw new Error(`请求失败: ${response.status} ${response.statusText}`)
     }
-    
+
     const data = await response.json()
-    
+
     // 检查返回数据是否包含token
     if (!data.token) {
       throw new Error('返回数据中未找到token字段')
@@ -1110,7 +1110,7 @@ const formatTime = (timestamp) => {
 }
 
 const goToDashboard = () => {
-  router.push('/dashboard')
+  router.push('/admin/dashboard')
 }
 
 // 开始任务管理 - 包含连接探测
@@ -1124,7 +1124,7 @@ const startTaskManagement = async (token) => {
     if (connectionStatus === 'connected') {
       // 已连接，直接跳转
       message.success(`${token.name} 已连接，进入任务管理`)
-      router.push('/dashboard')
+      router.push('/admin/dashboard')
       return
     }
 
@@ -1145,7 +1145,7 @@ const startTaskManagement = async (token) => {
 
         if (currentStatus === 'connected') {
           message.success(`${token.name} 连接成功，进入任务管理`)
-          router.push('/dashboard')
+          router.push('/admin/dashboard')
           return
         }
 
@@ -1185,7 +1185,7 @@ const startTaskManagement = async (token) => {
         },
         onNegativeClick: () => {
           message.info('进入离线模式，部分功能可能不可用')
-          router.push('/dashboard')
+          router.push('/admin/dashboard')
         }
       })
     }
@@ -1261,7 +1261,7 @@ const handleUrlParams = async () => {
           tokenStore.selectToken(tokenResult.token.id)
           message.success('正在跳转到控制台...')
           setTimeout(() => {
-            router.push('/dashboard')
+            router.push('/admin/dashboard')
           }, 1500)
         } else {
           // 清除URL参数，避免重复处理

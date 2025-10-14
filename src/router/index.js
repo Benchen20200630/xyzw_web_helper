@@ -30,6 +30,7 @@ const routes = [
   },
   {
     name: 'DefaultLayout',
+    path: '/admin',
     component: () => import('@/layout/DefaultLayout.vue'),
     meta: {
       title: '默认布局',
@@ -37,7 +38,7 @@ const routes = [
     },
     children: [
       {
-        path: '/dashboard',
+        path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: {
@@ -46,7 +47,7 @@ const routes = [
         }
       },
       {
-        path: '/game-features',
+        path: 'game-features',
         name: 'GameFeatures',
         component: () => import('@/views/GameFeatures.vue'),
         meta: {
@@ -55,7 +56,7 @@ const routes = [
         }
       },
       {
-        path: '/message-test',
+        path: 'message-test',
         name: 'MessageTest',
         component: () => import('@/components/MessageTester.vue'),
         meta: {
@@ -64,7 +65,7 @@ const routes = [
         }
       },
       {
-        path: '/profile',
+        path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
         meta: {
@@ -73,7 +74,7 @@ const routes = [
         }
       },
       {
-        path: '/daily-tasks',
+        path: 'daily-tasks',
         name: 'DailyTasks',
         component: () => import('@/views/DailyTasks.vue'),
         meta: {
@@ -140,7 +141,7 @@ router.beforeEach((to, from, next) => {
   } else if (to.path === '/' && tokenStore.hasTokens) {
     // 首页重定向逻辑
     if (tokenStore.selectedToken) {
-      next('/dashboard')
+      next('/admin/dashboard')
     } else {
       next('/tokens')
     }

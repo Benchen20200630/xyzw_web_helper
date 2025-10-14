@@ -248,7 +248,7 @@ const handleLogin = async () => {
       message.success('登录成功')
 
       // 跳转到dashboard或之前访问的页面
-      const redirect = router.currentRoute.value.query.redirect || '/dashboard'
+      const redirect = router.currentRoute.value.query.redirect || '/admin/dashboard'
       router.push(redirect)
     } else {
       message.error(result.message)
@@ -267,7 +267,7 @@ const handleSocialLogin = (provider) => {
 onMounted(() => {
   // 如果已经登录，直接跳转
   if (authStore.isAuthenticated) {
-    router.push('/dashboard')
+    router.push('/admin/dashboard')
   }
 })
 </script>

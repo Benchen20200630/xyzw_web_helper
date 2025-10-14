@@ -14,7 +14,7 @@
 
         <div class="nav-menu">
           <router-link
-            to="/dashboard"
+            to="/admin/dashboard"
             class="nav-item"
             active-class="active"
           >
@@ -22,7 +22,7 @@
             <span>首页</span>
           </router-link>
           <router-link
-            to="/game-features"
+            to="/admin/game-features"
             class="nav-item"
             active-class="active"
           >
@@ -38,7 +38,7 @@
             <span>Token管理</span>
           </router-link>
           <router-link
-            to="/daily-tasks"
+            to="/admin/daily-tasks"
             class="nav-item"
             active-class="active"
           >
@@ -46,7 +46,7 @@
             <span>任务管理</span>
           </router-link>
           <router-link
-            to="/message-test"
+            to="/admin/message-test"
             class="nav-item"
             active-class="active"
           >
@@ -54,7 +54,7 @@
             <span>消息测试</span>
           </router-link>
           <router-link
-            to="/profile"
+            to="/admin/profile"
             class="nav-item"
             active-class="active"
           >
@@ -129,7 +129,7 @@ const userMenuOptions = [
 const handleUserAction = (key) => {
   switch (key) {
     case 'profile':
-      router.push('/profile')
+      router.push('/admin/profile')
       break
     case 'settings':
       router.push('/settings')

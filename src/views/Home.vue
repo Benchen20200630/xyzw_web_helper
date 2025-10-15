@@ -35,7 +35,7 @@
               <n-button
                 type="primary"
                 size="large"
-                @click="router.push('/dashboard')"
+                @click="router.push('/admin/dashboard')"
               >
                 进入控制台
               </n-button>
@@ -63,7 +63,7 @@
                   type="primary"
                   size="large"
                   class="hero-button"
-                  @click="router.push(authStore.isAuthenticated ? '/dashboard' : '/register')"
+                  @click="router.push(authStore.isAuthenticated ? '/admin/dashboard' : '/register')"
                 >
                   {{ authStore.isAuthenticated ? '进入控制台' : '立即开始' }}
                 </n-button>

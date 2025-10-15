@@ -12,10 +12,10 @@
               管理和执行您的日常游戏任务
             </p>
           </div>
-          
+
           <div class="header-actions">
-            <n-button 
-              type="primary" 
+            <n-button
+              type="primary"
               size="large"
               :loading="isRefreshing"
               @click="refreshTasks"
@@ -27,9 +27,9 @@
               </template>
               刷新任务
             </n-button>
-            
-            <n-dropdown 
-              :options="bulkActionOptions" 
+
+            <n-dropdown
+              :options="bulkActionOptions"
               @select="handleBulkAction"
             >
               <n-button size="large">
@@ -58,7 +58,7 @@
             style="min-width: 200px"
             @update:value="onRoleChange"
           />
-          
+
           <div
             v-if="selectedRole"
             class="role-stats"
@@ -101,7 +101,7 @@
               自动执行
             </n-radio-button>
           </n-radio-group>
-          
+
           <div class="search-box">
             <n-input
               v-model:value="searchKeyword"
@@ -136,13 +136,13 @@
             @update:task="updateTask"
           />
         </div>
-        
+
         <!-- 空状态 -->
         <div
           v-else-if="!isLoading"
           class="empty-state"
         >
-          <n-empty 
+          <n-empty
             description="暂无任务数据"
             size="large"
           >
@@ -152,7 +152,7 @@
               </n-icon>
             </template>
             <template #extra>
-              <n-button 
+              <n-button
                 type="primary"
                 @click="refreshTasks"
               >
@@ -161,7 +161,7 @@
             </template>
           </n-empty>
         </div>
-        
+
         <!-- 加载状态 -->
         <div
           v-if="isLoading"
@@ -184,17 +184,23 @@ import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import DailyTaskCard from '@/components/DailyTaskCard.vue'
-import { 
-  Refresh, 
-  ChevronDown, 
-  Search, 
-  Cube 
+import {
+  Refresh,
+  ChevronDown,
+  Search,
+  Cube
 } from '@vicons/ionicons5'
+import { useGameRolesStore } from '@/stores/gameRoles'
+import { useLocalTokenStore } from '@/stores/localTokenManager'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 const tokenStore = useTokenStore()
+const gameRolesStore = useGameRolesStore()
+const localTokenStore = useLocalTokenStore()
+const authStore = useAuthStore()
 
 // 响应式数据
 const isLoading = ref(false)
@@ -220,7 +226,7 @@ const taskStats = computed(() => {
   const total = tasks.value.length
   const completed = tasks.value.filter(task => task.completed).length
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
-  
+
   return { total, completed, percentage }
 })
 
@@ -243,7 +249,7 @@ const filteredTasks = computed(() => {
   // 关键词搜索
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
-    filtered = filtered.filter(task => 
+    filtered = filtered.filter(task =>
       task.title.toLowerCase().includes(keyword) ||
       task.subtitle?.toLowerCase().includes(keyword)
     )
@@ -270,25 +276,25 @@ const bulkActionOptions = [
 // 等待WebSocket连接并加载阵容数据
 const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 2000) => {
   // 降噪
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // 检查WebSocket连接状态
       const wsStatus = tokenStore.getWebSocketStatus(tokenId)
       // 降噪
-      
+
       if (wsStatus !== 'connected') {
         // 降噪
-        
+
         // 尝试建立WebSocket连接
         const tokenData = tokenStore.gameTokens.find(t => t.id === tokenId)
         if (tokenData && tokenData.token) {
           // 触发WebSocket连接
           tokenStore.createWebSocketConnection(tokenId, tokenData.token, tokenData.wsUrl)
-          
+
           // 等待连接建立
           await new Promise(resolve => setTimeout(resolve, retryDelay))
-          
+
           // 再次检查连接状态
           const newStatus = tokenStore.getWebSocketStatus(tokenId)
           if (newStatus !== 'connected') {
@@ -303,16 +309,16 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
           throw new Error('未找到有效的Token数据或WebSocket URL')
         }
       }
-      
+
       // WebSocket已连接，开始加载阵容数据
       // 降噪
       const result = await tokenStore.sendMessageWithPromise(
-        tokenId, 
-        'presetteam_getinfo', 
-        {}, 
+        tokenId,
+        'presetteam_getinfo',
+        {},
         8000
       )
-      
+
       if (result) {
         // 更新到游戏数据缓存中
         tokenStore.$patch((state) => {
@@ -322,10 +328,10 @@ const loadTeamDataWithConnection = async (tokenId, maxRetries = 3, retryDelay = 
         message.success('阵容数据已更新')
         return result
       }
-      
+
     } catch (error) {
       console.error(`第${attempt}次尝试失败:`, error)
-      
+
       if (attempt < maxRetries) {
         // 降噪
         await new Promise(resolve => setTimeout(resolve, retryDelay))
@@ -348,14 +354,14 @@ const refreshTasks = async () => {
   try {
     isRefreshing.value = true
     isLoading.value = true
-    
+
     // 使用本地模拟任务数据
     const mockTasks = generateMockTasks(selectedRoleId.value)
     tasks.value = mockTasks
-    
+
     // 缓存到本地存储
     localStorage.setItem(`dailyTasks_${selectedRoleId.value}`, JSON.stringify(mockTasks))
-    
+
     message.success('任务数据刷新成功')
   } catch (error) {
     console.error('刷新任务失败:', error)
@@ -370,7 +376,7 @@ const refreshTasks = async () => {
 const generateMockTasks = (roleId) => {
   const role = gameRolesStore.gameRoles.find(r => r.id === roleId)
   const roleName = role?.name || '未知角色'
-  
+
   return [
     {
       id: `task_${roleId}_daily_signin`,
@@ -438,7 +444,7 @@ const onRoleChange = (roleId) => {
   gameRolesStore.selectRole(
     gameRolesStore.gameRoles.find(role => role.id === roleId)
   )
-  
+
   if (roleId) {
     refreshTasks()
   }
@@ -466,8 +472,8 @@ const executeTask = async (taskId) => {
       const tokenData = localTokenStore.getGameToken(selectedRoleId.value)
       if (tokenData) {
         localTokenStore.createWebSocketConnection(
-          selectedRoleId.value, 
-          tokenData.token, 
+          selectedRoleId.value,
+          tokenData.token,
           tokenData.wsUrl
         )
         // 等待一秒让连接建立
@@ -476,19 +482,19 @@ const executeTask = async (taskId) => {
         throw new Error('未找到游戏token，请重新添加角色')
       }
     }
-    
+
     // 模拟通过WebSocket执行任务
     // 降噪
-    
+
     // 更新本地任务状态
     const taskIndex = tasks.value.findIndex(task => task.id === taskId)
     if (taskIndex !== -1) {
-      tasks.value[taskIndex] = { 
-        ...tasks.value[taskIndex], 
+      tasks.value[taskIndex] = {
+        ...tasks.value[taskIndex],
         completed: true,
         completedAt: new Date().toISOString()
       }
-      
+
       // 添加执行日志
       if (!tasks.value[taskIndex].logs) {
         tasks.value[taskIndex].logs = []
@@ -499,15 +505,15 @@ const executeTask = async (taskId) => {
         type: 'success',
         message: `任务 "${tasks.value[taskIndex].title}" 执行成功`
       })
-      
+
       // 保存到本地存储
       localStorage.setItem(`dailyTasks_${selectedRoleId.value}`, JSON.stringify(tasks.value))
     }
-    
+
     message.success('任务执行成功')
   } catch (error) {
     console.error('执行任务失败:', error)
-    
+
     // 添加错误日志
     const taskIndex = tasks.value.findIndex(task => task.id === taskId)
     if (taskIndex !== -1) {
@@ -521,7 +527,7 @@ const executeTask = async (taskId) => {
         message: `任务执行失败: ${error.message}`
       })
     }
-    
+
     throw error
   }
 }
@@ -557,7 +563,7 @@ const handleBulkAction = (key) => {
 
 const executeAllPendingTasks = async () => {
   const pendingTasks = tasks.value.filter(task => !task.completed && task.canExecute)
-  
+
   if (pendingTasks.length === 0) {
     message.info('没有可执行的待完成任务')
     return
@@ -588,7 +594,7 @@ const executeAllPendingTasks = async () => {
 
 const markAllCompleted = () => {
   const pendingTasks = tasks.value.filter(task => !task.completed)
-  
+
   if (pendingTasks.length === 0) {
     message.info('所有任务都已完成')
     return
@@ -811,33 +817,33 @@ watch(() => gameRolesStore.selectedRole, (newRole) => {
     align-items: flex-start;
     gap: var(--spacing-md);
   }
-  
+
   .header-actions {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .filter-bar {
     flex-direction: column;
     gap: var(--spacing-md);
   }
-  
+
   .role-selector {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .role-stats {
     margin-left: 0;
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .tasks-grid {
     grid-template-columns: 1fr;
     gap: var(--spacing-md);
   }
-  
+
   .search-box {
     width: 100%;
   }

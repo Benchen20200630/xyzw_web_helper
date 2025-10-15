@@ -29,49 +29,60 @@ const routes = [
     })
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('@/views/Dashboard.vue'),
+    name: 'DefaultLayout',
+    path: '/admin',
+    component: () => import('@/layout/DefaultLayout.vue'),
     meta: {
-      title: '控制台',
+      title: '默认布局',
       requiresToken: true
-    }
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/Profile.vue'),
-    meta: {
-      title: '个人设置',
-      requiresToken: true
-    }
-  },
-  {
-    path: '/daily-tasks',
-    name: 'DailyTasks',
-    component: () => import('@/views/DailyTasks.vue'),
-    meta: {
-      title: '日常任务',
-      requiresToken: true
-    }
-  },
-  {
-    path: '/game-features',
-    name: 'GameFeatures',
-    component: () => import('@/views/GameFeatures.vue'),
-    meta: {
-      title: '游戏功能',
-      requiresToken: true
-    }
-  },
-  {
-    path: '/message-test',
-    name: 'MessageTest',
-    component: () => import('@/components/MessageTester.vue'),
-    meta: {
-      title: '消息测试',
-      requiresToken: true
-    }
+    },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/Dashboard.vue'),
+        meta: {
+          title: '控制台',
+          requiresToken: true
+        }
+      },
+      {
+        path: 'game-features',
+        name: 'GameFeatures',
+        component: () => import('@/views/GameFeatures.vue'),
+        meta: {
+          title: '游戏功能',
+          requiresToken: true
+        }
+      },
+      {
+        path: 'message-test',
+        name: 'MessageTest',
+        component: () => import('@/components/MessageTester.vue'),
+        meta: {
+          title: '消息测试',
+          requiresToken: true
+        }
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/Profile.vue'),
+        meta: {
+          title: '个人设置',
+          requiresToken: true
+        }
+      },
+      {
+        path: 'daily-tasks',
+        name: 'DailyTasks',
+        component: () => import('@/views/DailyTasks.vue'),
+        meta: {
+          title: '日常任务',
+          requiresToken: true
+        }
+      },
+    ]
   },
   {
     path: '/websocket-test',
@@ -130,7 +141,7 @@ router.beforeEach((to, from, next) => {
   } else if (to.path === '/' && tokenStore.hasTokens) {
     // 首页重定向逻辑
     if (tokenStore.selectedToken) {
-      next('/dashboard')
+      next('/admin/dashboard')
     } else {
       next('/tokens')
     }

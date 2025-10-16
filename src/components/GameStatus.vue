@@ -227,7 +227,10 @@
         </button>
       </div>
     </div>
-
+    
+    <!-- 俱乐部赛车 -->
+    <CarTaskCard v-show="activeSection === 'club'" />
+    
     <!-- 俱乐部签到（已迁移到俱乐部信息-概览，故隐藏原卡片） -->
     <div class="status-card legion-signin" v-if="ENABLE_LEGION_SIGNIN_CARD && activeSection === 'club'">
       <div class="card-header">
@@ -348,6 +351,7 @@ import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
 import ClubInfo from './ClubInfo.vue'
 import ClubCarKing from './ClubCarKing.vue'
+import CarTaskCard from './CarTaskCard.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()

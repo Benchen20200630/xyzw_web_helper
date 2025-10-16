@@ -167,12 +167,12 @@ export function registerDefaultCommands(reg) {
     // 活动/任务
     .register("activity_get")
 
-    // 车王争霸
+    // 车辆相关
     .register("car_getrolecar")
-    .register("car_refresh")
+    .register("car_refresh", { carId: 0 })
+    .register("car_claim", { carId: 0 })
+    .register("car_send", { carId: 0, helperId: 0, text: "" })
     .register("car_getmemberhelpingcnt")
-    .register("car_send")
-    .register("car_claim")
 }
 
 /**
@@ -707,7 +707,13 @@ export class XyzwWebSocketClient {
       // 军团信息
       'legion_getinforesp': 'legion_getinfo',
       'legion_getinforresp': 'legion_getinfo',
-
+      // 车辆相关响应映射
+      'car_getrolecarresp': 'car_getrolecar',
+      'car_refreshresp': 'car_refresh',
+      'car_claimresp': 'car_claim',
+      'car_sendresp': 'car_send',
+      'car_getmemberhelpingcntresp': 'car_getmemberhelpingcnt',
+      'role_gettargetteamresp': 'role_gettargetteam',
       // 特殊响应映射 - 有些命令有独立响应，有些用同步响应
       'task_claimdailyrewardresp': 'task_claimdailyreward',
       'task_claimweekrewardresp': 'task_claimweekreward',

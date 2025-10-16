@@ -227,7 +227,10 @@
         </button>
       </div>
     </div>
-
+    
+    <!-- 俱乐部赛车 -->
+    <CarTaskCard v-show="activeSection === 'club'" />
+    
     <!-- 俱乐部签到 -->
     <div class="status-card legion-signin" v-show="activeSection === 'club'">
       <div class="card-header">
@@ -346,6 +349,7 @@ import TeamFormation from './TeamFormation.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
 import ClubInfo from './ClubInfo.vue'
+import CarTaskCard from './CarTaskCard.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()

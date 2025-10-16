@@ -41,11 +41,11 @@
           </div>
 
           <div class="car-actions">
-            <n-button size="small" :type="Number(c.refreshCount ?? 0) === 0 ? 'success' : 'warning'" :disabled="carLoading" @click="refreshCar(c)">
+            <n-button size="small" :type="Number(c.refreshCount ?? 0) === 0 ? 'success' : 'warning'" :disabled="carLoading || Number(c.sendAt || 0) !== 0" @click="refreshCar(c)">
               {{ Number(c.refreshCount ?? 0) === 0 ? '免费刷新品阶' : '刷新品阶(需车票)' }}
             </n-button>
-            <n-button size="small" type="primary" :disabled="carLoading || Number(c.sendAt || 0) !== 0 || isAfter20" @click="sendCar(c)">
-              {{ Number(c.sendAt || 0) === 0 ? '发车' : '已发车' }}
+            <n-button size="small" type="primary" :disabled="carLoading || actionDisabled(c)" @click="handleAction(c)">
+              {{ actionLabel(c) }}
             </n-button>
             <n-button size="small" quaternary :disabled="carLoading || Number(c.color || 0) < 5 || Number(c.sendAt || 0) !== 0" @click="openHelperDialog(c)">
               护卫
@@ -105,6 +105,13 @@ onUnmounted(() => {
 const isAfter20 = computed(() => {
   const d = new Date(nowTs.value)
   return d.getHours() >= 20
+})
+
+// 活动开放时间：周一至周三可发车
+const isActivityOpen = computed(() => {
+  const d = new Date(nowTs.value)
+  const wd = d.getDay() // 0=周日
+  return wd >= 1 && wd <= 3
 })
 
 const isConnected = computed(() => {
@@ -191,8 +198,8 @@ const refreshCar = async (car) => {
     message.warning('未找到车辆ID')
     return
   }
-  if (isAfter20.value) {
-    message.warning('每日20:00后不可发车')
+  if (Number(car.sendAt || 0) !== 0) {
+    message.warning('仅未发车的车辆可刷新品阶')
     return
   }
   try {
@@ -235,6 +242,14 @@ const sendCar = async (car) => {
     message.warning('请先选择 Token 并建立连接')
     return
   }
+  if (Number(car.sendAt || 0) !== 0) {
+    message.info('该车辆已发车')
+    return
+  }
+  if (!isActivityOpen.value) {
+    message.warning('非活动时间不可发车（仅周一至周三开放）')
+    return
+  }
   if (!car?.id) {
     message.warning('未找到车辆ID')
     return
@@ -274,6 +289,83 @@ const sendCar = async (car) => {
     }
   } catch (e) {
     message.error('发车失败：' + (e.message || '未知错误'))
+  }
+}
+
+// 计算是否可收车：已发车且超过4小时
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
+const canClaim = (car) => {
+  const t = Number(car?.sendAt || 0)
+  if (!t) return false
+  const tsMs = t < 1e12 ? t * 1000 : t
+  return nowTs.value - tsMs >= FOUR_HOURS_MS
+}
+
+// 收车
+const claimCar = async (car) => {
+  const token = tokenStore.selectedToken
+  if (!token || !isConnected.value) return message.warning('请先选择 Token 并建立连接')
+  if (!car?.id) return message.warning('未找到车辆ID')
+  if (!canClaim(car)) return message.warning('未到可收车时间（需超过4小时）')
+  try {
+    message.info('收车中...')
+    const resp = await tokenStore.sendMessageWithPromise(token.id, 'car_claim', { carId: String(car.id) }, 10000)
+    // 成功后就地更新为未发车
+    car.sendAt = 0
+    // 同步底层 map（若存在）
+    const root = carRaw.value?.body || carRaw.value || {}
+    if (root.roleCar && root.roleCar.carDataMap && root.roleCar.carDataMap[car.id]) {
+      root.roleCar.carDataMap[car.id] = { ...root.roleCar.carDataMap[car.id], sendAt: 0 }
+    }
+    message.success('收车完成')
+  } catch (e) {
+    message.error('收车失败：' + (e.message || '未知错误'))
+  }
+}
+
+// 计算距可收车剩余时间（毫秒），负数代表已可收车
+const msUntilClaim = (car) => {
+  const t = Number(car?.sendAt || 0)
+  if (!t) return 0
+  const tsMs = t < 1e12 ? t * 1000 : t
+  return (tsMs + FOUR_HOURS_MS) - nowTs.value
+}
+
+const formatRemaining = (ms) => {
+  if (ms <= 0) return '0分'
+  const totalSec = Math.ceil(ms / 1000)
+  const hours = Math.floor(totalSec / 3600)
+  const minutes = Math.floor((totalSec % 3600) / 60)
+  if (hours > 0) return `${hours}小时${minutes}分`
+  return `${minutes}分`
+}
+
+// 单按钮动作与状态
+const actionLabel = (car) => {
+  const sent = Number(car?.sendAt || 0) !== 0
+  if (!sent) return '发车'
+  if (canClaim(car)) return '收车'
+  return `收车(剩余${formatRemaining(msUntilClaim(car))})`
+}
+
+const actionDisabled = (car) => {
+  const sent = Number(car?.sendAt || 0) !== 0
+  if (!sent) {
+    return isAfter20.value || !isActivityOpen.value
+  }
+  return !canClaim(car)
+}
+
+const handleAction = async (car) => {
+  const sent = Number(car?.sendAt || 0) !== 0
+  if (!sent) {
+    return sendCar(car)
+  }
+  if (canClaim(car)) {
+    return claimCar(car)
+  } else {
+    const left = formatRemaining(msUntilClaim(car))
+    message.info(`未到可收车时间，剩余 ${left}`)
   }
 }
 

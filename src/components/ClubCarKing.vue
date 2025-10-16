@@ -16,9 +16,12 @@
       <div class="car-toolbar">
         <n-space size="small">
           <n-button type="primary" size="small" :loading="carLoading" @click="fetchCarInfo">{{ carLoading ? '加载中...' : '刷新数据' }}</n-button>
+          <n-button size="small" secondary :disabled="carLoading || !isConnected" @click="smartSendCar">智能发车</n-button>
+          <n-button size="small" secondary :disabled="carLoading || !isConnected" @click="claimAllCars">一键收车</n-button>
           <n-tag size="small" :type="hasFreeRefresh ? 'success' : 'default'">
             {{ hasFreeRefresh ? `有 ${freeCarsCount} 辆可免费刷新` : '无免费刷新' }}
           </n-tag>
+          <n-tag size="small" type="info">剩余车票: {{ refreshTickets }}</n-tag>
         </n-space>
       </div>
 
@@ -38,6 +41,7 @@
             <div class="kv" v-if="c.star != null"><span class="k">星级</span><span class="v">{{ c.star }}</span></div>
             <div class="kv"><span class="k">状态</span><span class="v">{{ Number(c.sendAt || 0) === 0 ? '未发车' : '已发车' }}</span></div>
             <div class="kv"><span class="k">帮手</span><span class="v">{{ Number(c.color || 0) >= 5 ? '可携带' : '—' }}</span></div>
+            <div class="kv" v-if="isBigPrize(c.rewards)"><span class="k">奖励</span><span class="v" style="color:#f59e0b">包含大奖</span></div>
           </div>
 
           <div class="car-actions">
@@ -92,6 +96,7 @@ const message = useMessage()
 const carLoading = ref(false)
 const carRaw = ref(null)
 const carFetched = ref(false)
+const refreshTickets = ref(0)
 
 // 每日 20:00 后禁止发车：每分钟刷新一次
 const nowTs = ref(Date.now())
@@ -161,6 +166,36 @@ const gradeIcon = (color) => {
   return map[color] || '/icons/大众.svg'
 }
 
+// —— 奖励与发车策略 ——
+const isBigPrize = (rewards) => {
+  const bigPrizes = [
+    {type: 3, itemId: 3201, value: 10},
+    {type: 3, itemId: 1001, value: 10},
+    {type: 3, itemId: 1022, value: 2000},
+    {type: 2, itemId: 0, value: 2000},
+    {type: 3, itemId: 1023, value: 5},
+    {type: 3, itemId: 1022, value: 2500},
+    {type: 3, itemId: 1001, value: 12}
+  ]
+  if (!Array.isArray(rewards)) return false
+  return bigPrizes.some(p => rewards.find(r => r.type === p.type && r.itemId === p.itemId && Number(r.value || 0) >= p.value))
+}
+
+const countRacingRefreshTickets = (rewards) => {
+  if (!Array.isArray(rewards)) return 0
+  return rewards.reduce((acc, r) => acc + ((r.type === 3 && r.itemId === 35002) ? Number(r.value || 0) : 0), 0)
+}
+
+const shouldSendCar = (car, tickets) => {
+  const color = Number(car?.color || 0)
+  const rewards = Array.isArray(car?.rewards) ? car.rewards : []
+  const racingTickets = countRacingRefreshTickets(rewards)
+  if (tickets >= 6) {
+    return color >= 5 || racingTickets >= 4 || isBigPrize(rewards)
+  }
+  return color >= 4 || racingTickets >= 2 || isBigPrize(rewards)
+}
+
 const fetchCarInfo = async () => {
   const token = tokenStore.selectedToken
   if (!token || !isConnected.value) {
@@ -170,6 +205,12 @@ const fetchCarInfo = async () => {
   carLoading.value = true
   try {
     const res = await tokenStore.sendMessageWithPromise(token.id, 'car_getrolecar', {}, 10000)
+    // 同步获取刷新券数量
+    try {
+      const roleRes = await tokenStore.sendMessageWithPromise(token.id, 'role_getroleinfo', {}, 10000)
+      const qty = roleRes?.role?.items?.[35002]?.quantity
+      refreshTickets.value = Number(qty || 0)
+    } catch (_) {}
     carRaw.value = res?.body ?? res
     carFetched.value = true
     if (!normalizeCars(carRaw.value).length) {
@@ -230,6 +271,11 @@ const refreshCar = async (car) => {
       await fetchCarInfo()
       message.success('品阶刷新完成')
     }
+    // 刷新后更新车票数量
+    try {
+      const roleRes = await tokenStore.sendMessageWithPromise(token.id, 'role_getroleinfo', {}, 8000)
+      refreshTickets.value = Number(roleRes?.role?.items?.[35002]?.quantity || 0)
+    } catch (_) {}
   } catch (e) {
     message.error('刷新失败：' + (e.message || '未知错误'))
   }
@@ -366,6 +412,71 @@ const handleAction = async (car) => {
   } else {
     const left = formatRemaining(msUntilClaim(car))
     message.info(`未到可收车时间，剩余 ${left}`)
+  }
+}
+
+// 一键收车
+const claimAllCars = async () => {
+  const token = tokenStore.selectedToken
+  if (!token || !isConnected.value) return message.warning('请先选择 Token 并建立连接')
+  try {
+    const claimables = (carList.value || []).filter(c => canClaim(c))
+    for (const c of claimables) {
+      try { await claimCar(c) } catch (_) {}
+      await new Promise(r => setTimeout(r, 300))
+    }
+    await fetchCarInfo()
+    message.success('一键收车完成')
+  } catch (e) {
+    message.error('一键收车失败：' + (e.message || '未知错误'))
+  }
+}
+
+// 智能发车
+const smartSendCar = async () => {
+  const token = tokenStore.selectedToken
+  if (!token || !isConnected.value) return message.warning('请先选择 Token 并建立连接')
+  try {
+    await fetchCarInfo()
+    let tickets = Number(refreshTickets.value || 0)
+    for (const car of carList.value) {
+      if (Number(car.sendAt || 0) !== 0) continue
+      if (shouldSendCar(car, tickets)) {
+        await sendCar(car)
+        await new Promise(r => setTimeout(r, 500))
+        continue
+      }
+      let shouldRefresh = false
+      const free = Number(car.refreshCount ?? 0) === 0
+      if (tickets >= 6) shouldRefresh = true
+      else if (free) shouldRefresh = true
+      else {
+        await sendCar(car)
+        await new Promise(r => setTimeout(r, 500))
+        continue
+      }
+      while (shouldRefresh) {
+        await refreshCar(car)
+        tickets = Number(refreshTickets.value || 0)
+        if (shouldSendCar(car, tickets)) {
+          await sendCar(car)
+          await new Promise(r => setTimeout(r, 500))
+          break
+        }
+        const freeNow = Number(car.refreshCount ?? 0) === 0
+        if (tickets >= 6) shouldRefresh = true
+        else if (freeNow) shouldRefresh = true
+        else {
+          await sendCar(car)
+          await new Promise(r => setTimeout(r, 500))
+          break
+        }
+      }
+    }
+    await fetchCarInfo()
+    message.success('智能发车完成')
+  } catch (e) {
+    message.error('智能发车失败：' + (e.message || '未知错误'))
   }
 }
 

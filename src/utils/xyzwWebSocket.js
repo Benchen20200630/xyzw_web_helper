@@ -166,6 +166,13 @@ export function registerDefaultCommands(reg) {
     .register("nightmare_getroleinfo")
     // 活动/任务
     .register("activity_get")
+
+    // 车王争霸
+    .register("car_getrolecar")
+    .register("car_refresh")
+    .register("car_getmemberhelpingcnt")
+    .register("car_send")
+    .register("car_claim")
 }
 
 /**

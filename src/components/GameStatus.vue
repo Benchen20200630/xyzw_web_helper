@@ -25,7 +25,7 @@
     <DailyTaskStatus v-show="activeSection === 'daily'" />
 
     <!-- 月度任务进度 -->
-    <div class="status-card monthly-tasks" v-show="activeSection === 'activity'">
+    <div class="status-card monthly-tasks" v-if="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"
@@ -193,8 +193,8 @@
       </div>
     </div>
 
-    <!-- 俱乐部排位 -->
-    <div class="status-card legion-match" v-show="activeSection === 'club'">
+    <!-- 俱乐部排位（暂时隐藏） -->
+    <div class="status-card legion-match" v-if="ENABLE_LEGION_MATCH && activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706152.png"
@@ -228,8 +228,8 @@
       </div>
     </div>
 
-    <!-- 俱乐部签到 -->
-    <div class="status-card legion-signin" v-show="activeSection === 'club'">
+    <!-- 俱乐部签到（已迁移到俱乐部信息-概览，故隐藏原卡片） -->
+    <div class="status-card legion-signin" v-if="ENABLE_LEGION_SIGNIN_CARD && activeSection === 'club'">
       <div class="card-header">
         <img
           src="/icons/1733492491706148.png"
@@ -331,8 +331,9 @@
       </div>
     </div>
 
-    <!-- 俱乐部信息（选项卡） -->
-    <ClubInfo v-show="activeSection === 'club'" />
+    <!-- 俱乐部信息与疯狂赛车（同级卡片，仅俱乐部分区） -->
+    <ClubInfo v-if="activeSection === 'club'" />
+    <ClubCarKing v-if="activeSection === 'club'" />
   </div>
 </template>
 
@@ -346,6 +347,7 @@ import TeamFormation from './TeamFormation.vue'
 import DailyTaskStatus from './DailyTaskStatus.vue'
 import TowerStatus from './TowerStatus.vue'
 import ClubInfo from './ClubInfo.vue'
+import ClubCarKing from './ClubCarKing.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
@@ -353,6 +355,12 @@ const message = useMessage()
 // 响应式数据
 const showIdentity = ref(false)
 const activeSection = ref('daily')
+
+// 活动开放时间：仅周一到周三可参与
+const isActivityOpen = computed(() => {
+  const day = new Date().getDay() // 0=周日,1=周一,...,6=周六
+  return day >= 1 && day <= 3
+})
 
 const bottleHelper = ref({
   isRunning: false,
@@ -913,6 +921,10 @@ const signInLegion = () => {
 
   message.info('俱乐部签到')
 }
+
+// 功能开关：暂时隐藏俱乐部排位与旧签到卡片
+const ENABLE_LEGION_MATCH = false
+const ENABLE_LEGION_SIGNIN_CARD = false
 
 // 盐场战绩入口已移动至俱乐部信息模块
 

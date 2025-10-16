@@ -313,6 +313,12 @@ onUnmounted(() => {
   align-items: center;
 }
 
+.header-left {
+  flex: 1;
+}
+
+
+
 .page-title {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);

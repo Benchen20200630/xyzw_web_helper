@@ -172,6 +172,7 @@ export function registerDefaultCommands(reg) {
     .register("car_refresh")
     .register("car_getmemberhelpingcnt")
     .register("car_send")
+    .register("car_claim")
 }
 
 /**

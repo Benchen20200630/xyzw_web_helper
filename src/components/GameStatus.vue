@@ -15,7 +15,7 @@
     >
       <n-tab-pane name="daily" tab="日常" />
       <n-tab-pane name="club" tab="俱乐部" />
-      <n-tab-pane name="activity" tab="活动" :disabled="!isActivityOpen" />
+      <n-tab-pane name="activity" tab="活动" />
     </n-tabs>
 
     <!-- 阵容（仅日常） -->
@@ -25,7 +25,7 @@
     <DailyTaskStatus v-show="activeSection === 'daily'" />
 
     <!-- 月度任务进度 -->
-    <div class="status-card monthly-tasks" v-if="activeSection === 'activity' && isActivityOpen">
+    <div class="status-card monthly-tasks" v-if="activeSection === 'activity'">
       <div class="card-header">
         <img
           src="/icons/1736425783912140.png"

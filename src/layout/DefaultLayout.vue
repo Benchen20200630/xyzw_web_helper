@@ -91,7 +91,7 @@
 
 <script setup>
 import { useTokenStore } from '@/stores/tokenStore'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import ThemeToggle from '@/components/Common/ThemeToggle.vue'
 import {
   Home,
   PersonCircle,

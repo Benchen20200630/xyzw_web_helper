@@ -14,36 +14,38 @@
       </div>
 
       <!-- Token导入区域 -->
-      <div v-if="!tokenStore.hasTokens || showImportForm" class="import-section">
-        <div class="import-card">
-          <div class="card-header">
-            <h2>
-              <n-icon>
-                <Add />
-              </n-icon>
-              添加游戏Token
-            </h2>
-
-            <!-- 导入方式选择 -->
-            <n-radio-group v-model:value="importMethod" class="import-method-tabs" size="small">
-              <n-radio-button value="manual">
-                手动输入
-              </n-radio-button>
-              <n-radio-button value="url">
-                URL获取
-              </n-radio-button>
-              <n-radio-button value="bin">
-                BIN获取
-              </n-radio-button>
-            </n-radio-group>
-          </div>
-          <div class="card-body">
-            <manual-token-form @cancel="()=>showImportForm = false" v-if="importMethod === 'manual'" />
-            <url-token-form @cancel="()=>showImportForm = false" v-if="importMethod === 'url'" />
-            <bin-token-form @cancel="()=>showImportForm = false" v-if="importMethod === 'bin'" />
-          </div>
+      <a-modal v-model:visible="showImportForm" width="40rem" :footer="false" :default-visible="!tokenStore.hasTokens">
+        <template #title>
+          <h2>
+            <n-icon>
+              <Add />
+            </n-icon>
+            添加游戏Token
+          </h2>
+        </template>
+        <div class="card-header">
+          <!-- 导入方式选择 -->
+          <n-radio-group v-model:value="importMethod" class="import-method-tabs" size="small">
+            <n-radio-button value="manual">
+              手动输入
+            </n-radio-button>
+            <n-radio-button value="url">
+              URL获取
+            </n-radio-button>
+            <n-radio-button value="bin">
+              BIN获取
+            </n-radio-button>
+          </n-radio-group>
         </div>
-      </div>
+        <div class="card-body">
+          <manual-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'manual'" />
+          <url-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'url'" />
+          <bin-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'bin'" />
+        </div>
+      </a-modal>
 
       <!-- Token列表 -->
       <div v-if="tokenStore.hasTokens" class="tokens-section">
@@ -214,17 +216,8 @@
         <n-form-item label="名称" path="name">
           <n-input v-model:value="editForm.name" />
         </n-form-item>
-        <n-form-item
-          label="Token字符串"
-          path="token"
-        >
-          <n-input
-            v-model:value="editForm.token"
-            type="textarea"
-            :rows="3"
-            placeholder="粘贴Token字符串..."
-            clearable
-          />
+        <n-form-item label="Token字符串" path="token">
+          <n-input v-model:value="editForm.token" type="textarea" :rows="3" placeholder="粘贴Token字符串..." clearable />
         </n-form-item>
         <n-form-item label="服务器">
           <n-input v-model:value="editForm.server" />

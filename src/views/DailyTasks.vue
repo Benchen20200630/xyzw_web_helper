@@ -138,7 +138,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
-import DailyTaskCard from '@/components/DailyTaskCard.vue'
+import DailyTaskCard from '@/components/Daily/DailyTaskCard.vue'
 import {
   Refresh,
   ChevronDown,

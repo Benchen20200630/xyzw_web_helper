@@ -48,7 +48,7 @@ import { CloudUpload } from '@vicons/ionicons5';
 import { NButton, NCollapse, NCollapseItem, NForm, NFormItem, NIcon, NInput, useMessage } from 'naive-ui';
 import { reactive, ref } from 'vue';
 
-const $emit = defineEmits(['cancel']);
+const $emit = defineEmits(['cancel', 'ok']);
 
 const cancel = () => {
   $emit('cancel');
@@ -88,6 +88,7 @@ const handleImport = () => {
     importForm.base64Token = '';
     importForm.server = '';
     importForm.wsUrl = '';
+    $emit('ok');
   } catch (error: any) {
     message.error(`添加Token失败: ${error.message || error}`);
   } finally {

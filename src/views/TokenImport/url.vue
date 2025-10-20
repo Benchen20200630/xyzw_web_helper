@@ -63,7 +63,7 @@ const message = useMessage();
 const urlFormRef = ref();
 const isImporting = ref(false);
 
-const $emit = defineEmits(['cancel']);
+const $emit = defineEmits(['cancel', 'ok']);
 
 const cancel = () => {
   $emit('cancel');
@@ -108,6 +108,7 @@ const handleUrlImport = () => {
           urlForm.url = '';
           urlForm.server = '';
           urlForm.wsUrl = '';
+           $emit('ok');
         } else {
           message.error('接口返回数据格式不正确，未找到token字段');
         }

@@ -48,12 +48,14 @@ const message = useMessage()
 const study = computed(() => tokenStore.gameData.studyStatus)
 
 const startStudy = async () => {
-  if (!tokenStore.selectedToken || study.value.thisWeek) return
-  if (startStudyy.value.status != "idel") return
 
-  startStudy.value.status = "starting";
+  if (!tokenStore.selectedToken || study.value.thisWeek) return
+  if (study.value.status != "" && study.value.status != "idel") return
+  console.log("开始答题",study.value)
+
+  study.value.status = "starting";
   await preloadQuestions()
-  startStudy.value.status = "answering";
+  study.value.status = "answering";
   const questionCount = await getQuestionCount()
   message.info(`🚀 开始一键答题... (题库包含 ${questionCount} 道题目)`)
 
@@ -81,7 +83,7 @@ const startStudy = async () => {
         }
         message.warning('答题超时，已自动重置状态')
       }
-    }, 30000)
+    }, 40000)
     message.info(`🚀 开始一键答题... (题库包含 ${questionCount} 道题目)`)
   } catch (error) {
     console.error('启动答题失败:', error)

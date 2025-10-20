@@ -68,7 +68,7 @@ import { g_utils } from '../../utils/bonProtocol';
 import PQueue from 'p-queue';
 // import { useI18n } from 'vue-i18n';
 
-const $emit = defineEmits(['cancel']);
+const $emit = defineEmits(['cancel', 'ok']);
 
 const cancel = () => {
   $emit('cancel');
@@ -182,7 +182,7 @@ const handleImport = async () => {
   });
   console.log('当前Token列表:', tokenStore.tokens);
   message.success('Token添加成功');
-
+  $emit('ok');
   // importFormRef.value?.validate((valid: boolean) => {
   //   if (valid) {
   //     isImporting.value = true;

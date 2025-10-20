@@ -16,64 +16,6 @@
     <!-- 每日任务状态（仅日常） -->
     <DailyTaskStatus v-show="activeSection === 'daily'" />
 
-    <!-- 月度任务进度 -->
-    <div class="status-card monthly-tasks" v-if="activeSection === 'activity'">
-      <div class="card-header">
-        <img
-          src="/icons/1736425783912140.png"
-          alt="月度任务"
-          class="status-icon"
-        >
-        <div class="status-info">
-          <h3>月度任务</h3>
-          <p>进度与一键补齐</p>
-        </div>
-        <div class="status-badge" :class="{ active: monthHasData }">
-          <div class="status-dot" />
-          <span v-if="remainingDays > 0">剩余 {{ remainingDays }} 天</span>
-          <span v-else>本月最后一天</span>
-        </div>
-      </div>
-      <div class="card-content">
-        <div class="monthly-row">
-          <div class="row-title">钓鱼进度</div>
-          <div class="row-value">{{ fishNum }} / {{ FISH_TARGET }}（{{ fishPercent }}%）</div>
-        </div>
-        <div class="monthly-row">
-          <div class="row-title">竞技场进度</div>
-          <div class="row-value">{{ arenaNum }} / {{ ARENA_TARGET }}（{{ arenaPercent }}%）</div>
-        </div>
-        <div class="action-row">
-          <button class="action-button secondary" :disabled="monthLoading || fishToppingUp || arenaToppingUp" @click="fetchMonthlyActivity">
-            {{ monthLoading ? '刷新中...' : '刷新进度' }}
-          </button>
-
-          <!-- 钓鱼：补齐 + 下拉更多（隐藏一键完成） -->
-          <n-button-group>
-            <n-button class="action-button" :disabled="monthLoading || fishToppingUp" @click="topUpMonthly('fish')">
-              {{ fishToppingUp ? '补齐中...' : '钓鱼补齐' }}
-            </n-button>
-            <n-dropdown :options="fishMoreOptions" trigger="click" @select="onFishMoreSelect">
-              <n-button :disabled="monthLoading || fishToppingUp">▾</n-button>
-            </n-dropdown>
-          </n-button-group>
-
-          <!-- 竞技场：补齐 + 下拉更多（隐藏一键完成） -->
-          <n-button-group>
-            <n-button class="action-button" :disabled="monthLoading || arenaToppingUp" @click="topUpMonthly('arena')">
-              {{ arenaToppingUp ? '补齐中...' : '竞技场补齐' }}
-            </n-button>
-            <n-dropdown :options="arenaMoreOptions" trigger="click" @select="onArenaMoreSelect">
-              <n-button :disabled="monthLoading || arenaToppingUp">▾</n-button>
-            </n-dropdown>
-          </n-button-group>
-        </div>
-        <p class="description muted">
-          补齐规则：让“当前天数比例”和“完成比例”一致；若无剩余天数则按满额（{{FISH_TARGET}}/{{ARENA_TARGET}}）计算。
-        </p>
-      </div>
-    </div>
-
     <!-- 咸将塔状态 -->
     <TowerStatus v-show="activeSection === 'daily'" />
 
@@ -167,70 +109,10 @@
       </div>
     </div>
 
-    
-
-    <!-- 咸鱼大冲关 -->
-    <div class="status-card study" v-show="activeSection === 'activity'">
-      <div class="card-header">
-        <img
-          src="/icons/1736425783912140.png"
-          alt="学习图标"
-          class="status-icon"
-        >
-        <div class="status-info">
-          <h3>咸鱼大冲关</h3>
-          <p>每日知识挑战</p>
-        </div>
-        <div class="status-badge weekly" :class="{ 'completed': study.isCompleted }">
-          <div class="status-dot" :class="{ 'completed': study.isCompleted }" />
-          <span>每周任务</span>
-        </div>
-      </div>
-      <div class="card-content">
-        <p class="description">
-          没有什么可以阻挡我求知的欲望！
-        </p>
-        <button
-          class="action-button"
-          :class="{ 'completed': study.isCompleted }"
-          :disabled="study.isAnswering || study.isCompleted"
-          @click="startStudy"
-        >
-          <span v-if="study.isCompleted">
-            ✅ 已完成无需作答
-          </span>
-          <span
-            v-else-if="study.isAnswering"
-            class="loading-text"
-          >
-            <svg
-              class="loading-icon"
-              viewBox="0 0 24 24"
-            >
-              <path
-                fill="currentColor"
-                d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
-              />
-            </svg>
-            <span v-if="study.status === 'starting'">正在获取题目...</span>
-            <span v-else-if="study.status === 'answering'">答题中 {{ study.answeredCount }}/{{ study.questionCount }}</span>
-            <span v-else-if="study.status === 'claiming_rewards'">正在领取奖励...</span>
-            <span v-else-if="study.status === 'completed'">答题完成</span>
-            <span v-else>答题中...</span>
-          </span>
-          <span v-else>🎯 一键答题</span>
-        </button>
-      </div>
-    </div>
-
     <!-- 俱乐部信息与疯狂赛车（同级卡片，仅俱乐部分区） -->
     <ClubInfo v-if="activeSection === 'club'" />
     <ClubCarKing v-if="activeSection === 'club'" />
     <Signin v-show="activeSection === 'club'"></Signin>
-
-    <!-- 俱乐部信息（选项卡） -->
-    <ClubInfo v-show="activeSection === 'club'" />
-
 
     <!-- 月度任务进度（提取组件） -->
     <MonthlyTasksCard v-show="activeSection === 'activity'" />
@@ -247,13 +129,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { useMessage } from 'naive-ui'
 import { preloadQuestions, getQuestionCount } from '@/utils/studyQuestionsFromJSON.js'
-import IdentityCard from './IdentityCard.vue'
-import TeamFormation from './TeamFormation.vue'
-import DailyTaskStatus from './DailyTaskStatus.vue'
-import TowerStatus from './TowerStatus.vue'
-import ClubInfo from './ClubInfo.vue'
-import ClubCarKing from './ClubCarKing.vue'
-import MyCard from './Common/MyCard.vue'
 import BottleHelperCard from './cards/BottleHelperCard.vue'
 import HangUpStatusCard from './cards/HangUpStatusCard.vue'
 import MonthlyTasksCard from './cards/MonthlyTasksCard.vue'

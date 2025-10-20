@@ -4,6 +4,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+docker/**/*.docker
+docker/**/*.zip
+docker/**/*.tar
+docker/**/*.tar.gz
+docker/**/*.tgz
+
+
 # Production builds
 dist/
 build/
@@ -16,7 +23,8 @@ build/
 .env.production.local
 
 # IDE
-.vscode/
+# 同步vscode工作空间的配置
+# .vscode/
 .idea/
 *.swp
 *.swo

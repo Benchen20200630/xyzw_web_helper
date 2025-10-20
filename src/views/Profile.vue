@@ -242,7 +242,6 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
-import TokenManager from '@/components/TokenManager.vue'
 
 const router = useRouter()
 const message = useMessage()

@@ -84,7 +84,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
-import GameStatus from '@/components/GameStatus.vue'
 import { CloudDone } from '@vicons/ionicons5'
 
 const router = useRouter()

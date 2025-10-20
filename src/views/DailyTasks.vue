@@ -14,12 +14,7 @@
           </div>
 
           <div class="header-actions">
-            <n-button
-              type="primary"
-              size="large"
-              :loading="isRefreshing"
-              @click="refreshTasks"
-            >
+            <n-button type="primary" size="large" :loading="isRefreshing" @click="refreshTasks">
               <template #icon>
                 <n-icon>
                   <Refresh />
@@ -28,10 +23,7 @@
               刷新任务
             </n-button>
 
-            <n-dropdown
-              :options="bulkActionOptions"
-              @select="handleBulkAction"
-            >
+            <n-dropdown :options="bulkActionOptions" @select="handleBulkAction">
               <n-button size="large">
                 批量操作
                 <template #icon>
@@ -51,18 +43,10 @@
       <div class="container">
         <div class="role-selector">
           <span class="selector-label">选择角色：</span>
-          <n-select
-            v-model:value="selectedRoleId"
-            :options="roleOptions"
-            placeholder="请选择游戏角色"
-            style="min-width: 200px"
-            @update:value="onRoleChange"
-          />
+          <n-select v-model:value="selectedRoleId" :options="roleOptions" placeholder="请选择游戏角色" style="min-width: 200px"
+            @update:value="onRoleChange" />
 
-          <div
-            v-if="selectedRole"
-            class="role-stats"
-          >
+          <div v-if="selectedRole" class="role-stats">
             <div class="stat-item">
               <span class="stat-label">总任务：</span>
               <span class="stat-value">{{ taskStats.total }}</span>
@@ -84,10 +68,7 @@
     <div class="filter-section">
       <div class="container">
         <div class="filter-bar">
-          <n-radio-group
-            v-model:value="currentFilter"
-            @update:value="onFilterChange"
-          >
+          <n-radio-group v-model:value="currentFilter" @update:value="onFilterChange">
             <n-radio-button value="all">
               全部任务
             </n-radio-button>
@@ -103,12 +84,7 @@
           </n-radio-group>
 
           <div class="search-box">
-            <n-input
-              v-model:value="searchKeyword"
-              placeholder="搜索任务..."
-              clearable
-              @update:value="onSearch"
-            >
+            <n-input v-model:value="searchKeyword" placeholder="搜索任务..." clearable @update:value="onSearch">
               <template #prefix>
                 <n-icon>
                   <Search />
@@ -123,39 +99,21 @@
     <!-- 任务列表 -->
     <div class="tasks-section">
       <div class="container">
-        <div
-          v-if="filteredTasks.length"
-          class="tasks-grid"
-        >
-          <DailyTaskCard
-            v-for="task in filteredTasks"
-            :key="task.id"
-            :task="task"
-            @execute="executeTask"
-            @toggle-status="toggleTaskStatus"
-            @update:task="updateTask"
-          />
+        <div v-if="filteredTasks.length" class="tasks-grid">
+          <DailyTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" @execute="executeTask"
+            @toggle-status="toggleTaskStatus" @update:task="updateTask" />
         </div>
 
         <!-- 空状态 -->
-        <div
-          v-else-if="!isLoading"
-          class="empty-state"
-        >
-          <n-empty
-            description="暂无任务数据"
-            size="large"
-          >
+        <div v-else-if="!isLoading" class="empty-state">
+          <n-empty description="暂无任务数据" size="large">
             <template #icon>
               <n-icon>
                 <Cube />
               </n-icon>
             </template>
             <template #extra>
-              <n-button
-                type="primary"
-                @click="refreshTasks"
-              >
+              <n-button type="primary" @click="refreshTasks">
                 刷新任务
               </n-button>
             </template>
@@ -163,10 +121,7 @@
         </div>
 
         <!-- 加载状态 -->
-        <div
-          v-if="isLoading"
-          class="loading-state"
-        >
+        <div v-if="isLoading" class="loading-state">
           <n-spin size="large">
             <template #description>
               正在加载任务数据...

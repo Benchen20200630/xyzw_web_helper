@@ -8,10 +8,15 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+<<<<<<< HEAD
     AButton: typeof import('@arco-design/web-vue')['Button']
     AList: typeof import('@arco-design/web-vue')['List']
     AListItem: typeof import('@arco-design/web-vue')['ListItem']
     AModal: typeof import('@arco-design/web-vue')['Modal']
+=======
+    AList: typeof import('@arco-design/web-vue')['List']
+    AListItem: typeof import('@arco-design/web-vue')['ListItem']
+>>>>>>> 9d486c8 (feat(vscode): 增加vscode配置文件和拓展建议)
     AUpload: typeof import('@arco-design/web-vue')['Upload']
     BottleHelperCard: typeof import('./src/components/cards/BottleHelperCard.vue')['default']
     CarTaskCard: typeof import('./src/components/CarTaskCard.vue')['default']

@@ -33,6 +33,10 @@ const my_routes = [
     name: 'DefaultLayout',
     path: '/admin',
     component: () => import('@/layout/DefaultLayout.vue'),
+  },
+  {
+    path: '/dashboard',
+    component: () => import('@/views/Dashboard.vue'),
     meta: {
       title: '默认布局',
       requiresToken: true
@@ -109,6 +113,8 @@ const my_routes = [
     path: '/game-roles',
     redirect: '/tokens'
   },
+  // 增加自动路由引用
+  ...routes,
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

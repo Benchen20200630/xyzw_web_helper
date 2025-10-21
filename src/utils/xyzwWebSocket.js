@@ -146,6 +146,7 @@ export function registerDefaultCommands(reg) {
 
     // 礼包相关
     .register("discount_claimreward", { discountId: 1 })
+    .register("collection_claimfreereward")
     .register("card_claimreward", { cardId: 1 })
 
     // 爬塔相关

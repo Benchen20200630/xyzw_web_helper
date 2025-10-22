@@ -84,70 +84,47 @@
         </div>
 
         <div class="tokens-grid">
-          <div v-for="token in tokenStore.gameTokens" :key="token.id" class="token-card" :class="{
-            active: token.id === tokenStore.selectedTokenId,
-            connected: getConnectionStatus(token.id) === 'connected'
+          <a-card v-for="token in tokenStore.gameTokens" :key="token.id" :class="{
+            'token-card': true,
+            active: selectedTokenId.value === token.id
           }" @click="selectToken(token)">
-            <div class="card-header">
-              <div class="token-info">
-                <h3 class="token-name">
-                  {{ token.name }}
-                  <!-- 连接状态指示器 -->
-                  <span class="connection-indicator" :class="{
-                    'connected': getConnectionStatus(token.id) === 'connected',
-                    'connecting': getConnectionStatus(token.id) === 'connecting',
-                    'disconnected': getConnectionStatus(token.id) === 'disconnected' || !getConnectionStatus(token.id),
-                    'error': getConnectionStatus(token.id) === 'error'
-                  }" :title="getConnectionStatusText(token.id)"></span>
-                </h3>
-                <div class="token-meta">
-                  <span v-if="token.server" class="meta-item">{{ token.server }}</span>
-                  <!-- 连接状态文字 -->
-                  <span class="connection-status">
-                    {{ getConnectionStatusText(token.id) }}
-                  </span>
-                </div>
-              </div>
+            <template #title>
+              <a-space class="token-name">
+                {{ token.name }}
+                <a-tag color="red" v-if="token.server">{{ token.server }}</a-tag>
+                <!-- 连接状态指示器 -->
+                <a-badge :status="getTokenStats(token.id)" :text="getConnectionStatusText(token.id)" />
+                <!-- 连接状态文字 -->
+                <!-- <a-tag color="green">
+                  {{ getConnectionStatusText(token.id) }}
+                </a-tag> -->
+              </a-space>
+            </template>
+            <template #extra>
+              <n-dropdown :options="getTokenActions(token)" @select="(key) => handleTokenAction(key, token)">
+                <n-button text>
+                  <template #icon>
+                    <n-icon>
+                      <EllipsisHorizontal />
+                    </n-icon>
+                  </template>
+                </n-button>
+              </n-dropdown>
+            </template>
 
-              <div class="card-actions">
-                <n-dropdown :options="getTokenActions(token)" @select="(key) => handleTokenAction(key, token)">
-                  <n-button text>
-                    <template #icon>
-                      <n-icon>
-                        <EllipsisHorizontal />
-                      </n-icon>
-                    </template>
-                  </n-button>
-                </n-dropdown>
-              </div>
-            </div>
-
-            <div class="card-body">
+            <template #default>
               <div class="token-display">
                 <span class="token-label">Token:</span>
                 <code class="token-value">{{ maskToken(token.token) }}</code>
               </div>
-
-              <div class="connection-status">
-                <div class="status-indicator">
-                  <span class="status-dot" :class="getConnectionStatus(token.id)" />
-                  <span class="status-text">
-                    {{ getConnectionStatusText(token.id) }}
-                  </span>
-                </div>
-
-                <div class="connection-actions">
-                  <n-button size="small" type="default" :loading="refreshingTokens.has(token.id)"
-                    @click.stop="refreshToken(token)">
-                    <template #icon>
-                      <n-icon>
-                        <Refresh />
-                      </n-icon>
-                    </template>
-                    {{ token.sourceUrl ? '刷新' : '重新获取' }}
-                  </n-button>
-                </div>
-              </div>
+              <a-button :loading="refreshingTokens.has(token.id)" @click.stop="refreshToken(token)">
+                <template #icon>
+                  <n-icon>
+                    <Refresh />
+                  </n-icon>
+                </template>
+                {{ token.sourceUrl ? '刷新' : '重新获取' }}
+              </a-button>
 
               <div class="token-timestamps">
                 <div class="timestamp-item">
@@ -181,9 +158,8 @@
                   </n-button>
                 </div>
               </div>
-            </div>
-
-            <div v-if="token.id === tokenStore.selectedTokenId" class="card-footer">
+            </template>
+            <template #actions>
               <n-button type="primary" size="large" block :loading="connectingTokens.has(token.id)"
                 @click="startTaskManagement(token)">
                 <template #icon>
@@ -193,21 +169,18 @@
                 </template>
                 开始任务管理
               </n-button>
-            </div>
-          </div>
+            </template>
+          </a-card>
         </div>
       </div>
 
       <!-- 空状态 -->
-      <div v-if="!tokenStore.hasTokens && !showImportForm" class="empty-state">
-        <n-empty size="large" description="还没有导入任何Token">
-          <template #icon>
-            <n-icon size="64">
-              <Key />
-            </n-icon>
-          </template>
-        </n-empty>
-      </div>
+      <a-empty v-if="!tokenStore.hasTokens && !showImportForm">
+        <template #image>
+          <icon-exclamation-circle-fill />
+        </template>
+        还没有导入任何Token
+      </a-empty>
     </div>
 
     <!-- 编辑Token模态框 -->
@@ -247,7 +220,7 @@ import ManualTokenForm from './manual.vue'
 import UrlTokenForm from './url.vue'
 import BinTokenForm from './bin.vue'
 
-import { useTokenStore } from '@/stores/tokenStore'
+import { useTokenStore, selectedTokenId } from '@/stores/tokenStore'
 import {
   Add,
   Copy,
@@ -573,7 +546,7 @@ const resetUrlForm = () => {
 }
 
 const selectToken = (token, forceReconnect = false) => {
-  const isAlreadySelected = tokenStore.selectedTokenId === token.id
+  const isAlreadySelected = selectedTokenId.value === token.id
   const connectionStatus = getConnectionStatus(token.id)
 
   // 降噪日志已移除
@@ -622,6 +595,18 @@ const getConnectionStatusText = (tokenId) => {
   return statusMap[status] || '未连接'
 }
 
+
+const getTokenStats = (tokenId) => {
+  const status = getConnectionStatus(tokenId)
+  const statusMap = {
+    'connected': 'success',
+    'connecting': 'processing',
+    'disconnected': 'default',
+    'error': 'error',
+    'disconnecting': 'warning'
+  }
+  return statusMap[status] || 'default'
+}
 
 
 const getTokenActions = (token) => {
@@ -849,9 +834,13 @@ const goToDashboard = () => {
 
 // 开始任务管理 - 包含连接探测
 const startTaskManagement = async (token) => {
+
   connectingTokens.value.add(token.id)
 
   try {
+
+    tokenStore.selectToken(token.id)
+
     // 1. 检查当前连接状态
     const connectionStatus = getConnectionStatus(token.id)
 
@@ -860,68 +849,6 @@ const startTaskManagement = async (token) => {
       message.success(`${token.name} 已连接，进入任务管理`)
       router.push('/admin/dashboard')
       return
-    }
-
-    // 2. 尝试建立连接
-    message.info(`正在探测 ${token.name} 的连接状态...`)
-
-    try {
-      // 使用token store的连接方法
-      await tokenStore.createWebSocketConnection(token.id, token.token, token.wsUrl)
-
-      // 等待连接建立（最多3秒）
-      let attempts = 0
-      const maxAttempts = 30 // 3秒，每100ms检查一次
-
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        const currentStatus = getConnectionStatus(token.id)
-
-        if (currentStatus === 'connected') {
-          message.success(`${token.name} 连接成功，进入任务管理`)
-          router.push('/admin/dashboard')
-          return
-        }
-
-        if (currentStatus === 'error') {
-          throw new Error('连接失败')
-        }
-
-        attempts++
-      }
-
-      // 连接超时
-      throw new Error('连接超时')
-
-    } catch (connectionError) {
-      console.error('连接探测失败:', connectionError)
-
-      // 连接失败的处理
-      dialog.warning({
-        title: '连接失败',
-        content: `无法连接到 ${token.name}。可能的原因：
-
-1. Token已过期或无效
-2. 网络连接问题
-3. 服务器维护中
-
-是否要刷新Token后重试，还是直接进入离线模式？`,
-        positiveText: '刷新Token',
-        negativeText: '离线模式',
-        onPositiveClick: async () => {
-          try {
-            await refreshToken(token)
-            // 刷新成功后重试连接
-            setTimeout(() => startTaskManagement(token), 1000)
-          } catch (refreshError) {
-            message.error('Token刷新失败，请检查网络或手动重新导入')
-          }
-        },
-        onNegativeClick: () => {
-          message.info('进入离线模式，部分功能可能不可用')
-          router.push('/admin/dashboard')
-        }
-      })
     }
 
   } finally {

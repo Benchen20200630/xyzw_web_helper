@@ -6,17 +6,24 @@ import { findAnswer } from '../utils/studyQuestionsFromJSON.js'
 import { tokenLogger, wsLogger, gameLogger } from '../utils/logger.js'
 import { useLocalStorage } from '@vueuse/core'
 
+export const gameTokens = useLocalStorage('gameTokens', []);
+export const hasTokens = computed(() => gameTokens.value.length > 0)
+export const selectedTokenId = useLocalStorage('selectedTokenId', "");
+export const selectedToken = computed(() => {
+  return gameTokens.value?.find(token => token.id === selectedTokenId.value)
+})
+
+// 跨标签页连接协调
+const activeConnections = useLocalStorage("activeConnections", new Map()) 
+
 /**
  * 重构后的Token管理存储
  * 以名称-token列表形式管理多个游戏角色
  */
 export const useTokenStore = defineStore('tokens', () => {
-  // 状态
-  const gameTokens = useLocalStorage('gameTokens', []);
-  const selectedTokenId = useLocalStorage('selectedTokenId', "");
+
   const wsConnections = ref({}) // WebSocket连接状态
   const connectionLocks = ref(new Map()) // 连接操作锁，防止竞态条件
-  const activeConnections = ref(new Map()) // 跨标签页连接协调
 
   // 游戏数据存储
   const gameData = ref({
@@ -31,12 +38,6 @@ export const useTokenStore = defineStore('tokens', () => {
       timestamp: null
     },
     lastUpdated: null
-  })
-
-  // 计算属性
-  const hasTokens = computed(() => gameTokens.value.length > 0)
-  const selectedToken = computed(() => {
-    gameTokens.value?.find(token => token.id === selectedTokenId.value)
   })
 
   // 获取当前选中token的角色信息
@@ -1521,3 +1522,5 @@ export const useTokenStore = defineStore('tokens', () => {
     }
   }
 })
+
+

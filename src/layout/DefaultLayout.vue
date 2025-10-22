@@ -4,61 +4,45 @@
     <nav class="dashboard-nav">
       <div class="nav-container">
         <div class="nav-brand">
-          <img
-            src="/icons/xiaoyugan.png"
-            alt="XYZW"
-            class="brand-logo"
-          >
+          <img src="/icons/xiaoyugan.png" alt="XYZW" class="brand-logo">
           <span class="brand-text">XYZW 控制台</span>
         </div>
 
         <div class="nav-menu">
-          <router-link
-            to="/admin/dashboard"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><Home /></n-icon>
+          <router-link to="/admin/dashboard" class="nav-item" active-class="active">
+            <n-icon>
+              <Home />
+            </n-icon>
             <span>首页</span>
           </router-link>
-          <router-link
-            to="/admin/game-features"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><Cube /></n-icon>
+          <router-link to="/admin/game-features" class="nav-item" active-class="active">
+            <n-icon>
+              <Cube />
+            </n-icon>
             <span>游戏功能</span>
           </router-link>
-          <router-link
-            to="/tokens"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><PersonCircle /></n-icon>
+          <router-link to="/tokens" class="nav-item" active-class="active">
+            <n-icon>
+              <PersonCircle />
+            </n-icon>
             <span>Token管理</span>
           </router-link>
-          <router-link
-            to="/admin/daily-tasks"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><Settings /></n-icon>
+          <router-link to="/admin/daily-tasks" class="nav-item" active-class="active">
+            <n-icon>
+              <Settings />
+            </n-icon>
             <span>任务管理</span>
           </router-link>
-          <router-link
-            to="/admin/message-test"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><ChatbubbleEllipsesSharp /></n-icon>
+          <router-link to="/admin/message-test" class="nav-item" active-class="active">
+            <n-icon>
+              <ChatbubbleEllipsesSharp />
+            </n-icon>
             <span>消息测试</span>
           </router-link>
-          <router-link
-            to="/admin/profile"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon><Settings /></n-icon>
+          <router-link to="/admin/profile" class="nav-item" active-class="active">
+            <n-icon>
+              <Settings />
+            </n-icon>
             <span>个人设置</span>
           </router-link>
         </div>
@@ -67,17 +51,13 @@
           <!-- 主题切换按钮 -->
           <ThemeToggle />
 
-          <n-dropdown
-            :options="userMenuOptions"
-            @select="handleUserAction"
-          >
+          <n-dropdown :options="userMenuOptions" @select="handleUserAction">
             <div class="user-info">
-              <n-avatar
-                size="medium"
-                fallback-src="/icons/xiaoyugan.png"
-              />
-              <span class="username">{{ tokenStore.selectedToken?.name || '未选择Token' }}</span>
-              <n-icon><ChevronDown /></n-icon>
+              <n-avatar size="medium" fallback-src="/icons/xiaoyugan.png" />
+              <span class="username">{{ selectedToken?.name || '未选择Token' }}</span>
+              <n-icon>
+                <ChevronDown />
+              </n-icon>
             </div>
           </n-dropdown>
         </div>
@@ -90,7 +70,7 @@
 </template>
 
 <script setup>
-import { useTokenStore } from '@/stores/tokenStore'
+import { useTokenStore, selectedToken, selectedTokenId } from '@/stores/tokenStore'
 import ThemeToggle from '@/components/Common/ThemeToggle.vue'
 import {
   Home,
@@ -100,12 +80,18 @@ import {
   ChevronDown,
   ChatbubbleEllipsesSharp
 } from '@vicons/ionicons5'
+
+
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 
 const tokenStore = useTokenStore()
 const router = useRouter()
 const message = useMessage()
+
+onMounted(() => {
+  console.log('DefaultLayout mounted', selectedToken, selectedTokenId.value)
+})
 
 const userMenuOptions = [
   {

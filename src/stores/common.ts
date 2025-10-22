@@ -19,7 +19,7 @@ declare interface RoleToken {
   [key: string]: any; // 允许额外的动态属性
 }
 
-export const selectedTokenId = useLocalStorage<string>('selectedTokenId', null);
+// export const selectedTokenId = useLocalStorage<string>('selectedTokenId', null);
 export const gameTokens = useLocalStorage<any[]>('gameTokens', []);
 export const wsConnections = ref({}) // WebSocket连接状态
 export const connectionLocks = ref(new Map()) // 连接操作锁，防止竞态条件

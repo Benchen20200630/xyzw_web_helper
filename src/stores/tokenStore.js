@@ -13,7 +13,7 @@ import { useLocalStorage } from '@vueuse/core'
 export const useTokenStore = defineStore('tokens', () => {
   // 状态
   const gameTokens = useLocalStorage('gameTokens', []);
-  const selectedTokenId = useLocalStorage('selectedTokenId', null);
+  const selectedTokenId = useLocalStorage('selectedTokenId', "");
   const wsConnections = ref({}) // WebSocket连接状态
   const connectionLocks = ref(new Map()) // 连接操作锁，防止竞态条件
   const activeConnections = ref(new Map()) // 跨标签页连接协调
@@ -36,10 +36,8 @@ export const useTokenStore = defineStore('tokens', () => {
   // 计算属性
   const hasTokens = computed(() => gameTokens.value.length > 0)
   const selectedToken = computed(() => {
-    console.log('gameTokens.value', gameTokens.value)
-    gameTokens.value.find(token => token.id === selectedTokenId.value)
-  }
-  )
+    gameTokens.value?.find(token => token.id === selectedTokenId.value)
+  })
 
   // 获取当前选中token的角色信息
   const selectedTokenRoleInfo = computed(() => {
@@ -92,7 +90,6 @@ export const useTokenStore = defineStore('tokens', () => {
     // 如果删除的是当前选中token，清除选中状态
     if (selectedTokenId.value === tokenId) {
       selectedTokenId.value = null
-      localStorage.removeItem('selectedTokenId')
     }
 
     return true
@@ -119,7 +116,6 @@ export const useTokenStore = defineStore('tokens', () => {
 
     // 更新选中状态
     selectedTokenId.value = tokenId
-    localStorage.setItem('selectedTokenId', tokenId)
 
     // 更新最后使用时间
     updateToken(tokenId, { lastUsed: new Date().toISOString() })
@@ -1225,8 +1221,6 @@ export const useTokenStore = defineStore('tokens', () => {
 
     gameTokens.value = []
     selectedTokenId.value = null
-    localStorage.removeItem('gameTokens')
-    localStorage.removeItem('selectedTokenId')
   }
 
   const cleanExpiredTokens = () => {
@@ -1413,32 +1407,30 @@ export const useTokenStore = defineStore('tokens', () => {
 
   // 初始化
   const initTokenStore = () => {
-    // 恢复数据
-    const savedTokens = localStorage.getItem('gameTokens')
-    const savedSelectedId = localStorage.getItem('selectedTokenId')
+    // // 恢复数据
+    // const savedTokens = localStorage.getItem('gameTokens')
+    // const savedSelectedId = localStorage.getItem('selectedTokenId')
 
-    if (savedTokens) {
-      try {
-        gameTokens.value = JSON.parse(savedTokens)
-      } catch (error) {
-        tokenLogger.error('解析Token数据失败:', error.message)
-        gameTokens.value = []
-      }
-    }
+    // if (savedTokens) {
+    //   try {
+    //     gameTokens.value = JSON.parse(savedTokens)
+    //   } catch (error) {
+    //     tokenLogger.error('解析Token数据失败:', error.message)
+    //     gameTokens.value = []
+    //   }
+    // }
 
-    if (savedSelectedId) {
-      selectedTokenId.value = savedSelectedId
-    }
+    // if (savedSelectedId) {
+    //   selectedTokenId.value = savedSelectedId
+    // }
 
     // 清理过期token
     cleanExpiredTokens()
-
     // 启动连接监控
     connectionMonitor.startMonitoring()
 
     // 设置跨标签页监听
     setupCrossTabListener()
-
     tokenLogger.info('Token Store 初始化完成，连接监控已启动')
   }
 

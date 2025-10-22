@@ -33,14 +33,6 @@ const my_routes = [
     name: 'DefaultLayout',
     path: '/admin',
     component: () => import('@/layout/DefaultLayout.vue'),
-  },
-  {
-    path: '/dashboard',
-    component: () => import('@/views/Dashboard.vue'),
-    meta: {
-      title: '默认布局',
-      requiresToken: true
-    },
     children: [
       {
         path: 'dashboard',

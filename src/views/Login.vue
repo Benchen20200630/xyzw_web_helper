@@ -5,11 +5,7 @@
       <div class="login-card glass">
         <div class="card-header">
           <div class="brand">
-            <img
-              src="/icons/xiaoyugan.png"
-              alt="XYZW"
-              class="brand-logo"
-            >
+            <img src="/icons/xiaoyugan.png" alt="XYZW" class="brand-logo">
             <h1 class="brand-title">
               XYZW 游戏管理系统
             </h1>
@@ -20,19 +16,10 @@
         </div>
 
         <div class="card-body">
-          <n-form
-            ref="loginFormRef"
-            :model="loginForm"
-            :rules="loginRules"
-            size="large"
-            :show-label="false"
-          >
+          <n-form ref="loginFormRef" :model="loginForm" :rules="loginRules" size="large" :show-label="false">
             <n-form-item path="username">
-              <n-input
-                v-model:value="loginForm.username"
-                placeholder="用户名或邮箱"
-                :input-props="{ autocomplete: 'username' }"
-              >
+              <n-input v-model:value="loginForm.username" placeholder="用户名或邮箱"
+                :input-props="{ autocomplete: 'username' }">
                 <template #prefix>
                   <n-icon>
                     <PersonCircle />
@@ -42,13 +29,8 @@
             </n-form-item>
 
             <n-form-item path="password">
-              <n-input
-                v-model:value="loginForm.password"
-                type="password"
-                placeholder="密码"
-                :input-props="{ autocomplete: 'current-password' }"
-                @keydown.enter="handleLogin"
-              >
+              <n-input v-model:value="loginForm.password" type="password" placeholder="密码"
+                :input-props="{ autocomplete: 'current-password' }" @keydown.enter="handleLogin">
                 <template #prefix>
                   <n-icon>
                     <Lock />
@@ -61,23 +43,13 @@
               <n-checkbox v-model:checked="loginForm.rememberMe">
                 记住我
               </n-checkbox>
-              <n-button
-                text
-                type="primary"
-                @click="router.push('/forgot-password')"
-              >
+              <n-button text type="primary" @click="router.push('/forgot-password')">
                 忘记密码？
               </n-button>
             </div>
 
-            <n-button
-              type="primary"
-              size="large"
-              block
-              :loading="authStore.isLoading"
-              class="login-button"
-              @click="handleLogin"
-            >
+            <n-button type="primary" size="large" block :loading="authStore.isLoading" class="login-button"
+              @click="handleLogin">
               登录
             </n-button>
           </n-form>
@@ -87,11 +59,7 @@
           </n-divider>
 
           <div class="social-login">
-            <n-button
-              size="large"
-              class="social-button"
-              @click="handleSocialLogin('qq')"
-            >
+            <n-button size="large" class="social-button" @click="handleSocialLogin('qq')">
               <template #icon>
                 <n-icon>
                   <PersonCircle />
@@ -100,11 +68,7 @@
               QQ登录
             </n-button>
 
-            <n-button
-              size="large"
-              class="social-button"
-              @click="handleSocialLogin('wechat')"
-            >
+            <n-button size="large" class="social-button" @click="handleSocialLogin('wechat')">
               <template #icon>
                 <n-icon>
                   <PersonCircle />
@@ -116,11 +80,7 @@
 
           <div class="register-prompt">
             <span>还没有账户？</span>
-            <n-button
-              text
-              type="primary"
-              @click="router.push('/register')"
-            >
+            <n-button text type="primary" @click="router.push('/register')">
               立即注册
             </n-button>
           </div>
@@ -135,11 +95,7 @@
         </div>
 
         <div class="features-list">
-          <div
-            v-for="feature in features"
-            :key="feature.id"
-            class="feature-item"
-          >
+          <div v-for="feature in features" :key="feature.id" class="feature-item">
             <div class="feature-icon">
               <component :is="feature.icon" />
             </div>
@@ -166,7 +122,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
-import { PersonCircle, Lock, Cube, Ribbon, Settings } from '@vicons/ionicons5'
+import { PersonCircle, Cube, Ribbon, Settings } from '@vicons/ionicons5'
 
 const router = useRouter()
 const message = useMessage()
@@ -512,9 +468,12 @@ onMounted(() => {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(-20px) rotate(180deg);
   }

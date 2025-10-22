@@ -4,11 +4,7 @@
       <div class="register-card glass">
         <div class="card-header">
           <div class="brand">
-            <img
-              src="/icons/xiaoyugan.png"
-              alt="XYZW"
-              class="brand-logo"
-            >
+            <img src="/icons/xiaoyugan.png" alt="XYZW" class="brand-logo">
             <h1 class="brand-title">
               注册 XYZW 账户
             </h1>
@@ -19,60 +15,46 @@
         </div>
 
         <div class="card-body">
-          <n-form
-            ref="registerFormRef"
-            :model="registerForm"
-            :rules="registerRules"
-            size="large"
-            :show-label="false"
-          >
+          <n-form ref="registerFormRef" :model="registerForm" :rules="registerRules" size="large" :show-label="false">
             <n-form-item path="username">
-              <n-input
-                v-model:value="registerForm.username"
-                placeholder="用户名"
-                :input-props="{ autocomplete: 'username' }"
-              >
+              <n-input v-model:value="registerForm.username" placeholder="用户名"
+                :input-props="{ autocomplete: 'username' }">
                 <template #prefix>
-                  <n-icon><PersonCircle /></n-icon>
+                  <n-icon>
+                    <PersonCircle />
+                  </n-icon>
                 </template>
               </n-input>
             </n-form-item>
 
             <n-form-item path="email">
-              <n-input
-                v-model:value="registerForm.email"
-                placeholder="邮箱地址"
-                :input-props="{ autocomplete: 'email' }"
-              >
+              <n-input v-model:value="registerForm.email" placeholder="邮箱地址" :input-props="{ autocomplete: 'email' }">
                 <template #prefix>
-                  <n-icon><Mail /></n-icon>
+                  <n-icon>
+                    <Mail />
+                  </n-icon>
                 </template>
               </n-input>
             </n-form-item>
 
             <n-form-item path="password">
-              <n-input
-                v-model:value="registerForm.password"
-                type="password"
-                placeholder="密码"
-                :input-props="{ autocomplete: 'new-password' }"
-              >
+              <n-input v-model:value="registerForm.password" type="password" placeholder="密码"
+                :input-props="{ autocomplete: 'new-password' }">
                 <template #prefix>
-                  <n-icon><Lock /></n-icon>
+                  <n-icon>
+                    <Lock />
+                  </n-icon>
                 </template>
               </n-input>
             </n-form-item>
 
             <n-form-item path="confirmPassword">
-              <n-input
-                v-model:value="registerForm.confirmPassword"
-                type="password"
-                placeholder="确认密码"
-                :input-props="{ autocomplete: 'new-password' }"
-                @keydown.enter="handleRegister"
-              >
+              <n-input v-model:value="registerForm.confirmPassword" type="password" placeholder="确认密码"
+                :input-props="{ autocomplete: 'new-password' }" @keydown.enter="handleRegister">
                 <template #prefix>
-                  <n-icon><Lock /></n-icon>
+                  <n-icon>
+                    <Lock />
+                  </n-icon>
                 </template>
               </n-input>
             </n-form-item>
@@ -80,44 +62,25 @@
             <div class="form-options">
               <n-checkbox v-model:checked="registerForm.agreeTerms">
                 我已阅读并同意
-                <n-button
-                  text
-                  type="primary"
-                  @click="showTerms = true"
-                >
+                <n-button text type="primary" @click="showTerms = true">
                   服务条款
                 </n-button>
                 和
-                <n-button
-                  text
-                  type="primary"
-                  @click="showPrivacy = true"
-                >
+                <n-button text type="primary" @click="showPrivacy = true">
                   隐私政策
                 </n-button>
               </n-checkbox>
             </div>
 
-            <n-button
-              type="primary"
-              size="large"
-              block
-              :loading="authStore.isLoading"
-              :disabled="!registerForm.agreeTerms"
-              class="register-button"
-              @click="handleRegister"
-            >
+            <n-button type="primary" size="large" block :loading="authStore.isLoading"
+              :disabled="!registerForm.agreeTerms" class="register-button" @click="handleRegister">
               注册账户
             </n-button>
           </n-form>
 
           <div class="login-prompt">
             <span>已有账户？</span>
-            <n-button
-              text
-              type="primary"
-              @click="router.push('/login')"
-            >
+            <n-button text type="primary" @click="router.push('/login')">
               立即登录
             </n-button>
           </div>
@@ -132,7 +95,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
-import { PersonCircle, Lock, Mail } from '@vicons/ionicons5'
+import { PersonCircle, Mail } from '@vicons/ionicons5'
 
 const router = useRouter()
 const message = useMessage()

@@ -1,169 +1,128 @@
 <template>
-  <div class="token-manager">
-    <div class="header">
-      <h3>Token管理器</h3>
-      <div class="header-actions">
-        <n-button
-          size="small"
-          @click="refreshTokens"
-        >
+  <a-card>
+    <template #extra>
+      <a-space>
+        <n-button size="small" @click="refreshTokens">
           <template #icon>
-            <n-icon><Refresh /></n-icon>
+            <n-icon>
+              <Refresh />
+            </n-icon>
           </template>
           刷新
         </n-button>
-        <n-button
-          size="small"
-          type="warning"
-          @click="exportTokens"
-        >
+        <n-button size="small" type="warning" @click="exportTokens">
           <template #icon>
-            <n-icon><Download /></n-icon>
+            <i class="i-mdi:download"></i>
           </template>
           导出
         </n-button>
-        <n-upload 
-          :show-file-list="false"
-          accept=".json"
-          @change="importTokens"
-        >
-          <n-button
-            size="small"
-            type="info"
-          >
+        <n-upload :show-file-list="false" accept=".json" @change="importTokens">
+          <n-button size="small" type="info">
             <template #icon>
-              <n-icon><CloudUpload /></n-icon>
+              <n-icon>
+                <CloudUpload />
+              </n-icon>
             </template>
             导入
           </n-button>
         </n-upload>
-      </div>
-    </div>
-
-    <!-- 用户Token -->
-    <div class="token-section">
-      <h4>用户认证Token</h4>
-      <div
-        v-if="localTokenStore.userToken"
-        class="token-item"
-      >
-        <div class="token-info">
-          <span class="token-label">Token:</span>
-          <span class="token-value">{{ maskToken(localTokenStore.userToken) }}</span>
+      </a-space>
+    </template>
+    <template #default>
+      <!-- 用户Token -->
+      <div class="token-section">
+        <h4>用户认证Token</h4>
+        <div v-if="localTokenStore.userToken" class="token-item">
+          <div class="token-info">
+            <span class="token-label">Token:</span>
+            <span class="token-value">{{ maskToken(localTokenStore.userToken) }}</span>
+          </div>
+          <n-button size="tiny" type="error" @click="clearUserToken">
+            清除
+          </n-button>
         </div>
-        <n-button
-          size="tiny"
-          type="error"
-          @click="clearUserToken"
-        >
-          清除
-        </n-button>
+        <div v-else class="empty-token">
+          <span>未设置用户Token</span>
+        </div>
       </div>
-      <div
-        v-else
-        class="empty-token"
-      >
-        <span>未设置用户Token</span>
-      </div>
-    </div>
-
-    <!-- 游戏Token列表 -->
-    <div class="token-section">
-      <h4>游戏角色Token ({{ Object.keys(localTokenStore.gameTokens).length }}个)</h4>
-      <div class="game-tokens-list">
-        <div 
-          v-for="(tokenData, roleId) in localTokenStore.gameTokens"
-          :key="roleId"
-          class="game-token-item"
-        >
-          <div class="token-header">
-            <div class="role-info">
-              <span class="role-name">{{ tokenData.roleName }}</span>
-              <span class="role-server">{{ tokenData.server }}</span>
-            </div>
-            <div class="token-actions">
-              <n-button 
-                size="tiny" 
-                :type="getWSStatus(roleId) === 'connected' ? 'success' : 'default'"
-                @click="toggleWebSocket(roleId, tokenData)"
-              >
-                {{ getWSStatus(roleId) === 'connected' ? '断开WS' : '连接WS' }}
-              </n-button>
-              
-              <n-dropdown 
-                :options="getTokenMenuOptions(tokenData)" 
-                trigger="click"
-                @select="handleTokenAction($event, roleId, tokenData)"
-              >
-                <n-button
-                  size="tiny"
-                  type="tertiary"
-                >
-                  <template #icon>
-                    <n-icon><EllipsisHorizontal /></n-icon>
-                  </template>
+      <!-- 游戏Token列表 -->
+      <div class="token-section">
+        <h4>游戏角色Token ({{ Object.keys(localTokenStore.gameTokens).length }}个)</h4>
+        <div class="game-tokens-list">
+          <div v-for="(tokenData, roleId) in gameTokens" :key="roleId" class="game-token-item">
+            <div class="token-header">
+              <div class="role-info">
+                <span class="role-name">{{ tokenData.roleName }}</span>
+                <span class="role-server">{{ tokenData.server }}</span>
+              </div>
+              <div class="token-actions">
+                <n-button size="tiny" :type="getWSStatus(roleId) === 'connected' ? 'success' : 'default'"
+                  @click="toggleWebSocket(roleId, tokenData)">
+                  {{ getWSStatus(roleId) === 'connected' ? '断开WS' : '连接WS' }}
                 </n-button>
-              </n-dropdown>
+
+                <n-dropdown :options="getTokenMenuOptions(tokenData)" trigger="click"
+                  @select="handleTokenAction($event, roleId, tokenData)">
+                  <n-button size="tiny" type="tertiary">
+                    <template #icon>
+                      <n-icon>
+                        <EllipsisHorizontal />
+                      </n-icon>
+                    </template>
+                  </n-button>
+                </n-dropdown>
+              </div>
             </div>
-          </div>
-          
-          <div class="token-details">
-            <div class="detail-item">
-              <span class="detail-label">Token:</span>
-              <span class="detail-value">{{ maskToken(tokenData.token) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">WebSocket URL:</span>
-              <span class="detail-value">{{ tokenData.wsUrl }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">创建时间:</span>
-              <span class="detail-value">{{ formatTime(tokenData.createdAt) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">最后使用:</span>
-              <span class="detail-value">{{ formatTime(tokenData.lastUsed) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">连接状态:</span>
-              <n-tag 
-                size="small"
-                :type="getWSStatusType(getWSStatus(roleId))"
-              >
-                {{ getWSStatusText(getWSStatus(roleId)) }}
-              </n-tag>
+
+            <div class="token-details">
+              <div class="detail-item">
+                <span class="detail-label">Token:</span>
+                <span class="detail-value">{{ maskToken(tokenData.token) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">WebSocket URL:</span>
+                <span class="detail-value">{{ tokenData.wsUrl }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">创建时间:</span>
+                <span class="detail-value">{{ formatTime(tokenData.createdAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">最后使用:</span>
+                <span class="detail-value">{{ formatTime(tokenData.lastUsed) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">连接状态:</span>
+                <n-tag size="small" :type="getWSStatusType(getWSStatus(roleId))">
+                  {{ getWSStatusText(getWSStatus(roleId)) }}
+                </n-tag>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-
+    </template>
     <!-- 批量操作 -->
-    <div class="bulk-actions">
-      <n-button
-        type="warning"
-        @click="cleanExpiredTokens"
-      >
+    <template #actions>
+      <n-button type="warning" @click="cleanExpiredTokens">
         清理过期Token
       </n-button>
-      <n-button
-        type="error"
-        @click="clearAllTokens"
-      >
+      <n-button type="error" @click="clearAllTokens">
         清除所有Token
       </n-button>
-    </div>
-  </div>
+    </template>
+  </a-card>
 </template>
 
 <script setup>
 import { ref, h } from 'vue'
 import { useMessage, useDialog, NIcon } from 'naive-ui'
-import { useLocalTokenStore } from '@/stores/localTokenManager'
+import { gameTokens } from "@/stores/tokenStore";
+import { useLocalTokenStore, } from '@/stores/localTokenManager'
 import { useGameRolesStore } from '@/stores/gameRoles'
-import { 
-  Refresh, 
-  Download, 
+import {
+  Refresh,
+  Download,
   CloudUpload,
   EllipsisHorizontal,
   Create,
@@ -182,7 +141,7 @@ const maskToken = (token) => {
   if (!token) return ''
   const len = token.length
   if (len <= 8) return token
-  return token.substring(0, 4) + '***' + token.substring(len - 4)
+  return token.substring(0, 8) + '***' + token.substring(len - 8)
 }
 
 const formatTime = (timestamp) => {
@@ -295,7 +254,7 @@ const clearUserToken = () => {
 
 const toggleWebSocket = (roleId, tokenData) => {
   const status = getWSStatus(roleId)
-  
+
   if (status === 'connected') {
     localTokenStore.closeWebSocketConnection(roleId)
     message.info('WebSocket连接已断开')
@@ -323,7 +282,7 @@ const regenerateToken = (roleId) => {
   }
 
   dialog.info({
-    title: '重新获取Token', 
+    title: '重新获取Token',
     content: '确定要从源地址重新获取此角色的Token吗？',
     positiveText: '确定',
     negativeText: '取消',
@@ -331,17 +290,17 @@ const regenerateToken = (roleId) => {
       try {
         // 显示加载状态
         const loadingMsg = message.loading('正在重新获取Token...', { duration: 0 })
-        
+
         // 从源URL重新获取token
         let response
         const sourceUrl = oldTokenData.sourceUrl
-        
+
         // 使用与TokenImport相同的跨域处理逻辑
-        const isLocalUrl = sourceUrl.startsWith(window.location.origin) || 
-                          sourceUrl.startsWith('/') ||
-                          sourceUrl.startsWith('http://localhost') ||
-                          sourceUrl.startsWith('http://127.0.0.1')
-        
+        const isLocalUrl = sourceUrl.startsWith(window.location.origin) ||
+          sourceUrl.startsWith('/') ||
+          sourceUrl.startsWith('http://localhost') ||
+          sourceUrl.startsWith('http://127.0.0.1')
+
         if (isLocalUrl) {
           response = await fetch(sourceUrl)
         } else {
@@ -361,9 +320,9 @@ const regenerateToken = (roleId) => {
         if (!response.ok) {
           throw new Error(`请求失败: ${response.status} ${response.statusText}`)
         }
-        
+
         const data = await response.json()
-        
+
         if (!data.token) {
           throw new Error('返回数据中未找到token字段')
         }
@@ -444,14 +403,14 @@ const refreshTokenFromUrl = async (roleId, tokenData) => {
     onPositiveClick: async () => {
       try {
         const loadingMsg = message.loading('正在从URL获取新Token...', { duration: 0 })
-        
+
         // 使用与TokenImport相同的逻辑获取Token
         let response
-        const isLocalUrl = tokenData.sourceUrl.startsWith(window.location.origin) || 
-                          tokenData.sourceUrl.startsWith('/') ||
-                          tokenData.sourceUrl.startsWith('http://localhost') ||
-                          tokenData.sourceUrl.startsWith('http://127.0.0.1')
-        
+        const isLocalUrl = tokenData.sourceUrl.startsWith(window.location.origin) ||
+          tokenData.sourceUrl.startsWith('/') ||
+          tokenData.sourceUrl.startsWith('http://localhost') ||
+          tokenData.sourceUrl.startsWith('http://127.0.0.1')
+
         if (isLocalUrl) {
           response = await fetch(tokenData.sourceUrl)
         } else {
@@ -490,12 +449,12 @@ const exportTokens = () => {
     const tokenData = localTokenStore.exportTokens()
     const dataStr = JSON.stringify(tokenData, null, 2)
     const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    
+
     const link = document.createElement('a')
     link.href = URL.createObjectURL(dataBlob)
     link.download = `tokens_backup_${new Date().toISOString().split('T')[0]}.json`
     link.click()
-    
+
     message.success('Token数据已导出')
   } catch (error) {
     message.error('导出失败: ' + error.message)
@@ -508,7 +467,7 @@ const importTokens = ({ file }) => {
     try {
       const tokenData = JSON.parse(e.target.result)
       const result = localTokenStore.importTokens(tokenData)
-      
+
       if (result.success) {
         message.success(result.message)
         // 刷新游戏角色数据
@@ -563,7 +522,7 @@ const clearAllTokens = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-lg);
-  
+
   h3 {
     margin: 0;
     color: var(--text-primary);
@@ -578,7 +537,7 @@ const clearAllTokens = () => {
 
 .token-section {
   margin-bottom: var(--spacing-lg);
-  
+
   h4 {
     margin: 0 0 var(--spacing-md) 0;
     color: var(--text-primary);
@@ -696,23 +655,23 @@ const clearAllTokens = () => {
     gap: var(--spacing-md);
     align-items: stretch;
   }
-  
+
   .token-item {
     flex-direction: column;
     gap: var(--spacing-md);
     align-items: stretch;
   }
-  
+
   .token-header {
     flex-direction: column;
     gap: var(--spacing-sm);
     align-items: stretch;
   }
-  
+
   .token-details {
     grid-template-columns: 1fr;
   }
-  
+
   .bulk-actions {
     flex-direction: column;
   }

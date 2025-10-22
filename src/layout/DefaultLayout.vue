@@ -53,7 +53,7 @@
 
           <n-dropdown :options="userMenuOptions" @select="handleUserAction">
             <div class="user-info">
-              <n-avatar size="medium" fallback-src="/icons/xiaoyugan.png" />
+              <n-avatar src="" size="medium" fallback-src="/icons/xiaoyugan.png" />
               <span class="username">{{ selectedToken?.name || '未选择Token' }}</span>
               <n-icon>
                 <ChevronDown />
@@ -88,10 +88,6 @@ import { useMessage } from 'naive-ui'
 const tokenStore = useTokenStore()
 const router = useRouter()
 const message = useMessage()
-
-onMounted(() => {
-  console.log('DefaultLayout mounted', selectedToken, selectedTokenId.value)
-})
 
 const userMenuOptions = [
   {

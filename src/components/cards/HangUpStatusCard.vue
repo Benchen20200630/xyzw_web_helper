@@ -141,39 +141,5 @@ const claimHangUpReward = async () => {
 </script>
 
 <style scoped lang="scss">
-.time-display {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-align: center;
-  margin-bottom: var(--spacing-md);
-  font-family: 'SF Mono','Monaco','Inconsolata','Roboto Mono','Consolas',monospace;
-  letter-spacing: 0.1em;
-  background: var(--bg-tertiary);
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border-light);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-}
-
-.action-button {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: none;
-  border-radius: var(--border-radius-medium);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  background: var(--primary-color);
-  color: #fff;
-
-  &:hover:not(:disabled) { background: var(--primary-color-hover); transform: translateY(-1px); }
-  &:disabled { background: var(--bg-tertiary); color: var(--text-tertiary); cursor: not-allowed; }
-
-  &.secondary { background: var(--secondary-color); &:hover:not(:disabled){ background: var(--secondary-color-hover);} }
-  &.primary { background: var(--primary-color); }
-}
-
-.loading-text { display: flex; align-items: center; justify-content: center; gap: var(--spacing-xs); }
+/* 按钮改用 Naive UI；time-display 样式由 MyCard 统一提供 */
 </style>

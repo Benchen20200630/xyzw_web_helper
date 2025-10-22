@@ -248,6 +248,15 @@ watch(() => roleInfo.value, initializeAvatar, { deep: true })
 </script>
 
 <style scoped lang="scss">
+
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  height: 80px;
+  line-height: 80px;
+}
+
 .identity-embedded {
   grid-column: 1 / -1;
 }

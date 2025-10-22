@@ -182,27 +182,8 @@ const handleImport = async () => {
   });
   console.log('当前Token列表:', tokenStore.tokens);
   message.success('Token添加成功');
+  roleList.value = [];
   $emit('ok');
-  // importFormRef.value?.validate((valid: boolean) => {
-  //   if (valid) {
-  //     isImporting.value = true;
-  //     try {
-
-  //       // 重置表单
-  //       importForm.name = '';
-  //       importForm.base64Token = '';
-  //       importForm.server = '';
-  //       importForm.wsUrl = '';
-  //       importFormRef.value?.resetValidation();
-  //     } catch (error: any) {
-  //       message.error(`添加Token失败: ${error.message || error}`);
-  //     } finally {
-  //       isImporting.value = false;
-  //     }
-  //   } else {
-  //     message.error('请检查表单填写是否正确');
-  //   }
-  // });
 };
 </script>
 

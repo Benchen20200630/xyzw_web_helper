@@ -6,233 +6,128 @@
         <p>管理您的账户信息和偏好设置</p>
       </div>
 
-      <div class="profile-content">
-        <!-- 基本信息 -->
-        <div class="profile-section">
-          <h2>基本信息</h2>
-          <div class="info-card">
-            <div class="avatar-section">
-              <n-avatar 
-                size="large" 
-                :src="userInfo.avatar"
-                fallback-src="/icons/xiaoyugan.png"
-              />
-              <n-button
-                size="small"
-                @click="changeAvatar"
-              >
-                更换头像
-              </n-button>
+      <h2>基本信息</h2>
+      <a-card>
+        <a-form :model="userInfo" label-placement="left" label-width="80px">
+          <a-form-item label="用户名">
+            <a-input v-model:value="userInfo.username" readonly />
+          </a-form-item>
+          <a-form-item label="邮箱">
+            <a-input v-model:value="userInfo.email" />
+          </a-form-item>
+          <a-form-item label="昵称">
+            <a-input v-model:value="userInfo.nickname" placeholder="请输入昵称" />
+          </a-form-item>
+          <a-form-item label="手机">
+            <a-input v-model:value="userInfo.phone" placeholder="请输入手机号" />
+          </a-form-item>
+        </a-form>
+
+        <template #actions>
+          <a-button type="primary" @click="saveProfile">
+            保存更改
+          </a-button>
+        </template>
+      </a-card>
+
+      <h2>密码修改</h2>
+      <a-card>
+        <a-form :model="passwordForm" ref="passwordFormRef" label-placement="left" label-width="100px">
+          <a-form-item label="当前密码" prop="currentPassword">
+            <a-input v-model:value="passwordForm.currentPassword" type="password" placeholder="请输入当前密码" />
+          </a-form-item>
+          <a-form-item label="新密码" prop="newPassword">
+            <a-input v-model:value="passwordForm.newPassword" type="password" placeholder="请输入新密码" />
+          </a-form-item>
+          <a-form-item label="确认新密码" prop="confirmPassword">
+            <a-input v-model:value="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" />
+          </a-form-item>
+        </a-form>
+        <template #actions>
+          <a-button type="primary" @click="changePassword">
+            修改密码
+          </a-button>
+        </template>
+      </a-card>
+
+      <h2>系统偏好</h2>
+      <a-card>
+        <a-form>
+          <a-form-item label="主题设置">
+            <n-select v-model:value="preferences.theme" :options="themeOptions" @update:value="updateTheme" />
+            <template #extra>
+              选择您喜欢的界面主题
+            </template>
+          </a-form-item>
+          <a-form-item label="语言设置">
+            <n-select v-model:value="preferences.language" :options="languageOptions" />
+            <template #extra>
+              选择界面显示语言
+            </template>
+          </a-form-item>
+          <a-form-item label="通知设置">
+            <n-switch v-model:value="preferences.notifications" />
+            <template #extra>
+              接收任务完成通知
+            </template>
+          </a-form-item>
+          <a-form-item label="自动执行">
+            <n-switch v-model:value="preferences.autoExecute" />
+            <template #extra>
+              默认开启任务自动执行
+            </template>
+          </a-form-item>
+        </a-form>
+      </a-card>
+
+      <h2>Token管理</h2>
+      <TokenManager />
+
+      <h2>账户安全</h2>
+      <a-card>
+        <div class="security-items">
+          <div class="security-item">
+            <div class="security-info">
+              <h3>两步验证</h3>
+              <p>为您的账户添加额外的安全保护</p>
             </div>
-            
-            <div class="info-form">
-              <n-form
-                :model="userInfo"
-                label-placement="left"
-                label-width="80px"
-              >
-                <n-form-item label="用户名">
-                  <n-input
-                    v-model:value="userInfo.username"
-                    readonly
-                  />
-                </n-form-item>
-                <n-form-item label="邮箱">
-                  <n-input v-model:value="userInfo.email" />
-                </n-form-item>
-                <n-form-item label="昵称">
-                  <n-input
-                    v-model:value="userInfo.nickname"
-                    placeholder="请输入昵称"
-                  />
-                </n-form-item>
-                <n-form-item label="手机">
-                  <n-input
-                    v-model:value="userInfo.phone"
-                    placeholder="请输入手机号"
-                  />
-                </n-form-item>
-              </n-form>
-              
-              <div class="form-actions">
-                <n-button
-                  type="primary"
-                  @click="saveProfile"
-                >
-                  保存更改
-                </n-button>
-              </div>
+            <n-button @click="setupTwoFactor">
+              设置
+            </n-button>
+          </div>
+
+          <div class="security-item">
+            <div class="security-info">
+              <h3>登录历史</h3>
+              <p>查看最近的登录记录</p>
             </div>
+            <n-button @click="viewLoginHistory">
+              查看
+            </n-button>
+          </div>
+
+          <div class="security-item">
+            <div class="security-info">
+              <h3>数据导出</h3>
+              <p>导出您的所有数据</p>
+            </div>
+            <n-button @click="exportData">
+              导出
+            </n-button>
+          </div>
+
+          <div class="security-item danger">
+            <div class="security-info">
+              <h3>删除账户</h3>
+              <p>永久删除您的账户和所有数据</p>
+            </div>
+            <n-button type="error" @click="deleteAccount">
+              删除
+            </n-button>
           </div>
         </div>
+      </a-card>
 
-        <!-- 密码修改 -->
-        <div class="profile-section">
-          <h2>密码修改</h2>
-          <div class="info-card">
-            <n-form 
-              ref="passwordFormRef"
-              :model="passwordForm" 
-              :rules="passwordRules"
-              label-placement="left" 
-              label-width="100px"
-            >
-              <n-form-item
-                label="当前密码"
-                path="currentPassword"
-              >
-                <n-input 
-                  v-model:value="passwordForm.currentPassword" 
-                  type="password"
-                  placeholder="请输入当前密码"
-                />
-              </n-form-item>
-              <n-form-item
-                label="新密码"
-                path="newPassword"
-              >
-                <n-input 
-                  v-model:value="passwordForm.newPassword" 
-                  type="password"
-                  placeholder="请输入新密码"
-                />
-              </n-form-item>
-              <n-form-item
-                label="确认新密码"
-                path="confirmPassword"
-              >
-                <n-input 
-                  v-model:value="passwordForm.confirmPassword" 
-                  type="password"
-                  placeholder="请再次输入新密码"
-                />
-              </n-form-item>
-            </n-form>
-            
-            <div class="form-actions">
-              <n-button
-                type="primary"
-                @click="changePassword"
-              >
-                修改密码
-              </n-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 系统偏好 -->
-        <div class="profile-section">
-          <h2>系统偏好</h2>
-          <div class="info-card">
-            <div class="preferences-grid">
-              <div class="preference-item">
-                <div class="preference-label">
-                  <h3>主题设置</h3>
-                  <p>选择您喜欢的界面主题</p>
-                </div>
-                <n-select 
-                  v-model:value="preferences.theme" 
-                  :options="themeOptions"
-                  @update:value="updateTheme"
-                />
-              </div>
-              
-              <div class="preference-item">
-                <div class="preference-label">
-                  <h3>语言设置</h3>
-                  <p>选择界面显示语言</p>
-                </div>
-                <n-select 
-                  v-model:value="preferences.language" 
-                  :options="languageOptions"
-                />
-              </div>
-              
-              <div class="preference-item">
-                <div class="preference-label">
-                  <h3>通知设置</h3>
-                  <p>接收任务完成通知</p>
-                </div>
-                <n-switch v-model:value="preferences.notifications" />
-              </div>
-              
-              <div class="preference-item">
-                <div class="preference-label">
-                  <h3>自动执行</h3>
-                  <p>默认开启任务自动执行</p>
-                </div>
-                <n-switch v-model:value="preferences.autoExecute" />
-              </div>
-            </div>
-            
-            <div class="form-actions">
-              <n-button
-                type="primary"
-                @click="savePreferences"
-              >
-                保存偏好
-              </n-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Token管理 -->
-        <div class="profile-section">
-          <h2>Token管理</h2>
-          <TokenManager />
-        </div>
-
-        <!-- 账户安全 -->
-        <div class="profile-section">
-          <h2>账户安全</h2>
-          <div class="info-card">
-            <div class="security-items">
-              <div class="security-item">
-                <div class="security-info">
-                  <h3>两步验证</h3>
-                  <p>为您的账户添加额外的安全保护</p>
-                </div>
-                <n-button @click="setupTwoFactor">
-                  设置
-                </n-button>
-              </div>
-              
-              <div class="security-item">
-                <div class="security-info">
-                  <h3>登录历史</h3>
-                  <p>查看最近的登录记录</p>
-                </div>
-                <n-button @click="viewLoginHistory">
-                  查看
-                </n-button>
-              </div>
-              
-              <div class="security-item">
-                <div class="security-info">
-                  <h3>数据导出</h3>
-                  <p>导出您的所有数据</p>
-                </div>
-                <n-button @click="exportData">
-                  导出
-                </n-button>
-              </div>
-              
-              <div class="security-item danger">
-                <div class="security-info">
-                  <h3>删除账户</h3>
-                  <p>永久删除您的账户和所有数据</p>
-                </div>
-                <n-button
-                  type="error"
-                  @click="deleteAccount"
-                >
-                  删除
-                </n-button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -316,13 +211,13 @@ const saveProfile = async () => {
 
 const changePassword = async () => {
   if (!passwordFormRef.value) return
-  
+
   try {
     await passwordFormRef.value.validate()
-    
+
     // 这里应该调用API修改密码
     message.success('密码修改成功')
-    
+
     // 清空表单
     Object.keys(passwordForm).forEach(key => {
       passwordForm[key] = ''
@@ -386,7 +281,7 @@ onMounted(() => {
   if (authStore.userInfo) {
     Object.assign(userInfo, authStore.userInfo)
   }
-  
+
   // 加载用户偏好
   const savedPreferences = localStorage.getItem('userPreferences')
   if (savedPreferences) {
@@ -415,14 +310,14 @@ onMounted(() => {
 .page-header {
   text-align: center;
   margin-bottom: var(--spacing-2xl);
-  
+
   h1 {
     font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
   }
-  
+
   p {
     color: var(--text-secondary);
     font-size: var(--font-size-lg);
@@ -430,134 +325,77 @@ onMounted(() => {
   }
 }
 
+h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-lg);
+}
+
 .profile-section {
   margin-bottom: var(--spacing-2xl);
-  
-  h2 {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-lg);
-  }
-}
 
-.info-card {
-  background: var(--bg-primary);
-  border-radius: var(--border-radius-large);
-  padding: var(--spacing-xl);
-  box-shadow: var(--shadow-light);
-}
-
-.avatar-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
-  padding-bottom: var(--spacing-xl);
-  border-bottom: 1px solid var(--border-light);
-}
-
-.info-form {
-  .n-form-item {
-    margin-bottom: var(--spacing-lg);
-  }
-}
-
-.form-actions {
-  margin-top: var(--spacing-xl);
-  padding-top: var(--spacing-lg);
-  border-top: 1px solid var(--border-light);
-}
-
-.preferences-grid {
-  display: grid;
-  gap: var(--spacing-xl);
-  margin-bottom: var(--spacing-xl);
-}
-
-.preference-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-lg);
-}
-
-.preference-label {
-  flex: 1;
-  
-  h3 {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
-  }
-  
-  p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    margin: 0;
-  }
 }
 
 .security-items {
   display: flex;
-  flex-direction: column;
   gap: var(--spacing-lg);
+  flex-direction: column;
+
+  .security-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-medium);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      box-shadow: var(--shadow-light);
+    }
+
+    &.danger {
+      border-color: var(--error-color);
+      background: rgba(208, 48, 80, 0.05);
+    }
+
+    .security-info {
+      flex: 1;
+
+      h3 {
+        font-size: var(--font-size-md);
+        font-weight: var(--font-weight-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-xs);
+      }
+
+      p {
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        margin: 0;
+      }
+    }
+  }
 }
 
-.security-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border-light);
-  border-radius: var(--border-radius-medium);
-  transition: all var(--transition-fast);
-  
-  &:hover {
-    box-shadow: var(--shadow-light);
-  }
-  
-  &.danger {
-    border-color: var(--error-color);
-    background: rgba(208, 48, 80, 0.05);
-  }
-}
-
-.security-info {
-  flex: 1;
-  
-  h3 {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
-  }
-  
-  p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    margin: 0;
-  }
-}
 
 @media (max-width: 768px) {
   .container {
     padding: 0 var(--spacing-md);
   }
-  
+
   .info-card {
     padding: var(--spacing-lg);
   }
-  
+
   .preference-item,
   .security-item {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-md);
   }
-  
+
   .preference-item .n-select,
   .preference-item .n-switch {
     width: 100%;

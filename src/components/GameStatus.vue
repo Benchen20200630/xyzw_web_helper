@@ -608,63 +608,7 @@ onUnmounted(() => {
   }
 }
 
-.action-button {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: none;
-  border-radius: var(--border-radius-medium);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  background: var(--primary-color);
-  color: white;
 
-  &:hover:not(:disabled) {
-    background: var(--primary-color-hover);
-    transform: translateY(-1px);
-  }
-
-  &:disabled {
-    background: var(--bg-tertiary);
-    color: var(--text-tertiary);
-    cursor: not-allowed;
-  }
-
-  &.secondary {
-    background: var(--secondary-color);
-
-    &:hover:not(:disabled) {
-      background: var(--secondary-color-hover);
-    }
-  }
-
-  &.active {
-    background: var(--info-color);
-
-    &:hover {
-      background: var(--info-color-hover);
-    }
-  }
-
-  &.completed {
-    background: var(--success-color);
-    color: white;
-    border: 1px solid rgba(34, 197, 94, 0.3);
-
-    &:hover {
-      background: var(--success-color);
-      transform: none;
-      cursor: default;
-    }
-
-    &:disabled {
-      background: var(--success-color);
-      color: white;
-      opacity: 0.9;
-    }
-  }
-}
 
 .action-row {
   display: flex;

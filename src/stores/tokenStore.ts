@@ -1,20 +1,51 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { bonProtocol, GameMessages, g_utils } from '../utils/bonProtocol.js'
-import { XyzwWebSocketClient } from '../utils/xyzwWebSocket.js'
-import { findAnswer } from '../utils/studyQuestionsFromJSON.js'
-import { tokenLogger, wsLogger, gameLogger } from '../utils/logger.js'
 import { useLocalStorage } from '@vueuse/core'
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import { g_utils, ProtoMsg } from '../utils/bonProtocol.js'
+import { gameLogger, tokenLogger, wsLogger } from '../utils/logger.js'
+import { XyzwWebSocketClient } from '../utils/xyzwWebSocket.js'
 
-export const gameTokens = useLocalStorage('gameTokens', []);
+import { emitPlus } from './events/index.js'
+
+
+declare interface TokenData {
+  id: string;
+  name: string;
+  token: string; // 原始Base64 token
+  wsUrl: string | null; // 可选的自定义WebSocket URL
+  server: string;
+}
+
+declare interface WebSocketConnection {
+  status: 'connecting' | 'connected' | 'disconnected' | 'error';
+  client: XyzwWebSocketClient | null;
+  lastError: { timestamp: string; error: string } | null;
+  tokenId: string;
+  sessionId: string;
+  createdAt: string;
+  lastMessageAt: string | null;
+}
+
+declare type WebCtx = Record<string, Partial<WebSocketConnection>>;
+
+declare interface ConnectLock {
+  tokenId: string,
+  operation: 'connect' | 'disconnect',
+  timestamp: number,
+  sessionId: string,
+}
+declare type LockCtx = Record<string, Partial<ConnectLock>>;
+
+export const gameTokens = useLocalStorage<TokenData[]>('gameTokens', []);
 export const hasTokens = computed(() => gameTokens.value.length > 0)
 export const selectedTokenId = useLocalStorage('selectedTokenId', "");
 export const selectedToken = computed(() => {
   return gameTokens.value?.find(token => token.id === selectedTokenId.value)
 })
+export const selectedRoleInfo = useLocalStorage<any>('selectedRoleInfo', null);
 
 // 跨标签页连接协调
-const activeConnections = useLocalStorage("activeConnections", new Map()) 
+const activeConnections = useLocalStorage("activeConnections", {});
 
 /**
  * 重构后的Token管理存储
@@ -22,8 +53,8 @@ const activeConnections = useLocalStorage("activeConnections", new Map())
  */
 export const useTokenStore = defineStore('tokens', () => {
 
-  const wsConnections = ref({}) // WebSocket连接状态
-  const connectionLocks = ref(new Map()) // 连接操作锁，防止竞态条件
+  const wsConnections = ref<WebCtx>({}) // WebSocket连接状态
+  const connectionLocks = ref<LockCtx>({}) // 连接操作锁，防止竞态条件
 
   // 游戏数据存储
   const gameData = ref({
@@ -46,7 +77,7 @@ export const useTokenStore = defineStore('tokens', () => {
   })
 
   // Token管理
-  const addToken = (tokenData) => {
+  const addToken = (tokenData: TokenData) => {
     const newToken = {
       id: 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       name: tokenData.name,
@@ -67,7 +98,7 @@ export const useTokenStore = defineStore('tokens', () => {
     return newToken
   }
 
-  const updateToken = (tokenId, updates) => {
+  const updateToken = (tokenId: string, updates: TokenData) => {
     const index = gameTokens.value.findIndex(token => token.id === tokenId)
     if (index !== -1) {
       gameTokens.value[index] = {
@@ -80,7 +111,7 @@ export const useTokenStore = defineStore('tokens', () => {
     return false
   }
 
-  const removeToken = (tokenId) => {
+  const removeToken = (tokenId: string) => {
     gameTokens.value = gameTokens.value.filter(token => token.id !== tokenId)
 
     // 关闭对应的WebSocket连接
@@ -96,7 +127,7 @@ export const useTokenStore = defineStore('tokens', () => {
     return true
   }
 
-  const selectToken = (tokenId, forceReconnect = false) => {
+  const selectToken = (tokenId: string, forceReconnect = false) => {
     const token = gameTokens.value.find(t => t.id === tokenId)
     if (!token) {
       return null
@@ -153,232 +184,13 @@ export const useTokenStore = defineStore('tokens', () => {
     return token
   }
 
-  // 辅助函数：分析数据结构
-  const analyzeDataStructure = (obj, depth = 0, maxDepth = 3) => {
-    if (depth > maxDepth || !obj || typeof obj !== 'object') {
-      return typeof obj
-    }
-
-    const structure = {}
-    for (const [key, value] of Object.entries(obj)) {
-      if (Array.isArray(value)) {
-        structure[key] = `Array[${value.length}]${value.length > 0 ? `: ${analyzeDataStructure(value[0], depth + 1, maxDepth)}` : ''}`
-      } else if (typeof value === 'object' && value !== null) {
-        structure[key] = analyzeDataStructure(value, depth + 1, maxDepth)
-      } else {
-        structure[key] = typeof value
-      }
-    }
-    return structure
-  }
-
-  // 辅助函数：尝试解析队伍数据
-  const tryParseTeamData = (data, cmd) => {
-    // 静默解析，不打印详细日志
-
-    // 查找队伍相关字段
-    const teamFields = []
-    const scanForTeamData = (obj, path = '') => {
-      if (!obj || typeof obj !== 'object') return
-
-      for (const [key, value] of Object.entries(obj)) {
-        const currentPath = path ? `${path}.${key}` : key
-
-        if (key.toLowerCase().includes('team') ||
-          key.toLowerCase().includes('preset') ||
-          key.toLowerCase().includes('formation') ||
-          key.toLowerCase().includes('lineup')) {
-          teamFields.push({
-            path: currentPath,
-            key: key,
-            value: value,
-            type: typeof value,
-            isArray: Array.isArray(value)
-          })
-        }
-
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          scanForTeamData(value, currentPath)
-        }
-      }
-    }
-
-    scanForTeamData(data)
-
-    if (teamFields.length > 0) {
-      gameLogger.debug(`找到 ${teamFields.length} 个队伍相关字段:`, teamFields)
-
-      // 尝试更新游戏数据
-      teamFields.forEach(field => {
-        if (field.key === 'presetTeamInfo' || field.path.includes('presetTeamInfo')) {
-          gameLogger.debug(`发现预设队伍信息，准备更新:`, field.value)
-          if (!gameData.value.presetTeam) {
-            gameData.value.presetTeam = {}
-          }
-          gameData.value.presetTeam.presetTeamInfo = field.value
-          gameData.value.lastUpdated = new Date().toISOString()
-        }
-      })
-    } else {
-      // 未找到队伍数据
-    }
-  }
-
-  // 处理学习答题响应的核心函数
-  const handleStudyResponse = async (tokenId, body) => {
-    try {
-      gameLogger.info('开始处理学习答题响应')
-
-      const connection = wsConnections.value[tokenId]
-      if (!connection || connection.status !== 'connected' || !connection.client) {
-        gameLogger.error('WebSocket连接不可用，无法进行答题')
-        return
-      }
-
-      // 获取题目列表和学习ID
-      const questionList = body.questionList
-      const studyId = body.role?.study?.id
-
-      if (!questionList || !Array.isArray(questionList)) {
-        gameLogger.error('未找到题目列表')
-        return
-      }
-
-      if (!studyId) {
-        gameLogger.error('未找到学习ID')
-        return
-      }
-
-      gameLogger.info(`找到 ${questionList.length} 道题目，学习ID: ${studyId}`)
-
-      // 更新答题状态
-      gameData.value.studyStatus = {
-        isAnswering: true,
-        questionCount: questionList.length,
-        answeredCount: 0,
-        status: 'answering',
-        timestamp: Date.now()
-      }
-
-      // 遍历题目并回答
-      for (let i = 0; i < questionList.length; i++) {
-        const question = questionList[i]
-        const questionText = question.question
-        const questionId = question.id
-
-        gameLogger.debug(`题目 ${i + 1}: ${questionText.substring(0, 20)}...`)
-
-        // 查找答案（异步）
-        let answer = await findAnswer(questionText)
-
-        if (answer === null) {
-          answer = 1
-          gameLogger.verbose(`未找到匹配答案，使用默认答案: ${answer}`)
-        } else {
-          gameLogger.debug(`找到答案: ${answer}`)
-        }
-
-        // 发送答案
-        try {
-          connection.client.send('study_answer', {
-            id: studyId,
-            option: [answer],
-            questionId: [questionId]
-          })
-          gameLogger.verbose(`已提交题目 ${i + 1} 的答案: ${answer}`)
-        } catch (error) {
-          gameLogger.error(`提交答案失败 (题目 ${i + 1}):`, error)
-        }
-
-        // 更新已回答题目数量
-        gameData.value.studyStatus.answeredCount = i + 1
-
-        // 添加短暂延迟，避免请求过快
-        if (i < questionList.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      }
-
-      // 等待一下让所有答案提交完成，然后领取奖励
-      setTimeout(() => {
-        gameLogger.info('开始领取答题奖励')
-
-        // 更新状态为正在领取奖励
-        gameData.value.studyStatus.status = 'claiming_rewards'
-
-        // 领取所有等级的奖励 (1-10)
-        const rewardPromises = []
-        for (let rewardId = 1; rewardId <= 10; rewardId++) {
-          try {
-            const promise = connection.client.send('study_claimreward', {
-              rewardId: rewardId
-            })
-            rewardPromises.push(promise)
-            gameLogger.verbose(`已发送奖励领取请求: rewardId=${rewardId}`)
-          } catch (error) {
-            gameLogger.error(`发送奖励领取请求失败 (rewardId=${rewardId}):`, error)
-          }
-        }
-
-        gameLogger.info('一键答题完成！已尝试领取所有奖励')
-
-        // 更新状态为完成
-        gameData.value.studyStatus.status = 'completed'
-
-        // 3秒后重置状态
-        setTimeout(() => {
-          gameData.value.studyStatus = {
-            isAnswering: false,
-            questionCount: 0,
-            answeredCount: 0,
-            status: '',
-            timestamp: null
-          }
-        }, 3000)
-
-        // 更新游戏数据
-        setTimeout(() => {
-          try {
-            connection.client.send('role_getroleinfo', {})
-            gameLogger.debug('已请求更新角色信息')
-          } catch (error) {
-            gameLogger.error('请求角色信息更新失败:', error)
-          }
-        }, 1000)
-
-      }, 500) // 延迟500ms后领取奖励
-
-    } catch (error) {
-      gameLogger.error('处理学习答题响应失败:', error)
-    }
-  }
-
-  // 判断当前时间是否在本周内
-  function isInCurrentWeek(timestamp, weekStart = 1) {
-    // timestamp 单位：毫秒。如果是秒，先 *1000
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    // 当前星期几 (0=周日,1=周一,...6=周六)
-    const currentWeekday = today.getDay();
-    // 算出本周起始
-    let diff = currentWeekday - weekStart;
-    if (diff < 0) diff += 7;
-
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - diff);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-    const target = new Date(timestamp);
-    return target >= startOfWeek && target < endOfWeek;
-  }
-
   // 游戏消息处理
-  const handleGameMessage = (tokenId, message) => {
+  const handleGameMessage = (tokenId: string, message: ProtoMsg, client: any) => {
     try {
-      if (!message) { gameLogger.warn(`消息处理跳过 [${tokenId}]: 无效消息`); return }
+      if (!message) {
+        gameLogger.warn(`消息处理跳过 [${tokenId}]: 无效消息`);
+        return;
+      }
       if (message.error) {
         const errText = String(message.error).toLowerCase()
         gameLogger.warn(`消息处理跳过 [${tokenId}]:`, message.error)
@@ -390,252 +202,21 @@ export const useTokenStore = defineStore('tokens', () => {
           }
           wsLogger.error(`Token 已过期，需要重新导入 [${tokenId}]`)
         }
-        return
+        return;
       }
 
       const cmd = message.cmd?.toLowerCase()
-      // 优先使用rawData（ProtoMsg自动解码），然后decodedBody（手动解码），最后body（原始数据）
-      const body = message.rawData !== undefined ? message.rawData :
-        message.decodedBody !== undefined ? message.decodedBody :
-          message.body
+      const body = message.getData();
+
+      emitPlus(cmd, {
+        tokenId,
+        body,
+        message,
+        client,
+        gameData
+      })
 
       gameLogger.gameMessage(tokenId, cmd, !!body)
-
-      // 过滤塔相关消息的详细打印
-
-      // 处理角色信息 - 支持多种可能的响应命令
-      if (cmd === 'role_getroleinfo' || cmd === 'role_getroleinforesp' || cmd.includes('role') && cmd.includes('info')) {
-        gameLogger.debug(`角色信息响应: ${tokenId}`)
-
-        if (body) {
-          gameData.value.roleInfo = body
-          gameData.value.lastUpdated = new Date().toISOString()
-          gameLogger.verbose('角色信息已更新')
-
-          // 详细打印角色信息 - 添加日志查看获取的数据
-          // 清理详细控制台输出，保留必要的状态更新
-
-          // 检查答题完成状态
-          if (body.role?.study?.maxCorrectNum !== undefined) {
-            const maxCorrectNum = body.role.study.maxCorrectNum
-            const beginTime = body.role.study.beginTime
-            const isStudyCompleted = maxCorrectNum >= 10 && isInCurrentWeek(beginTime * 1000)
-
-            // 更新答题完成状态
-            if (!gameData.value.studyStatus) {
-              gameData.value.studyStatus = {}
-            }
-            gameData.value.studyStatus.isCompleted = isStudyCompleted
-            gameData.value.studyStatus.maxCorrectNum = maxCorrectNum
-
-            gameLogger.info(`答题状态更新: maxCorrectNum=${maxCorrectNum}, 完成状态=${isStudyCompleted}`)
-          }
-
-          // 检查塔信息
-          if (body.role?.tower) {
-            // 塔信息已更新
-          }
-        } else {
-          gameLogger.debug('角色信息响应为空')
-        }
-      }
-
-      // 处理军团信息（兼容大小写与 Resp 后缀）
-      else if (
-        cmd === 'legion_getinfo' ||
-        cmd === 'legion_getinforesp' ||
-        (cmd && cmd.includes('legion_getinfo')) ||
-        cmd === 'legion_getinfor' || // 兼容部分服务端拼写
-        cmd === 'legion_getinforresp'
-      ) {
-        if (body) {
-          gameData.value.legionInfo = body
-          gameLogger.verbose('军团信息已更新')
-        }
-      }
-
-      // 处理队伍信息 - 支持多种队伍相关响应
-      else if (cmd === 'presetteam_getinfo' || cmd === 'presetteam_getinforesp' ||
-        cmd === 'presetteam_setteam' || cmd === 'presetteam_setteamresp' ||
-        cmd === 'presetteam_saveteam' || cmd === 'presetteam_saveteamresp' ||
-        cmd === 'role_gettargetteam' || cmd === 'role_gettargetteamresp' ||
-        (cmd && cmd.includes('presetteam')) || (cmd && cmd.includes('team'))) {
-        gameLogger.debug(`队伍信息响应: ${tokenId} ${cmd}`)
-
-        if (body) {
-          // 更新队伍数据
-          if (!gameData.value.presetTeam) {
-            gameData.value.presetTeam = {}
-          }
-
-          // 根据不同的响应类型处理数据
-          if (cmd.includes('getteam')) {
-            // 获取队伍信息响应
-            gameData.value.presetTeam = { ...gameData.value.presetTeam, ...body }
-          } else if (cmd.includes('setteam') || cmd.includes('saveteam')) {
-            // 设置/保存队伍响应 - 可能只返回确认信息
-            if (body.presetTeamInfo) {
-              gameData.value.presetTeam.presetTeamInfo = body.presetTeamInfo
-            }
-            // 合并其他队伍相关数据
-            Object.keys(body).forEach(key => {
-              if (key.includes('team') || key.includes('Team')) {
-                gameData.value.presetTeam[key] = body[key]
-              }
-            })
-          } else {
-            // 其他队伍相关响应
-            gameData.value.presetTeam = { ...gameData.value.presetTeam, ...body }
-          }
-
-          gameData.value.lastUpdated = new Date().toISOString()
-          gameLogger.verbose('队伍信息已更新')
-
-          // 简化队伍数据结构日志
-          if (gameData.value.presetTeam.presetTeamInfo) {
-            const teamCount = Object.keys(gameData.value.presetTeam.presetTeamInfo).length
-            gameLogger.debug(`队伍数量: ${teamCount}`)
-          }
-        } else {
-          gameLogger.debug('队伍信息响应为空')
-        }
-      }
-
-      // 处理爬塔响应（静默处理，保持功能）
-      else if (cmd === 'fight_starttower' || cmd === 'fight_starttowerresp') {
-        if (body) {
-          // 判断爬塔结果
-          const battleData = body.battleData
-          if (battleData) {
-            const curHP = battleData.result?.sponsor?.ext?.curHP
-            const isSuccess = curHP > 0
-
-            // 保存爬塔结果到gameData中，供组件使用
-            if (!gameData.value.towerResult) {
-              gameData.value.towerResult = {}
-            }
-            gameData.value.towerResult = {
-              success: isSuccess,
-              curHP: curHP,
-              towerId: battleData.options?.towerId,
-              timestamp: Date.now()
-            }
-            gameData.value.lastUpdated = new Date().toISOString()
-
-            if (isSuccess) {
-              // 检查是否需要自动领取奖励
-              const towerId = battleData.options?.towerId
-              if (towerId !== undefined) {
-                const layer = towerId % 10
-                const floor = Math.floor(towerId / 10)
-
-                // 如果是新层数的第一层(layer=0)，检查是否有奖励可领取
-                if (layer === 0) {
-                  setTimeout(() => {
-                    const connection = wsConnections.value[tokenId]
-                    if (connection && connection.status === 'connected' && connection.client) {
-                      // 检查角色信息中的奖励状态
-                      const roleInfo = gameData.value.roleInfo
-                      const towerRewards = roleInfo?.role?.tower?.reward
-
-                      if (towerRewards && !towerRewards[floor]) {
-                        // 保存奖励信息
-                        gameData.value.towerResult.autoReward = true
-                        gameData.value.towerResult.rewardFloor = floor
-                        connection.client.send('tower_claimreward', { rewardId: floor })
-                      }
-                    }
-                  }, 1500)
-                }
-              }
-            }
-          }
-
-          // 爬塔后立即更新角色信息和塔信息
-          setTimeout(() => {
-            try {
-              const connection = wsConnections.value[tokenId]
-              if (connection && connection.status === 'connected' && connection.client) {
-                connection.client.send('role_getroleinfo', {})
-              }
-            } catch (error) {
-              // 忽略更新数据错误
-            }
-          }, 1000)
-        }
-      }
-
-      // 处理奖励领取响应（静默处理）
-      else if (cmd === 'tower_claimreward' || cmd === 'tower_claimrewardresp') {
-        if (body) {
-          // 奖励领取成功后更新角色信息
-          setTimeout(() => {
-            const connection = wsConnections.value[tokenId]
-            if (connection && connection.status === 'connected' && connection.client) {
-              connection.client.send('role_getroleinfo', {})
-            }
-          }, 500)
-        }
-      }
-
-      // 处理学习答题响应 - 一键答题功能
-      else if (cmd === 'studyresp' || cmd === 'study_startgame' || cmd === 'study_startgameresp') {
-        if (body) {
-          gameLogger.info(`学习答题响应: ${tokenId}`)
-          handleStudyResponse(tokenId, body)
-        }
-      }
-
-      // 处理加钟相关响应
-      else if (cmd === 'system_mysharecallback' || cmd === 'syncresp' || cmd === 'system_claimhangupreward' || cmd === 'system_claimhanguprewardresp') {
-        gameLogger.debug(`加钟/挂机响应: ${tokenId} ${cmd}`)
-
-        // 加钟操作完成后，延迟更新角色信息
-        if (cmd === 'syncresp' || cmd === 'system_mysharecallback') {
-          setTimeout(() => {
-            const connection = wsConnections.value[tokenId]
-            if (connection && connection.status === 'connected' && connection.client) {
-              connection.client.send('role_getroleinfo', {})
-            }
-          }, 800)
-        }
-
-        // 挂机奖励领取完成后更新角色信息
-        if (cmd === 'system_claimhanguprewardresp') {
-          setTimeout(() => {
-            const connection = wsConnections.value[tokenId]
-            if (connection && connection.status === 'connected' && connection.client) {
-              connection.client.send('role_getroleinfo', {})
-            }
-          }, 500)
-        }
-      }
-
-      // 处理心跳响应（静默处理，不打印日志）
-      else if (cmd === '_sys/ack') {
-        // 心跳响应 - 静默处理
-
-      }
-
-      // 处理其他消息
-      else {
-        gameLogger.verbose(`其他消息: ${tokenId} ${cmd}`)
-
-        // 特别关注队伍相关的未处理消息
-        if (cmd && (cmd.includes('team') || cmd.includes('preset') || cmd.includes('formation'))) {
-          gameLogger.debug(`未处理队伍消息: ${tokenId} ${cmd}`)
-
-          // 尝试自动解析队伍数据
-          if (body && typeof body === 'object') {
-            tryParseTeamData(body, cmd)
-          }
-        }
-
-        // 特别关注塔相关的未处理消息（静默处理）
-        if (cmd && cmd.includes('tower')) {
-          // 未处理塔消息
-        }
-      }
 
     } catch (error) {
       gameLogger.error(`处理消息失败 [${tokenId}]:`, error)
@@ -643,7 +224,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 验证token有效性
-  const validateToken = (token) => {
+  const validateToken = (token: any) => {
     if (!token) return false
     if (typeof token !== 'string') return false
     if (token.trim().length === 0) return false
@@ -653,7 +234,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // Base64解析功能（增强版）
-  const parseBase64Token = (base64String) => {
+  const parseBase64Token = (base64String: string) => {
     try {
       // 输入验证
       if (!base64String || typeof base64String !== 'string') {
@@ -708,7 +289,7 @@ export const useTokenStore = defineStore('tokens', () => {
     }
   }
 
-  const importBase64Token = (name, base64String, additionalInfo = {}) => {
+  const importBase64Token = (name: string, base64String: string, additionalInfo = {}) => {
     const parseResult = parseBase64Token(base64String)
 
     if (!parseResult.success) {
@@ -756,61 +337,58 @@ export const useTokenStore = defineStore('tokens', () => {
   const currentSessionId = generateSessionId()
 
   // 获取连接锁
-  const acquireConnectionLock = async (tokenId, operation = 'connect') => {
+  const acquireConnectionLock = async (tokenId: string, operation = 'connect') => {
     const lockKey = `${tokenId}_${operation}`
-    if (connectionLocks.value.has(lockKey)) {
+    const connect = connectionLocks.value
+    if (connect[lockKey]) {
       wsLogger.debug(`等待连接锁释放: ${tokenId} (${operation})`)
       // 等待现有操作完成，最多等待10秒
       let attempts = 0
-      while (connectionLocks.value.has(lockKey) && attempts < 100) {
+      while (connect[lockKey] && attempts < 100) {
         await new Promise(resolve => setTimeout(resolve, 100))
         attempts++
       }
-      if (connectionLocks.value.has(lockKey)) {
+      if (connect[lockKey]) {
         wsLogger.warn(`连接锁等待超时: ${tokenId} (${operation})`)
         return false
       }
     }
-
-    connectionLocks.value.set(lockKey, {
+    connect[lockKey] = {
       tokenId,
       operation,
       timestamp: Date.now(),
       sessionId: currentSessionId
-    })
+    };
     wsLogger.connectionLock(tokenId, operation, true)
     return true
   }
 
   // 释放连接锁
-  const releaseConnectionLock = (tokenId, operation = 'connect') => {
+  const releaseConnectionLock = (tokenId: string, operation = 'connect') => {
     const lockKey = `${tokenId}_${operation}`
-    if (connectionLocks.value.has(lockKey)) {
-      connectionLocks.value.delete(lockKey)
+    if (connectionLocks.value[lockKey]) {
+      delete connectionLocks.value[lockKey];
       wsLogger.connectionLock(tokenId, operation, false)
     }
   }
 
   // 更新跨标签页连接状态
-  const updateCrossTabConnectionState = (tokenId, action, sessionId = currentSessionId) => {
-    const storageKey = `ws_connection_${tokenId}`
-    const state = {
+  const updateCrossTabConnectionState = (tokenId: string, action: string, sessionId: string = currentSessionId) => {
+
+    let state = useLocalStorage(`ws_connection_${tokenId}`, {
       action, // 'connecting', 'connected', 'disconnecting', 'disconnected'
       sessionId,
       timestamp: Date.now(),
       url: window.location.href
-    }
+    });
 
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(state))
-      activeConnections.value.set(tokenId, state)
-    } catch (error) {
-      wsLogger.warn('无法更新跨标签页连接状态:', error)
+    if (activeConnections.value) {
+      activeConnections.value[tokenId] = state.value;
     }
   }
 
   // 检查是否有其他标签页的活跃连接
-  const checkCrossTabConnection = (tokenId) => {
+  const checkCrossTabConnection = (tokenId: string,) => {
     const storageKey = `ws_connection_${tokenId}`
     try {
       const stored = localStorage.getItem(storageKey)
@@ -831,7 +409,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // WebSocket连接管理（重构版 - 防重连）
-  const createWebSocketConnection = async (tokenId, base64Token, customWsUrl = null) => {
+  const createWebSocketConnection = async (tokenId: string, base64Token: string, customWsUrl = null) => {
     wsLogger.info(`开始创建连接: ${tokenId}`)
 
     // 1. 获取连接锁，防止竞态条件
@@ -873,8 +451,9 @@ export const useTokenStore = defineStore('tokens', () => {
       }
 
       // 6. 构建WebSocket URL
-      const baseWsUrl = 'wss://xxz-xyzw.hortorgames.com/agent?p=%s&e=x&lang=chinese'
-      const wsUrl = customWsUrl || baseWsUrl.replace('%s', encodeURIComponent(actualToken))
+      const baseWsUrl = `wss://xxz-xyzw.hortorgames.com/agent?p=${encodeURIComponent(actualToken)}&e=x&lang=chinese`
+
+      const wsUrl = customWsUrl || baseWsUrl
 
       wsLogger.debug(`Token: ${actualToken.substring(0, 10)}...${actualToken.slice(-4)}`)
 
@@ -934,7 +513,7 @@ export const useTokenStore = defineStore('tokens', () => {
       }
 
       // 10. 设置消息监听
-      wsClient.setMessageListener((message) => {
+      wsClient.setMessageListener((message: ProtoMsg) => {
         const cmd = message?.cmd || 'unknown'
         wsLogger.wsMessage(tokenId, cmd, true)
 
@@ -944,9 +523,9 @@ export const useTokenStore = defineStore('tokens', () => {
             data: message,
             cmd: message?.cmd
           }
+          handleGameMessage(tokenId, message, wsClient)
         }
 
-        handleGameMessage(tokenId, message)
       })
 
       // 11. 初始化连接
@@ -964,7 +543,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 异步版本的关闭连接（优雅关闭）
-  const closeWebSocketConnectionAsync = async (tokenId) => {
+  const closeWebSocketConnectionAsync = async (tokenId: string) => {
     const lockAcquired = await acquireConnectionLock(tokenId, 'disconnect')
     if (!lockAcquired) {
       wsLogger.warn(`无法获取断开连接锁: ${tokenId}`)
@@ -1006,23 +585,23 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 同步版本的关闭连接（保持向后兼容）
-  const closeWebSocketConnection = (tokenId) => {
+  const closeWebSocketConnection = (tokenId: string,) => {
     closeWebSocketConnectionAsync(tokenId).catch(error => {
       wsLogger.error(`关闭连接异步操作失败 [${tokenId}]:`, error)
     })
   }
 
-  const getWebSocketStatus = (tokenId) => {
+  const getWebSocketStatus = (tokenId: string,) => {
     return wsConnections.value[tokenId]?.status || 'disconnected'
   }
 
   // 获取WebSocket客户端
-  const getWebSocketClient = (tokenId) => {
+  const getWebSocketClient = (tokenId: string,) => {
     return wsConnections.value[tokenId]?.client || null
   }
 
   // 设置消息监听器
-  const setMessageListener = (listener) => {
+  const setMessageListener = (listener: any) => {
     if (selectedToken.value) {
       const connection = wsConnections.value[selectedToken.value.id]
       if (connection && connection.client) {
@@ -1032,7 +611,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 设置是否显示消息
-  const setShowMsg = (show) => {
+  const setShowMsg = (show: any) => {
     if (selectedToken.value) {
       const connection = wsConnections.value[selectedToken.value.id]
       if (connection && connection.client) {
@@ -1043,7 +622,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
 
   // 发送消息到WebSocket
-  const sendMessage = (tokenId, cmd, params = {}, options = {}) => {
+  const sendMessage = (tokenId: string, cmd: string, params = {}, options = {}) => {
     const connection = wsConnections.value[tokenId]
     if (!connection || connection.status !== 'connected') {
       wsLogger.error(`WebSocket未连接，无法发送消息 [${tokenId}]`)
@@ -1068,7 +647,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // Promise版发送消息
-  const sendMessageWithPromise = async (tokenId, cmd, params = {}, timeout = 5000) => {
+  const sendMessageWithPromise = async (tokenId: string, cmd: string, params = {}, timeout = 5000) => {
     const connection = wsConnections.value[tokenId]
     if (!connection || connection.status !== 'connected') {
       return Promise.reject(new Error(`WebSocket未连接 [${tokenId}]`))
@@ -1098,12 +677,12 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 发送心跳消息
-  const sendHeartbeat = (tokenId) => {
+  const sendHeartbeat = (tokenId: string) => {
     return sendMessage(tokenId, 'heart_beat')
   }
 
   // 发送获取角色信息请求（异步处理）
-  const sendGetRoleInfo = async (tokenId, params = {}) => {
+  const sendGetRoleInfo = async (tokenId: string, params = {}) => {
     try {
       const roleInfo = await sendMessageWithPromise(tokenId, 'role_getroleinfo', params, 10000)
 
@@ -1122,27 +701,27 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 发送获取数据版本请求
-  const sendGetDataBundleVersion = (tokenId, params = {}) => {
+  const sendGetDataBundleVersion = (tokenId: string, params = {}) => {
     return sendMessageWithPromise(tokenId, 'system_getdatabundlever', params)
   }
 
   // 发送签到请求
-  const sendSignIn = (tokenId) => {
+  const sendSignIn = (tokenId: string) => {
     return sendMessageWithPromise(tokenId, 'system_signinreward')
   }
 
   // 发送领取日常任务奖励
-  const sendClaimDailyReward = (tokenId, rewardId = 0) => {
+  const sendClaimDailyReward = (tokenId: string, rewardId = 0) => {
     return sendMessageWithPromise(tokenId, 'task_claimdailyreward', { rewardId })
   }
 
   // 发送获取队伍信息
-  const sendGetTeamInfo = (tokenId, params = {}) => {
+  const sendGetTeamInfo = (tokenId: string, params = {}) => {
     return sendMessageWithPromise(tokenId, 'presetteam_getinfo', params)
   }
 
   // 发送自定义游戏消息
-  const sendGameMessage = (tokenId, cmd, params = {}, options = {}) => {
+  const sendGameMessage = (tokenId: string, cmd: string, params = {}, options = {}) => {
     if (options.usePromise) {
       return sendMessageWithPromise(tokenId, cmd, params, options.timeout)
     } else {
@@ -1201,7 +780,7 @@ export const useTokenStore = defineStore('tokens', () => {
     }
   }
 
-  const importTokens = (data) => {
+  const importTokens = (data: any) => {
     try {
       if (data.tokens && Array.isArray(data.tokens)) {
         gameTokens.value = data.tokens
@@ -1242,7 +821,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 将现有token升级为长期有效
-  const upgradeTokenToPermanent = (tokenId) => {
+  const upgradeTokenToPermanent = (tokenId: string) => {
     const token = gameTokens.value.find(t => t.id === tokenId)
     if (token && token.importMethod !== 'url') {
       updateToken(tokenId, {
@@ -1256,7 +835,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 连接唯一性验证和监控
-  const validateConnectionUniqueness = (tokenId) => {
+  const validateConnectionUniqueness = (tokenId: string) => {
     const connections = Object.values(wsConnections.value).filter(conn =>
       conn.tokenId === tokenId &&
       (conn.status === 'connecting' || conn.status === 'connected')
@@ -1288,12 +867,15 @@ export const useTokenStore = defineStore('tokens', () => {
       setInterval(() => {
         const now = Date.now()
 
+        console.log('ws连接监控运行中...', wsConnections.value)
+        console.log('co连接监控运行中...', connectionLocks.value)
+        console.log('ac连接监控运行中...', activeConnections.value)
+
         // 检查连接超时（超过30秒未活动）
         Object.entries(wsConnections.value).forEach(([tokenId, connection]) => {
           const lastActivity = connection.lastMessage?.timestamp || connection.connectedAt
           if (lastActivity) {
             const timeSinceActivity = now - new Date(lastActivity).getTime()
-
             if (timeSinceActivity > 30000 && connection.status === 'connected') {
               wsLogger.warn(`检测到连接可能已断开: ${tokenId}`)
               // 发送心跳检测
@@ -1305,18 +887,18 @@ export const useTokenStore = defineStore('tokens', () => {
         })
 
         // 清理过期的连接锁（超过10分钟）
-        connectionLocks.value.forEach((lock, key) => {
+        Object.entries(connectionLocks.value).forEach(([tokenId, lock]) => {
           if (now - lock.timestamp > 600000) {
-            wsLogger.debug(`清理过期连接锁: ${key}`)
-            connectionLocks.value.delete(key)
+            delete connectionLocks.value[tokenId]
+            wsLogger.debug(`清理过期连接锁: ${tokenId}`)
           }
         })
 
         // 清理过期的跨标签页状态（超过5分钟）
-        activeConnections.value.forEach((state, tokenId) => {
+        Object.entries(activeConnections.value).forEach(([tokenId, state]) => {
           if (now - state.timestamp > 300000) {
             wsLogger.debug(`清理过期跨标签页状态: ${tokenId}`)
-            activeConnections.value.delete(tokenId)
+            delete activeConnections.value[tokenId];
             localStorage.removeItem(`ws_connection_${tokenId}`)
           }
         })
@@ -1326,15 +908,16 @@ export const useTokenStore = defineStore('tokens', () => {
 
     // 获取连接统计信息
     getStats: () => {
+      const duplicateTokens: string[] = [];
       const stats = {
         totalConnections: Object.keys(wsConnections.value).length,
         connectedCount: 0,
         connectingCount: 0,
         disconnectedCount: 0,
         errorCount: 0,
-        duplicateTokens: [],
-        activeLocks: connectionLocks.value.size,
-        crossTabStates: activeConnections.value.size
+        duplicateTokens,
+        activeLocks: Object.keys(connectionLocks.value).length,
+        crossTabStates: Object.keys(activeConnections.value).length
       }
 
       // 统计连接状态
@@ -1364,9 +947,10 @@ export const useTokenStore = defineStore('tokens', () => {
 
       await Promise.all(cleanupPromises)
 
-      // 清理所有锁和状态
-      connectionLocks.value.clear()
-      activeConnections.value.clear()
+      // TODO:
+      // 清理所有锁和状态 
+      // connectionLocks.value.clear()
+      // activeConnections.value.clear()
 
       // 清理localStorage中的跨标签页状态
       Object.keys(localStorage).forEach(key => {
@@ -1488,7 +1072,7 @@ export const useTokenStore = defineStore('tokens', () => {
 
     // 调试工具方法
     validateToken,
-    debugToken: (tokenString) => {
+    debugToken: (tokenString: string) => {
       console.log('🔍 Token调试信息:')
       console.log('原始Token:', tokenString)
       const parseResult = parseBase64Token(tokenString)
@@ -1509,9 +1093,9 @@ export const useTokenStore = defineStore('tokens', () => {
     devTools: {
       getConnectionStats: () => connectionMonitor.getStats(),
       forceCleanup: () => connectionMonitor.forceCleanup(),
-      showConnectionLocks: () => Array.from(connectionLocks.value.entries()),
-      showCrossTabStates: () => Array.from(activeConnections.value.entries()),
-      testDuplicateConnection: (tokenId) => {
+      showConnectionLocks: () => Object.keys(connectionLocks.value),
+      showCrossTabStates: () => Object.keys(activeConnections.value),
+      testDuplicateConnection: (tokenId: string) => {
         // 降噪
         const token = gameTokens.value.find(t => t.id === tokenId)
         if (token) {

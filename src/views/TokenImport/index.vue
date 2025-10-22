@@ -93,7 +93,7 @@
                 {{ token.name }}
                 <a-tag color="red" v-if="token.server">{{ token.server }}</a-tag>
                 <!-- 连接状态指示器 -->
-                <a-badge :status="getTokenStats(token.id)" :text="getConnectionStatusText(token.id)" />
+                <a-badge :status="getTokenStyle(token.id)" :text="getConnectionStatusText(token.id)" />
                 <!-- 连接状态文字 -->
                 <!-- <a-tag color="green">
                   {{ getConnectionStatusText(token.id) }}
@@ -177,7 +177,7 @@
       <!-- 空状态 -->
       <a-empty v-if="!tokenStore.hasTokens && !showImportForm">
         <template #image>
-          <icon-exclamation-circle-fill />
+          <i class="mdi:bed-empty"></i>
         </template>
         还没有导入任何Token
       </a-empty>
@@ -290,132 +290,6 @@ const bulkOptions = [
   { label: '断开所有连接', key: 'disconnect' },
   { label: '清除所有Token', key: 'clear' }
 ]
-
-// 方法
-const handleImport = async () => {
-  if (!importFormRef.value) return
-
-  try {
-    await importFormRef.value.validate()
-    isImporting.value = true
-
-    const result = tokenStore.importBase64Token(
-      importForm.name,
-      importForm.base64Token,
-      {
-        server: importForm.server,
-        wsUrl: importForm.wsUrl,
-        importMethod: 'manual'
-      }
-    )
-
-    if (result.success) {
-      message.success(result.message)
-      // 显示token详情信息（如果有）
-      if (result.details) {
-        // 降噪
-      }
-      resetImportForm()
-      showImportForm.value = false
-    } else {
-      const errorMsg = result.error || result.message || 'Token导入失败'
-      message.error(errorMsg)
-      console.error('Token导入错误详情:', {
-        error: result.error,
-        message: result.message,
-        originalToken: importForm.base64Token?.substring(0, 50) + '...'
-      })
-    }
-  } catch (error) {
-    // 表单验证失败
-  } finally {
-    isImporting.value = false
-  }
-}
-
-// URL获取Token
-const handleUrlImport = async () => {
-  if (!urlFormRef.value) return
-
-  try {
-    await urlFormRef.value.validate()
-    isImporting.value = true
-
-    // 获取Token数据 - 处理跨域问题
-    let response
-
-    // 检查是否为本地或相同域名的URL
-    const isLocalUrl = urlForm.url.startsWith(window.location.origin) ||
-      urlForm.url.startsWith('/') ||
-      urlForm.url.startsWith('http://localhost') ||
-      urlForm.url.startsWith('http://127.0.0.1')
-
-    if (isLocalUrl) {
-      // 本地URL直接请求
-      response = await fetch(urlForm.url)
-    } else {
-      // 跨域URL - 尝试CORS请求
-      try {
-        response = await fetch(urlForm.url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-          mode: 'cors'
-        })
-      } catch (corsError) {
-        throw new Error(`跨域请求被阻止。请确保目标服务器支持CORS，或使用浏览器扩展/代理服务器。错误详情: ${corsError.message}`)
-      }
-    }
-
-    if (!response.ok) {
-      throw new Error(`请求失败: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    // 检查返回数据是否包含token
-    if (!data.token) {
-      throw new Error('返回数据中未找到token字段')
-    }
-
-    // 使用获取到的token创建新的token记录
-    const result = tokenStore.importBase64Token(
-      urlForm.name,
-      data.token,
-      {
-        server: urlForm.server || data.server,
-        wsUrl: urlForm.wsUrl,
-        sourceUrl: urlForm.url, // 保存源URL用于刷新
-        importMethod: 'url'
-      }
-    )
-
-    if (result.success) {
-      message.success(result.message)
-      // 显示token详情信息（如果有）
-      if (result.details) {
-        // 降噪
-      }
-      resetUrlForm()
-      showImportForm.value = false
-    } else {
-      const errorMsg = result.error || result.message || 'URL Token导入失败'
-      message.error(errorMsg)
-      console.error('URL Token导入错误详情:', {
-        error: result.error,
-        message: result.message,
-        sourceUrl: urlForm.url,
-        receivedToken: data?.token?.substring(0, 50) + '...'
-      })
-    }
-  } catch (error) {
-    console.error('URL获取Token失败:', error)
-    message.error(error.message || 'URL获取Token失败')
-  } finally {
-    isImporting.value = false
-  }
-}
 
 // 刷新Token
 const refreshToken = async (token) => {
@@ -533,18 +407,6 @@ const upgradeTokenToPermanent = (token) => {
   })
 }
 
-const resetImportForm = () => {
-  Object.keys(importForm).forEach(key => {
-    importForm[key] = ''
-  })
-}
-
-const resetUrlForm = () => {
-  Object.keys(urlForm).forEach(key => {
-    urlForm[key] = ''
-  })
-}
-
 const selectToken = (token, forceReconnect = false) => {
   const isAlreadySelected = selectedTokenId.value === token.id
   const connectionStatus = getConnectionStatus(token.id)
@@ -596,16 +458,16 @@ const getConnectionStatusText = (tokenId) => {
 }
 
 
-const getTokenStats = (tokenId) => {
+const getTokenStyle = (tokenId) => {
   const status = getConnectionStatus(tokenId)
   const statusMap = {
     'connected': 'success',
     'connecting': 'processing',
-    'disconnected': 'default',
-    'error': 'error',
+    'disconnected': 'normal',
+    'error': 'danger',
     'disconnecting': 'warning'
   }
-  return statusMap[status] || 'default'
+  return statusMap[status] || 'normal'
 }
 
 

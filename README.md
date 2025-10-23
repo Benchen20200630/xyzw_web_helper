@@ -120,8 +120,8 @@ src/
 ### 环境要求
 
 ```bash
-Node.js >= 16.0.0
-npm >= 7.0.0
+Node.js >= 18.0.0
+pnpm >= 9.0.0 (推荐)
 ```
 
 ### 安装与运行
@@ -132,26 +132,26 @@ git clone https://github.com/your-repo/xyzw-web-helper.git
 cd xyzw-web-helper
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动开发服务器
-npm run dev
+pnpm run dev
 
 # 构建生产版本
-npm run build
+pnpm run build
 
 # 预览生产构建
-npm run preview
+pnpm run preview
 ```
 
 ### 开发命令
 
 ```bash
-npm run dev      # 启动开发服务器 (端口3000)
-npm run build    # 构建生产版本
-npm run preview  # 预览生产构建
-npm run lint     # 代码检查和修复
-npm run format   # 代码格式化
+pnpm run dev      # 启动开发服务器 (端口3000)
+pnpm run build    # 构建生产版本
+pnpm run preview  # 预览生产构建
+pnpm run lint     # 代码检查和修复
+pnpm run format   # 代码格式化
 ```
 
 ---
@@ -183,6 +183,11 @@ npm run format   # 代码格式化
   "server": "风云服"                        // 可选字段
 }
 ```
+
+##### 方式三：批量导入
+支持通过bin文件或多行输入同时导入多个Token。
+
+支持伏羲bin文件格式的Token批量导入。
 
 #### 导入步骤
 1. 进入 **Token管理** 页面

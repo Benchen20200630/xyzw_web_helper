@@ -5,11 +5,7 @@
       <div class="page-header">
         <div class="header-content">
           <div class="header-top">
-            <img
-              src="/icons/xiaoyugan.png"
-              alt="XYZW"
-              class="brand-logo"
-            >
+            <img src="/icons/xiaoyugan.png" alt="XYZW" class="brand-logo">
             <!-- 主题切换按钮 -->
             <ThemeToggle />
           </div>
@@ -18,247 +14,68 @@
       </div>
 
       <!-- Token导入区域 -->
-      <div
-        v-if="!tokenStore.hasTokens || showImportForm"
-        class="import-section"
-      >
-        <div class="import-card">
-          <div class="card-header">
-            <h2>
-              <n-icon><Add /></n-icon>
-              添加游戏Token
-            </h2>
-
-            <!-- 导入方式选择 -->
-            <n-radio-group
-              v-model:value="importMethod"
-              class="import-method-tabs"
-              size="small"
-            >
-              <n-radio-button value="manual">
-                手动输入
-              </n-radio-button>
-              <n-radio-button value="url">
-                URL获取
-              </n-radio-button>
-            </n-radio-group>
-          </div>
-
-          <!-- 手动输入表单 -->
-          <n-form
-            v-if="importMethod === 'manual'"
-            ref="importFormRef"
-            :model="importForm"
-            :rules="importRules"
-            :label-placement="'top'"
-            :size="'large'"
-            :show-label="true"
-          >
-            <n-form-item
-              :label="'游戏角色名称'"
-              :path="'name'"
-              :show-label="true"
-            >
-              <n-input
-                v-model:value="importForm.name"
-                placeholder="例如：主号战士"
-                clearable
-              />
-            </n-form-item>
-
-            <n-form-item
-              :label="'Token字符串'"
-              :path="'base64Token'"
-              :show-label="true"
-            >
-              <n-input
-                v-model:value="importForm.base64Token"
-                type="textarea"
-                :rows="3"
-                placeholder="粘贴Token字符串..."
-                clearable
-              />
-            </n-form-item>
-
-            <!-- 角色详情 -->
-            <n-collapse>
-              <n-collapse-item
-                title="角色详情 (可选)"
-                name="optional"
-              >
-                <div class="optional-fields">
-                  <n-form-item label="服务器">
-                    <n-input
-                      v-model:value="importForm.server"
-                      placeholder="服务器名称"
-                    />
-                  </n-form-item>
-
-                  <n-form-item label="自定义连接地址">
-                    <n-input
-                      v-model:value="importForm.wsUrl"
-                      placeholder="留空使用默认连接"
-                    />
-                  </n-form-item>
-                </div>
-              </n-collapse-item>
-            </n-collapse>
-
-
-            <div class="form-actions">
-              <n-button
-                type="primary"
-                size="large"
-                block
-                :loading="isImporting"
-                @click="handleImport"
-              >
-                <template #icon>
-                  <n-icon><CloudUpload /></n-icon>
-                </template>
-                添加Token
-              </n-button>
-
-              <n-button
-                v-if="tokenStore.hasTokens"
-                size="large"
-                block
-                @click="showImportForm = false"
-              >
-                取消
-              </n-button>
-            </div>
-          </n-form>
-
-          <!-- URL获取表单 -->
-          <n-form
-            v-if="importMethod === 'url'"
-            ref="urlFormRef"
-            :model="urlForm"
-            :rules="urlRules"
-            label-placement="top"
-            size="large"
-          >
-            <n-form-item
-              label="游戏角色名称"
-              path="name"
-            >
-              <n-input
-                v-model:value="urlForm.name"
-                placeholder="例如：主号战士"
-                clearable
-              />
-            </n-form-item>
-
-            <n-form-item
-              label="Token获取地址"
-              path="url"
-            >
-              <n-input
-                v-model:value="urlForm.url"
-                placeholder="输入API接口地址..."
-                clearable
-              />
-              <template #feedback>
-                <div class="form-tips">
-                  <span class="form-tip">
-                    接口应返回包含token字段的JSON数据
-                  </span>
-                  <span class="form-tip cors-tip">
-                    注意：如果是跨域URL，服务器需要支持CORS，否则会被浏览器阻止
-                  </span>
-                </div>
-              </template>
-            </n-form-item>
-
-            <!-- 角色详情 -->
-            <n-collapse>
-              <n-collapse-item
-                title="角色详情 (可选)"
-                name="optional"
-              >
-                <div class="optional-fields">
-                  <n-form-item label="服务器">
-                    <n-input
-                      v-model:value="urlForm.server"
-                      placeholder="服务器名称"
-                    />
-                  </n-form-item>
-
-                  <n-form-item label="自定义连接地址">
-                    <n-input
-                      v-model:value="urlForm.wsUrl"
-                      placeholder="留空使用默认连接"
-                    />
-                  </n-form-item>
-                </div>
-              </n-collapse-item>
-            </n-collapse>
-
-            <div class="form-actions">
-              <n-button
-                type="primary"
-                size="large"
-                block
-                :loading="isImporting"
-                @click="handleUrlImport"
-              >
-                <template #icon>
-                  <n-icon><CloudUpload /></n-icon>
-                </template>
-                获取并添加Token
-              </n-button>
-
-              <n-button
-                v-if="tokenStore.hasTokens"
-                size="large"
-                block
-                @click="showImportForm = false"
-              >
-                取消
-              </n-button>
-            </div>
-          </n-form>
+      <a-modal v-model:visible="showImportForm" width="40rem" :footer="false" :default-visible="!tokenStore.hasTokens">
+        <template #title>
+          <h2>
+            <n-icon>
+              <Add />
+            </n-icon>
+            添加游戏Token
+          </h2>
+        </template>
+        <div class="card-header">
+          <!-- 导入方式选择 -->
+          <n-radio-group v-model:value="importMethod" class="import-method-tabs" size="small">
+            <n-radio-button value="manual">
+              手动输入
+            </n-radio-button>
+            <n-radio-button value="url">
+              URL获取
+            </n-radio-button>
+            <n-radio-button value="bin">
+              BIN获取
+            </n-radio-button>
+          </n-radio-group>
         </div>
-      </div>
+        <div class="card-body">
+          <manual-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'manual'" />
+          <url-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'url'" />
+          <bin-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'bin'" />
+        </div>
+      </a-modal>
 
       <!-- Token列表 -->
-      <div
-        v-if="tokenStore.hasTokens"
-        class="tokens-section"
-      >
+      <div v-if="tokenStore.hasTokens" class="tokens-section">
         <div class="section-header">
           <h2>我的Token列表 ({{ tokenStore.gameTokens.length }}个)</h2>
           <div class="header-actions">
-            <n-button
-              v-if="tokenStore.selectedToken"
-              type="success"
-              @click="goToDashboard"
-            >
+            <n-button v-if="tokenStore.selectedToken" type="success" @click="goToDashboard">
               <template #icon>
-                <n-icon><Home /></n-icon>
+                <n-icon>
+                  <Home />
+                </n-icon>
               </template>
               返回控制台
             </n-button>
 
-            <n-button
-              v-if="!showImportForm"
-              type="primary"
-              @click="showImportForm = true"
-            >
+            <n-button v-if="!showImportForm" type="primary" @click="showImportForm = true">
               <template #icon>
-                <n-icon><Add /></n-icon>
+                <n-icon>
+                  <Add />
+                </n-icon>
               </template>
               添加Token
             </n-button>
 
-            <n-dropdown
-              :options="bulkOptions"
-              @select="handleBulkAction"
-            >
+            <n-dropdown :options="bulkOptions" @select="handleBulkAction">
               <n-button>
                 <template #icon>
-                  <n-icon><Menu /></n-icon>
+                  <n-icon>
+                    <Menu />
+                  </n-icon>
                 </template>
                 批量操作
               </n-button>
@@ -267,89 +84,47 @@
         </div>
 
         <div class="tokens-grid">
-          <div
-            v-for="token in tokenStore.gameTokens"
-            :key="token.id"
-            class="token-card"
-            :class="{
-              active: token.id === tokenStore.selectedTokenId,
-              connected: getConnectionStatus(token.id) === 'connected'
-            }"
-            @click="selectToken(token)"
-          >
-            <div class="card-header">
-              <div class="token-info">
-                <h3 class="token-name">
-                  {{ token.name }}
-                  <!-- 连接状态指示器 -->
-                  <span
-                    class="connection-indicator"
-                    :class="{
-                      'connected': getConnectionStatus(token.id) === 'connected',
-                      'connecting': getConnectionStatus(token.id) === 'connecting',
-                      'disconnected': getConnectionStatus(token.id) === 'disconnected' || !getConnectionStatus(token.id),
-                      'error': getConnectionStatus(token.id) === 'error'
-                    }"
-                    :title="getConnectionStatusText(token.id)"
-                  ></span>
-                </h3>
-                <div class="token-meta">
-                  <span
-                    v-if="token.server"
-                    class="meta-item"
-                  >{{ token.server }}</span>
-                  <!-- 连接状态文字 -->
-                  <span class="connection-status">
-                    {{ getConnectionStatusText(token.id) }}
-                  </span>
-                </div>
-              </div>
+          <a-card v-for="token in tokenStore.gameTokens" :key="token.id" :class="{
+            'token-card': true,
+            active: selectedTokenId.value === token.id
+          }" @click="selectToken(token)">
+            <template #title>
+              <a-space class="token-name">
+                {{ token.name }}
+                <a-tag color="red" v-if="token.server">{{ token.server }}</a-tag>
+                <!-- 连接状态指示器 -->
+                <a-badge :status="getTokenStyle(token.id)" :text="getConnectionStatusText(token.id)" />
+                <!-- 连接状态文字 -->
+                <!-- <a-tag color="green">
+                  {{ getConnectionStatusText(token.id) }}
+                </a-tag> -->
+              </a-space>
+            </template>
+            <template #extra>
+              <n-dropdown :options="getTokenActions(token)" @select="(key) => handleTokenAction(key, token)">
+                <n-button text>
+                  <template #icon>
+                    <n-icon>
+                      <EllipsisHorizontal />
+                    </n-icon>
+                  </template>
+                </n-button>
+              </n-dropdown>
+            </template>
 
-              <div class="card-actions">
-                <n-dropdown
-                  :options="getTokenActions(token)"
-                  @select="(key) => handleTokenAction(key, token)"
-                >
-                  <n-button text>
-                    <template #icon>
-                      <n-icon><EllipsisHorizontal /></n-icon>
-                    </template>
-                  </n-button>
-                </n-dropdown>
-              </div>
-            </div>
-
-            <div class="card-body">
+            <template #default>
               <div class="token-display">
                 <span class="token-label">Token:</span>
                 <code class="token-value">{{ maskToken(token.token) }}</code>
               </div>
-
-              <div class="connection-status">
-                <div class="status-indicator">
-                  <span
-                    class="status-dot"
-                    :class="getConnectionStatus(token.id)"
-                  />
-                  <span class="status-text">
-                    {{ getConnectionStatusText(token.id) }}
-                  </span>
-                </div>
-
-                <div class="connection-actions">
-                  <n-button
-                    size="small"
-                    type="default"
-                    :loading="refreshingTokens.has(token.id)"
-                    @click.stop="refreshToken(token)"
-                  >
-                    <template #icon>
-                      <n-icon><Refresh /></n-icon>
-                    </template>
-                    {{ token.sourceUrl ? '刷新' : '重新获取' }}
-                  </n-button>
-                </div>
-              </div>
+              <a-button :loading="refreshingTokens.has(token.id)" @click.stop="refreshToken(token)">
+                <template #icon>
+                  <n-icon>
+                    <Refresh />
+                  </n-icon>
+                </template>
+                {{ token.sourceUrl ? '刷新' : '重新获取' }}
+              </a-button>
 
               <div class="token-timestamps">
                 <div class="timestamp-item">
@@ -366,104 +141,56 @@
               <div class="storage-info">
                 <div class="storage-item">
                   <span class="storage-label">存储类型：</span>
-                  <n-tag
-                    size="small"
-                    :type="token.importMethod === 'url' ? 'success' : 'warning'"
-                  >
+                  <n-tag size="small" :type="token.importMethod === 'url' ? 'success' : 'warning'">
                     {{ token.importMethod === 'url' ? '长期有效' : '临时存储' }}
                   </n-tag>
                 </div>
 
                 <!-- 升级选项（仅对临时存储的token显示） -->
-                <div
-                  v-if="token.importMethod !== 'url'"
-                  class="storage-upgrade"
-                >
-                  <n-button
-                    size="tiny"
-                    type="success"
-                    ghost
-                    @click.stop="upgradeTokenToPermanent(token)"
-                  >
+                <div v-if="token.importMethod !== 'url'" class="storage-upgrade">
+                  <n-button size="tiny" type="success" ghost @click.stop="upgradeTokenToPermanent(token)">
                     <template #icon>
-                      <n-icon><Star /></n-icon>
+                      <n-icon>
+                        <Star />
+                      </n-icon>
                     </template>
                     升级为长期有效
                   </n-button>
                 </div>
               </div>
-            </div>
-
-            <div
-              v-if="token.id === tokenStore.selectedTokenId"
-              class="card-footer"
-            >
-              <n-button
-                type="primary"
-                size="large"
-                block
-                :loading="connectingTokens.has(token.id)"
-                @click="startTaskManagement(token)"
-              >
+            </template>
+            <template #actions>
+              <n-button type="primary" size="large" block :loading="connectingTokens.has(token.id)"
+                @click="startTaskManagement(token)">
                 <template #icon>
-                  <n-icon><Home /></n-icon>
+                  <n-icon>
+                    <Home />
+                  </n-icon>
                 </template>
                 开始任务管理
               </n-button>
-            </div>
-          </div>
+            </template>
+          </a-card>
         </div>
       </div>
 
       <!-- 空状态 -->
-      <div
-        v-if="!tokenStore.hasTokens && !showImportForm"
-        class="empty-state"
-      >
-        <n-empty
-          size="large"
-          description="还没有导入任何Token"
-        >
-          <template #icon>
-            <n-icon size="64">
-              <Key />
-            </n-icon>
-          </template>
-        </n-empty>
-      </div>
+      <a-empty v-if="!tokenStore.hasTokens && !showImportForm">
+        <template #image>
+          <i class="mdi:bed-empty"></i>
+        </template>
+        还没有导入任何Token
+      </a-empty>
     </div>
 
     <!-- 编辑Token模态框 -->
-    <n-modal
-      v-model:show="showEditModal"
-      preset="card"
-      title="编辑Token"
-      style="width: 500px"
-    >
-      <n-form
-        ref="editFormRef"
-        :model="editForm"
-        :rules="editRules"
-        label-placement="left"
-        label-width="80px"
-      >
-        <n-form-item
-          label="名称"
-          path="name"
-        >
+    <n-modal v-model:show="showEditModal" preset="card" title="编辑Token" style="width: 500px">
+      <n-form ref="editFormRef" :model="editForm" :rules="editRules" label-placement="left" label-width="80px">
+        <n-form-item label="名称" path="name">
           <n-input v-model:value="editForm.name" />
         </n-form-item>
-        <n-form-item
-          label="Token字符串"
-          path="token"
-        >
-          <n-input
-            v-model:value="editForm.token"
-            type="textarea"
-            :rows="3"
-            placeholder="粘贴Token字符串..."
-            clearable
-          />
+        <n-form-item label="Token字符串" path="token">
+          <n-input v-model:value="editForm.token" type="textarea" :rows="3" placeholder="粘贴Token字符串..." clearable />
         </n-form-item>
         <n-form-item label="服务器">
           <n-input v-model:value="editForm.server" />
@@ -478,10 +205,7 @@
           <n-button @click="showEditModal = false">
             取消
           </n-button>
-          <n-button
-            type="primary"
-            @click="saveEdit"
-          >
+          <n-button type="primary" @click="saveEdit">
             保存
           </n-button>
         </div>
@@ -491,27 +215,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, h, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useMessage, useDialog, NIcon } from 'naive-ui'
-import { useTokenStore } from '@/stores/tokenStore'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+
+import ManualTokenForm from './manual.vue'
+import UrlTokenForm from './url.vue'
+import BinTokenForm from './bin.vue'
+
+import { useTokenStore, selectedTokenId } from '@/stores/tokenStore'
 import {
   Add,
-  CloudUpload,
-  Menu,
-  EllipsisHorizontal,
-  Key,
-  Refresh,
-  Home,
-  Star,
-  Create,
   Copy,
+  Create,
+  EllipsisHorizontal,
+  Home,
+  Key,
+  Menu,
+  Refresh,
+  Star,
   SyncCircle,
-  Link,
-  TrashBin,
-  Close
+  TrashBin
 } from '@vicons/ionicons5'
+import { NIcon, useDialog, useMessage } from 'naive-ui'
+import { h, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 // 接收路由参数
 const props = defineProps({
@@ -540,22 +265,6 @@ const importMethod = ref('manual')
 const refreshingTokens = ref(new Set())
 const connectingTokens = ref(new Set())
 
-// 导入表单
-const importForm = reactive({
-  name: '',
-  base64Token: '',
-  server: '',
-  wsUrl: ''
-})
-
-// URL表单
-const urlForm = reactive({
-  name: '',
-  url: '',
-  server: '',
-  wsUrl: ''
-})
-
 // 编辑表单
 const editForm = reactive({
   name: '',
@@ -563,26 +272,6 @@ const editForm = reactive({
   server: '',
   wsUrl: ''
 })
-
-// 验证规则
-const importRules = {
-  name: [
-    { required: true, message: '请输入Token名称', trigger: 'blur' }
-  ],
-  base64Token: [
-    { required: true, message: '请输入Base64 Token', trigger: 'blur' }
-  ]
-}
-
-const urlRules = {
-  name: [
-    { required: true, message: '请输入Token名称', trigger: 'blur' }
-  ],
-  url: [
-    { required: true, message: '请输入Token获取地址', trigger: 'blur' },
-    { type: 'url', message: '请输入有效的URL地址', trigger: 'blur' }
-  ]
-}
 
 const editRules = {
   name: [
@@ -602,132 +291,6 @@ const bulkOptions = [
   { label: '清除所有Token', key: 'clear' }
 ]
 
-// 方法
-const handleImport = async () => {
-  if (!importFormRef.value) return
-
-  try {
-    await importFormRef.value.validate()
-    isImporting.value = true
-
-    const result = tokenStore.importBase64Token(
-      importForm.name,
-      importForm.base64Token,
-      {
-        server: importForm.server,
-        wsUrl: importForm.wsUrl,
-        importMethod: 'manual'
-      }
-    )
-
-    if (result.success) {
-      message.success(result.message)
-      // 显示token详情信息（如果有）
-      if (result.details) {
-        // 降噪
-      }
-      resetImportForm()
-      showImportForm.value = false
-    } else {
-      const errorMsg = result.error || result.message || 'Token导入失败'
-      message.error(errorMsg)
-      console.error('Token导入错误详情:', {
-        error: result.error,
-        message: result.message,
-        originalToken: importForm.base64Token?.substring(0, 50) + '...'
-      })
-    }
-  } catch (error) {
-    // 表单验证失败
-  } finally {
-    isImporting.value = false
-  }
-}
-
-// URL获取Token
-const handleUrlImport = async () => {
-  if (!urlFormRef.value) return
-
-  try {
-    await urlFormRef.value.validate()
-    isImporting.value = true
-
-    // 获取Token数据 - 处理跨域问题
-    let response
-
-    // 检查是否为本地或相同域名的URL
-    const isLocalUrl = urlForm.url.startsWith(window.location.origin) ||
-                      urlForm.url.startsWith('/') ||
-                      urlForm.url.startsWith('http://localhost') ||
-                      urlForm.url.startsWith('http://127.0.0.1')
-
-    if (isLocalUrl) {
-      // 本地URL直接请求
-      response = await fetch(urlForm.url)
-    } else {
-      // 跨域URL - 尝试CORS请求
-      try {
-        response = await fetch(urlForm.url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-          mode: 'cors'
-        })
-      } catch (corsError) {
-        throw new Error(`跨域请求被阻止。请确保目标服务器支持CORS，或使用浏览器扩展/代理服务器。错误详情: ${corsError.message}`)
-      }
-    }
-
-    if (!response.ok) {
-      throw new Error(`请求失败: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    // 检查返回数据是否包含token
-    if (!data.token) {
-      throw new Error('返回数据中未找到token字段')
-    }
-
-    // 使用获取到的token创建新的token记录
-    const result = tokenStore.importBase64Token(
-      urlForm.name,
-      data.token,
-      {
-        server: urlForm.server || data.server,
-        wsUrl: urlForm.wsUrl,
-        sourceUrl: urlForm.url, // 保存源URL用于刷新
-        importMethod: 'url'
-      }
-    )
-
-    if (result.success) {
-      message.success(result.message)
-      // 显示token详情信息（如果有）
-      if (result.details) {
-        // 降噪
-      }
-      resetUrlForm()
-      showImportForm.value = false
-    } else {
-      const errorMsg = result.error || result.message || 'URL Token导入失败'
-      message.error(errorMsg)
-      console.error('URL Token导入错误详情:', {
-        error: result.error,
-        message: result.message,
-        sourceUrl: urlForm.url,
-        receivedToken: data?.token?.substring(0, 50) + '...'
-      })
-    }
-  } catch (error) {
-    console.error('URL获取Token失败:', error)
-    message.error(error.message || 'URL获取Token失败')
-  } finally {
-    isImporting.value = false
-  }
-}
-
 // 刷新Token
 const refreshToken = async (token) => {
   refreshingTokens.value.add(token.id)
@@ -738,9 +301,9 @@ const refreshToken = async (token) => {
       let response
 
       const isLocalUrl = token.sourceUrl.startsWith(window.location.origin) ||
-                        token.sourceUrl.startsWith('/') ||
-                        token.sourceUrl.startsWith('http://localhost') ||
-                        token.sourceUrl.startsWith('http://127.0.0.1')
+        token.sourceUrl.startsWith('/') ||
+        token.sourceUrl.startsWith('http://localhost') ||
+        token.sourceUrl.startsWith('http://127.0.0.1')
 
       if (isLocalUrl) {
         response = await fetch(token.sourceUrl)
@@ -844,20 +407,8 @@ const upgradeTokenToPermanent = (token) => {
   })
 }
 
-const resetImportForm = () => {
-  Object.keys(importForm).forEach(key => {
-    importForm[key] = ''
-  })
-}
-
-const resetUrlForm = () => {
-  Object.keys(urlForm).forEach(key => {
-    urlForm[key] = ''
-  })
-}
-
 const selectToken = (token, forceReconnect = false) => {
-  const isAlreadySelected = tokenStore.selectedTokenId === token.id
+  const isAlreadySelected = selectedTokenId.value === token.id
   const connectionStatus = getConnectionStatus(token.id)
 
   // 降噪日志已移除
@@ -906,6 +457,18 @@ const getConnectionStatusText = (tokenId) => {
   return statusMap[status] || '未连接'
 }
 
+
+const getTokenStyle = (tokenId) => {
+  const status = getConnectionStatus(tokenId)
+  const statusMap = {
+    'connected': 'success',
+    'connecting': 'processing',
+    'disconnected': 'normal',
+    'error': 'danger',
+    'disconnecting': 'warning'
+  }
+  return statusMap[status] || 'normal'
+}
 
 
 const getTokenActions = (token) => {
@@ -1133,9 +696,13 @@ const goToDashboard = () => {
 
 // 开始任务管理 - 包含连接探测
 const startTaskManagement = async (token) => {
+
   connectingTokens.value.add(token.id)
 
   try {
+
+    tokenStore.selectToken(token.id)
+
     // 1. 检查当前连接状态
     const connectionStatus = getConnectionStatus(token.id)
 
@@ -1144,68 +711,6 @@ const startTaskManagement = async (token) => {
       message.success(`${token.name} 已连接，进入任务管理`)
       router.push('/admin/dashboard')
       return
-    }
-
-    // 2. 尝试建立连接
-    message.info(`正在探测 ${token.name} 的连接状态...`)
-
-    try {
-      // 使用token store的连接方法
-      await tokenStore.createWebSocketConnection(token.id, token.token, token.wsUrl)
-
-      // 等待连接建立（最多3秒）
-      let attempts = 0
-      const maxAttempts = 30 // 3秒，每100ms检查一次
-
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        const currentStatus = getConnectionStatus(token.id)
-
-        if (currentStatus === 'connected') {
-          message.success(`${token.name} 连接成功，进入任务管理`)
-          router.push('/admin/dashboard')
-          return
-        }
-
-        if (currentStatus === 'error') {
-          throw new Error('连接失败')
-        }
-
-        attempts++
-      }
-
-      // 连接超时
-      throw new Error('连接超时')
-
-    } catch (connectionError) {
-      console.error('连接探测失败:', connectionError)
-
-      // 连接失败的处理
-      dialog.warning({
-        title: '连接失败',
-        content: `无法连接到 ${token.name}。可能的原因：
-
-1. Token已过期或无效
-2. 网络连接问题
-3. 服务器维护中
-
-是否要刷新Token后重试，还是直接进入离线模式？`,
-        positiveText: '刷新Token',
-        negativeText: '离线模式',
-        onPositiveClick: async () => {
-          try {
-            await refreshToken(token)
-            // 刷新成功后重试连接
-            setTimeout(() => startTaskManagement(token), 1000)
-          } catch (refreshError) {
-            message.error('Token刷新失败，请检查网络或手动重新导入')
-          }
-        },
-        onNegativeClick: () => {
-          message.info('进入离线模式，部分功能可能不可用')
-          router.push('/admin/dashboard')
-        }
-      })
     }
 
   } finally {
@@ -1716,21 +1221,25 @@ onMounted(async () => {
   position: relative;
 
   &.connected {
-    background-color: #10b981; /* 绿色 - 已连接 */
+    background-color: #10b981;
+    /* 绿色 - 已连接 */
     animation: pulse-green 2s infinite;
   }
 
   &.connecting {
-    background-color: #f59e0b; /* 黄色 - 连接中 */
+    background-color: #f59e0b;
+    /* 黄色 - 连接中 */
     animation: pulse-yellow 1s infinite;
   }
 
   &.disconnected {
-    background-color: #6b7280; /* 灰色 - 已断开 */
+    background-color: #6b7280;
+    /* 灰色 - 已断开 */
   }
 
   &.error {
-    background-color: #ef4444; /* 红色 - 连接错误 */
+    background-color: #ef4444;
+    /* 红色 - 连接错误 */
     animation: pulse-red 1s infinite;
   }
 }
@@ -1763,18 +1272,39 @@ onMounted(async () => {
 }
 
 @keyframes pulse-green {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes pulse-yellow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }
 
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .empty-state {

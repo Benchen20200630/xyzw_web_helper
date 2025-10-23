@@ -7,13 +7,17 @@
         <div class="header-actions">
           <n-button size="small" :disabled="loading" @click="handleRefresh">
             <template #icon>
-              <n-icon><Refresh /></n-icon>
+              <n-icon>
+                <Refresh />
+              </n-icon>
             </template>
             刷新
           </n-button>
           <n-button type="primary" size="small" :disabled="!battleRecords || loading" @click="handleExport">
             <template #icon>
-              <n-icon><Copy /></n-icon>
+              <n-icon>
+                <Copy />
+              </n-icon>
             </template>
             导出
           </n-button>
@@ -38,7 +42,8 @@
           <div v-for="member in battleRecords.roleDetailsList" :key="member.roleId" class="member-card">
             <div class="member-header">
               <div class="member-info">
-                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar" @error="handleImageError">
+                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar"
+                  @error="handleImageError">
                 <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
                 <span class="member-name">{{ member.name }}</span>
               </div>
@@ -61,18 +66,23 @@
             <n-collapse-transition :show="expandedMembers.has(member.roleId)">
               <div class="battle-details">
                 <div v-if="member.targetRoleList && member.targetRoleList.length > 0" class="battles-list">
-                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item" :class="getBattleClass(battle)">
+                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item"
+                    :class="getBattleClass(battle)">
                     <div class="battle-participants">
                       <div class="participant attacker">
-                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name"
+                          class="participant-avatar" @error="handleImageError">
                         <span class="participant-name">{{ battle.roleInfo?.name || '未知' }}</span>
                       </div>
                       <div class="battle-vs">
-                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{ parseAttackType(battle.attackType) }}</n-tag>
-                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{ parseBattleResult(battle.newWinFlag) }}</n-tag>
+                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{
+                          parseAttackType(battle.attackType) }}</n-tag>
+                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{
+                          parseBattleResult(battle.newWinFlag) }}</n-tag>
                       </div>
                       <div class="participant defender">
-                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg" :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg"
+                          :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
                         <span class="participant-name">{{ battle.targetRoleInfo?.name || '未知' }}</span>
                       </div>
                     </div>
@@ -101,25 +111,23 @@
     </div>
 
     <!-- Modal 模式 -->
-    <n-modal
-      v-else
-      v-model:show="showModal"
-      preset="card"
-      title="俱乐部盐场战绩"
-      style="width: 90%; max-width: 800px"
-      @after-leave="handleClose"
-    >
+    <n-modal v-else v-model:show="showModal" preset="card" title="俱乐部盐场战绩" style="width: 90%; max-width: 800px"
+      @after-leave="handleClose">
       <template #header-extra>
         <div class="header-actions">
           <n-button size="small" :disabled="loading" @click="handleRefresh">
             <template #icon>
-              <n-icon><Refresh /></n-icon>
+              <n-icon>
+                <Refresh />
+              </n-icon>
             </template>
             刷新
           </n-button>
           <n-button type="primary" size="small" :disabled="!battleRecords || loading" @click="handleExport">
             <template #icon>
-              <n-icon><Copy /></n-icon>
+              <n-icon>
+                <Copy />
+              </n-icon>
             </template>
             导出
           </n-button>
@@ -144,7 +152,8 @@
           <div v-for="member in battleRecords.roleDetailsList" :key="member.roleId" class="member-card">
             <div class="member-header">
               <div class="member-info">
-                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar" @error="handleImageError">
+                <img v-if="member.headImg" :src="member.headImg" :alt="member.name" class="member-avatar"
+                  @error="handleImageError">
                 <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
                 <span class="member-name">{{ member.name }}</span>
               </div>
@@ -167,18 +176,23 @@
             <n-collapse-transition :show="expandedMembers.has(member.roleId)">
               <div class="battle-details">
                 <div v-if="member.targetRoleList && member.targetRoleList.length > 0" class="battles-list">
-                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item" :class="getBattleClass(battle)">
+                  <div v-for="(battle, index) in member.targetRoleList" :key="index" class="battle-item"
+                    :class="getBattleClass(battle)">
                     <div class="battle-participants">
                       <div class="participant attacker">
-                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <img v-if="battle.roleInfo?.headImg" :src="battle.roleInfo.headImg" :alt="battle.roleInfo.name"
+                          class="participant-avatar" @error="handleImageError">
                         <span class="participant-name">{{ battle.roleInfo?.name || '未知' }}</span>
                       </div>
                       <div class="battle-vs">
-                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{ parseAttackType(battle.attackType) }}</n-tag>
-                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{ parseBattleResult(battle.newWinFlag) }}</n-tag>
+                        <n-tag :type="battle.attackType === 0 ? 'warning' : 'info'" size="small">{{
+                          parseAttackType(battle.attackType) }}</n-tag>
+                        <n-tag :type="battle.newWinFlag === 2 ? 'success' : 'error'" size="small">{{
+                          parseBattleResult(battle.newWinFlag) }}</n-tag>
                       </div>
                       <div class="participant defender">
-                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg" :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
+                        <img v-if="battle.targetRoleInfo?.headImg" :src="battle.targetRoleInfo.headImg"
+                          :alt="battle.targetRoleInfo.name" class="participant-avatar" @error="handleImageError">
                         <span class="participant-name">{{ battle.targetRoleInfo?.name || '未知' }}</span>
                       </div>
                     </div>
@@ -254,6 +268,11 @@ const loading = ref(false)
 const battleRecords = ref(null)
 const expandedMembers = ref(new Set())
 const queryDate = ref('')
+
+
+const legionMatch = ref({
+  isRegistered: false
+})
 
 // 格式化战力
 const formatPower = (power) => {
@@ -445,7 +464,7 @@ onMounted(() => {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 
-  & + & {
+  &+& {
     margin-top: var(--spacing-sm);
   }
 }

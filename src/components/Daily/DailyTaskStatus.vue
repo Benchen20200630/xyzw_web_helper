@@ -1,36 +1,22 @@
 <template>
   <div class="status-card daily-task">
     <div class="card-header">
-      <img
-        src="/icons/174023274867420.png"
-        alt="每日任务"
-        class="status-icon"
-      >
+      <img src="/icons/174023274867420.png" alt="每日任务" class="status-icon">
       <div class="status-info">
         <h3>每日任务</h3>
         <p>当前进度</p>
       </div>
       <div class="header-right">
-        <div
-          class="status-badge"
-          :class="{ completed: isFull }"
-          @click="showTaskDetails = true"
-        >
-          <div
-            class="status-dot"
-            :class="{ completed: isFull }"
-          />
+        <div class="status-badge" :class="{ completed: isFull }" @click="showTaskDetails = true">
+          <div class="status-dot" :class="{ completed: isFull }" />
           <span>任务详情</span>
         </div>
 
-        <button
-          class="settings-gear"
-          @click="showSettings = true"
-          title="任务设置"
-        >
+        <button class="settings-gear" @click="showSettings = true" title="任务设置">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.240.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
-            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path
+              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.240.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
       </div>
@@ -40,14 +26,8 @@
     <div class="card-content">
       <!-- 进度条 -->
       <div class="progress-container">
-        <n-progress
-          type="line"
-          :percentage="dailyPoint"
-          :height="8"
-          :border-radius="4"
-          :color="progressColor"
-          rail-color="#f3f4f6"
-        />
+        <n-progress type="line" :percentage="dailyPoint" :height="8" :border-radius="4" :color="progressColor"
+          rail-color="#f3f4f6" />
       </div>
 
       <!-- 提示信息 -->
@@ -58,23 +38,11 @@
 
     <!-- 一键执行按钮 -->
     <div class="card-actions">
-      <button
-        class="action-button"
-        :disabled="busy || !isConnected"
-        @click="runDailyFix"
-      >
-        <span
-          v-if="busy"
-          class="loading-text"
-        >
-          <svg
-            class="loading-icon"
-            viewBox="0 0 24 24"
-          >
-            <path
-              fill="currentColor"
-              d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z"
-            />
+      <button class="action-button" :disabled="busy || !isConnected" @click="runDailyFix">
+        <span v-if="busy" class="loading-text">
+          <svg class="loading-icon" viewBox="0 0 24 24">
+            <path fill="currentColor"
+              d="M12 22c5.421 0 10-4.579 10-10h-2c0 4.337-3.663 8-8 8s-8-3.663-8-8c0-4.336 3.663-8 8-8V2C6.579 2 2 6.58 2 12c0 5.421 4.579 10 10 10z" />
           </svg>
           执行中...
         </span>
@@ -84,15 +52,12 @@
     </div>
 
     <!-- 任务设置模态框 -->
-    <n-modal
-      v-model:show="showSettings"
-      preset="card"
-      title="任务设置"
-      style="width: 400px"
-    >
+    <n-modal v-model:show="showSettings" preset="card" title="任务设置" style="width: 400px">
       <template #header>
         <div class="modal-header">
-          <n-icon><Settings /></n-icon>
+          <n-icon>
+            <Settings />
+          </n-icon>
           <span>任务设置</span>
         </div>
       </template>
@@ -102,81 +67,55 @@
           <!-- 竞技场设置 -->
           <div class="setting-item">
             <label class="setting-label">竞技场阵容</label>
-            <n-select
-              v-model:value="settings.arenaFormation"
-              :options="formationOptions"
-              size="small"
-            />
+            <n-select v-model:value="settings.arenaFormation" :options="formationOptions" size="small" />
           </div>
 
           <!-- BOSS设置 -->
           <div class="setting-item">
             <label class="setting-label">BOSS阵容</label>
-            <n-select
-              v-model:value="settings.bossFormation"
-              :options="formationOptions"
-              size="small"
-            />
+            <n-select v-model:value="settings.bossFormation" :options="formationOptions" size="small" />
           </div>
 
           <!-- BOSS次数 -->
           <div class="setting-item">
             <label class="setting-label">BOSS次数</label>
-            <n-select
-              v-model:value="settings.bossTimes"
-              :options="bossTimesOptions"
-              size="small"
-            />
+            <n-select v-model:value="settings.bossTimes" :options="bossTimesOptions" size="small" />
           </div>
 
           <!-- 功能开关 -->
           <div class="setting-switches">
             <div class="switch-row">
               <span class="switch-label">领罐子</span>
-              <n-switch
-                v-model:value="settings.claimBottle"
-              />
+              <n-switch v-model:value="settings.claimBottle" />
             </div>
 
             <div class="switch-row">
               <span class="switch-label">领挂机</span>
-              <n-switch
-                v-model:value="settings.claimHangUp"
-              />
+              <n-switch v-model:value="settings.claimHangUp" />
             </div>
 
             <div class="switch-row">
               <span class="switch-label">竞技场</span>
-              <n-switch
-                v-model:value="settings.arenaEnable"
-              />
+              <n-switch v-model:value="settings.arenaEnable" />
             </div>
 
             <div class="switch-row">
               <span class="switch-label">开宝箱</span>
-              <n-switch
-                v-model:value="settings.openBox"
-              />
+              <n-switch v-model:value="settings.openBox" />
             </div>
 
             <div class="switch-row">
               <span class="switch-label">领取邮件奖励</span>
-              <n-switch
-                v-model:value="settings.claimEmail"
-              />
+              <n-switch v-model:value="settings.claimEmail" />
             </div>
             <div class="switch-row">
               <span class="switch-label">黑市购买物品</span>
-              <n-switch
-                v-model:value="settings.blackMarketPurchase"
-              />
+              <n-switch v-model:value="settings.blackMarketPurchase" />
             </div>
 
             <div class="switch-row">
               <span class="switch-label">付费招募</span>
-              <n-switch
-                v-model:value="settings.payRecruit"
-              />
+              <n-switch v-model:value="settings.payRecruit" />
             </div>
           </div>
         </div>
@@ -184,47 +123,32 @@
     </n-modal>
 
     <!-- 任务详情模态框 -->
-    <n-modal
-      v-model:show="showTaskDetails"
-      preset="card"
-      title="每日任务详情"
-      style="width: 400px"
-    >
+    <n-modal v-model:show="showTaskDetails" preset="card" title="每日任务详情" style="width: 400px">
       <template #header>
         <div class="modal-header">
-          <n-icon><Calendar /></n-icon>
+          <n-icon>
+            <Calendar />
+          </n-icon>
           <span>每日任务详情</span>
-          <button
-            class="refresh-button"
-            :disabled="busy"
-            @click="handleRefreshTaskStatus"
-          >
-            <n-icon><Refresh /></n-icon>
+          <button class="refresh-button" :disabled="busy" @click="handleRefreshTaskStatus">
+            <n-icon>
+              <Refresh />
+            </n-icon>
             刷新状态
           </button>
         </div>
       </template>
 
       <div class="task-list">
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-item"
-        >
+        <div v-for="task in tasks" :key="task.id" class="task-item">
           <div class="task-item-left">
-            <n-icon
-              class="task-status-icon"
-              :class="{ completed: task.completed }"
-            >
+            <n-icon class="task-status-icon" :class="{ completed: task.completed }">
               <CheckmarkCircle v-if="task.completed" />
               <EllipseOutline v-else />
             </n-icon>
             <span class="task-name">{{ task.name }}</span>
           </div>
-          <n-tag
-            :type="task.completed ? 'success' : 'default'"
-            size="small"
-          >
+          <n-tag :type="task.completed ? 'success' : 'default'" size="small">
             {{ task.completed ? '已完成' : '未完成' }}
           </n-tag>
         </div>
@@ -232,37 +156,24 @@
     </n-modal>
 
     <!-- 执行日志模态框 -->
-    <n-modal
-      v-model:show="showLog"
-      preset="card"
-      title="任务执行日志"
-      style="width: 500px"
-    >
+    <n-modal v-model:show="showLog" preset="card" title="任务执行日志" style="width: 500px">
       <template #header>
         <div class="modal-header">
-          <n-icon><DocumentText /></n-icon>
+          <n-icon>
+            <DocumentText />
+          </n-icon>
           <span>任务执行日志</span>
         </div>
       </template>
 
-      <div
-        ref="logContainer"
-        class="log-container"
-      >
-        <div
-          v-for="logItem in logList"
-          :key="logItem.time + logItem.message"
-          class="log-item"
-        >
+      <div ref="logContainer" class="log-container">
+        <div v-for="logItem in logList" :key="logItem.time + logItem.message" class="log-item">
           <span class="log-time">{{ logItem.time }}</span>
-          <span
-            class="log-message"
-            :class="{
-              error: logItem.type === 'error',
-              success: logItem.type === 'success',
-              warning: logItem.type === 'warning'
-            }"
-          >
+          <span class="log-message" :class="{
+            error: logItem.type === 'error',
+            success: logItem.type === 'success',
+            warning: logItem.type === 'warning'
+          }">
             {{ logItem.message }}
           </span>
         </div>
@@ -298,7 +209,7 @@ const logContainer = ref(null)
 const settings = reactive({
   arenaFormation: 1,
   bossFormation: 1,
-  bossTimes: 4,
+  bossTimes: 2,
   claimBottle: true,
   payRecruit: true,
   openBox: true,
@@ -323,8 +234,8 @@ const tasks = ref([
 ])
 
 // 选项配置
-const formationOptions = [1,2,3,4].map(v => ({ label: `阵容${v}`, value: v }))
-const bossTimesOptions = [0,1,2,3,4].map(v => ({ label: `${v}次`, value: v }))
+const formationOptions = [1, 2, 3, 4].map(v => ({ label: `阵容${v}`, value: v }))
+const bossTimesOptions = [0, 1, 2, 3, 4].map(v => ({ label: `${v}次`, value: v }))
 
 // 计算属性
 const roleInfo = computed(() => {
@@ -401,7 +312,7 @@ const syncCompleteFromServer = (resp) => {
       }
 
       log(`任务${id} "${tasks.value[idx].name}": ${isCompleted ? '已完成' : '未完成'}`,
-          isCompleted ? 'success' : 'info')
+        isCompleted ? 'success' : 'info')
     } else {
       log(`服务器返回未知任务ID: ${id} (完成值: ${complete[k]})`, 'warning')
     }
@@ -444,7 +355,8 @@ const executeGameCommand = async (tokenId, cmd, params = {}, description = '', t
     if (description) log(`执行: ${description}`)
 
     const result = await tokenStore.sendMessageWithPromise(tokenId, cmd, params, timeout)
-
+    // 让指令等待一点时间
+    await new Promise(resolve => setTimeout(resolve, 500))
     if (description) log(`${description} - 成功`, 'success')
     return result
   } catch (error) {
@@ -631,6 +543,16 @@ const executeDailyTasks = async (roleInfoResp, logFn, progressFn) => {
       execute: async () => {
         logFn('开始竞技场战斗流程')
 
+        if (new Date().getHours() < 8) {
+          logFn('当前时间未到8点，跳过竞技场战斗', 'warning')
+          return
+        }
+
+        if (new Date().getHours() > 22) {
+          logFn('当前时间已过22点，跳过竞技场战斗', 'warning')
+          return
+        }
+
         // 智能切换到竞技场阵容
         await switchToFormationIfNeeded(tokenId, settings.arenaFormation, '竞技场阵容', logFn)
 
@@ -738,9 +660,9 @@ const executeDailyTasks = async (roleInfoResp, logFn, progressFn) => {
   for (let gid = 1; gid <= 4; gid++) {
     if (isTodayAvailable(statisticsTime[`genie:daily:free:${gid}`])) {
       taskList.push({
-        name: `${kingdoms[gid-1]}灯神免费扫荡`,
+        name: `${kingdoms[gid - 1]}灯神免费扫荡`,
         execute: () => executeGameCommand(tokenId, 'genie_sweep',
-          { genieId: gid }, `${kingdoms[gid-1]}灯神免费扫荡`)
+          { genieId: gid }, `${kingdoms[gid - 1]}灯神免费扫荡`)
       })
     }
   }
@@ -1102,8 +1024,13 @@ onBeforeUnmount(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // 模态框样式

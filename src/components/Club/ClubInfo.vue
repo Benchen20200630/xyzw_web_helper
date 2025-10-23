@@ -1,22 +1,16 @@
 <template>
-  <div class="status-card club-info">
-    <div class="card-header">
-      <img
-        src="/icons/1733492491706152.png"
-        alt="俱乐部图标"
-        class="status-icon"
-      >
-      <div class="status-info">
-        <h3>俱乐部信息</h3>
-        <p>军团/俱乐部概览与成员</p>
-      </div>
-      <div class="status-badge" :class="{ active: !!club }">
-        <div class="status-dot" />
-        <span>{{ club ? '已加入' : '暂无俱乐部' }}</span>
-      </div>
-    </div>
-
-    <div class="card-content">
+  <MyCard class="club-info" :statusClass="{ active: !!club }">
+    <template #icon>
+      <img src="/icons/1733492491706152.png" alt="俱乐部图标">
+    </template>
+    <template #title>
+      <h3>俱乐部信息</h3>
+      <p>军团/俱乐部概览与成员</p>
+    </template>
+    <template #badge>
+      <span>{{ club ? '已加入' : '暂无俱乐部' }}</span>
+    </template>
+    <template #default>
       <div v-if="!club" class="empty-club">
         <n-empty description="暂无俱乐部" />
         <div class="actions">
@@ -64,7 +58,7 @@
                   <div class="label">红洗次数</div>
                   <div class="value">{{ clubOverview.redQuench }}</div>
                 </div>
-                
+
               </div>
               <div v-if="club.announcement" class="announcement">
                 <div class="label">公告</div>
@@ -73,7 +67,7 @@
               <div class="leader" v-if="leader">
                 <div class="label">会长</div>
                 <div class="leader-info">
-                  <n-avatar :size="32" :src="leader.headImg || '/icons/xiaoyugan.png'"/>
+                  <n-avatar :size="32" :src="leader.headImg || '/icons/xiaoyugan.png'" />
                   <span class="leader-name">{{ leader.name }}</span>
                 </div>
               </div>
@@ -85,7 +79,7 @@
               <div class="members-list">
                 <div v-for="m in topMembers" :key="m.roleId" class="member-row">
                   <div class="left">
-                    <n-avatar :size="28" :src="m.headImg || '/icons/xiaoyugan.png'"/>
+                    <n-avatar :size="28" :src="m.headImg || '/icons/xiaoyugan.png'" />
                     <span class="name">{{ m.name }}</span>
                   </div>
                   <div class="right">
@@ -105,8 +99,8 @@
           
         </n-tabs>
       </div>
-    </div>
-  </div>
+    </template>
+  </MyCard>
 </template>
 
 <script setup>
@@ -224,8 +218,15 @@ const formatNumber = (num) => {
   }
 
   .meta {
-    .name { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
-    .sub { color: var(--text-secondary); font-size: var(--font-size-sm); }
+    .name {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .sub {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+    }
   }
 
   .grid {
@@ -238,47 +239,87 @@ const formatNumber = (num) => {
     background: var(--bg-tertiary);
     border-radius: var(--border-radius-medium);
     padding: var(--spacing-sm);
-    .label { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: 2px; }
-    .value { font-weight: var(--font-weight-medium); }
+
+    .label {
+      color: var(--text-secondary);
+      font-size: var(--font-size-xs);
+      margin-bottom: 2px;
+    }
+
+    .value {
+      font-weight: var(--font-weight-medium);
+    }
   }
 
-  .announcement .label, .leader .label { color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: 4px; }
-  .announcement .text { white-space: pre-wrap; }
-  .leader .leader-info { display: flex; align-items: center; gap: var(--spacing-sm); }
+  .announcement .label,
+  .leader .label {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin-bottom: 4px;
+  }
 
-  .members-list { display: flex; flex-direction: column; gap: 8px; }
-  .member-row { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 8px; background: var(--bg-tertiary); }
-  .member-row .left { display: flex; align-items: center; gap: 8px; }
-  .member-row .right { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
-  .member-row .name { font-weight: var(--font-weight-medium); }
-  .member-row .power { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
-  .hint { margin-top: 8px; color: var(--text-tertiary); font-size: var(--font-size-xs); }
+  .announcement .text {
+    white-space: pre-wrap;
+  }
 
-  .empty-club { text-align: center; }
-  .empty-club .actions { margin-top: var(--spacing-sm); }
-}
+  .leader .leader-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
 
-/* 卡片基础样式，保持与 GameStatus 一致 */
-.status-card {
-  background: var(--bg-primary);
-  border-radius: var(--border-radius-xl);
-  padding: var(--spacing-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all var(--transition-normal);
-  min-height: 200px;
+  .members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
 
-  &:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
+  .member-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+  }
+
+  .member-row .left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .member-row .right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+  }
+
+  .member-row .name {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .member-row .power {
+    font-feature-settings: 'tnum' 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hint {
+    margin-top: 8px;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+  }
+
+  .empty-club {
+    text-align: center;
+  }
+
+  .empty-club .actions {
+    margin-top: var(--spacing-sm);
   }
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-md);
-}
 
 .status-icon {
   width: 32px;

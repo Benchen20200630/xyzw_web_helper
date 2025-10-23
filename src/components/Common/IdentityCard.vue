@@ -240,7 +240,7 @@ const handleAvatarError = () => {
 onMounted(async () => {
   initializeAvatar()
   if (tokenStore.selectedToken && wsStatus.value === 'connected') {
-    try { await tokenStore.sendMessage(tokenStore.selectedToken.id, 'role_getroleinfo') } catch {}
+    try { await tokenStore.sendMessage(tokenStore.selectedToken.id, 'role_getroleinfo') } catch { }
   }
 })
 
@@ -248,54 +248,268 @@ watch(() => roleInfo.value, initializeAvatar, { deep: true })
 </script>
 
 <style scoped lang="scss">
-.identity-embedded { grid-column: 1 / -1; }
-.identity-card.embedded { width: 100%; position: relative; background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary)); border-radius: var(--border-radius-xl); padding: var(--spacing-lg); box-shadow: none; border: 1px solid var(--border-light); }
 
-.identity-overlay { position: fixed; inset: 0; z-index: 2000; background: transparent; }
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  height: 80px;
+  line-height: 80px;
+}
 
-.identity-card { position: fixed; top: 0; right: 16px; width: 360px; background: var(--bg-primary); border-radius: var(--border-radius-xl); padding: var(--spacing-lg); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.identity-embedded {
+  grid-column: 1 / -1;
+}
+
+.identity-card.embedded {
+  width: 100%;
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-primary), var(--bg-secondary));
+  border-radius: var(--border-radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: none;
+  border: 1px solid var(--border-light);
+}
+
+.identity-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: transparent;
+}
+
+.identity-card {
+  position: fixed;
+  top: 0;
+  right: 16px;
+  width: 360px;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
 
 /* 下落动画 */
-.drop-enter-from .identity-card { transform: translateY(-120%); }
-.drop-enter-active .identity-card, .drop-leave-active .identity-card { transition: transform .35s ease; }
-.drop-enter-to .identity-card { transform: translateY(0); }
-.drop-leave-to .identity-card { transform: translateY(-120%); }
+.drop-enter-from .identity-card {
+  transform: translateY(-120%);
+}
 
-.strap { position: absolute; top: -64px; right: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.strap-tape { width: 22px; height: 56px; background: linear-gradient(180deg,#f59e0b,#fbbf24); border-radius: 6px; box-shadow: inset 0 -4px rgba(0,0,0,.15); }
-.strap-buckle { width: 36px; height: 18px; background: #6b4f2a; border-radius: 9px; box-shadow: inset 0 -2px rgba(0,0,0,.2); }
-.card-header { display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
-.icon { width: 32px; height: 32px; object-fit: contain; }
-.info h3 { margin: 0; font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
-.info p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
-.close-btn { margin-left: auto; background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary); }
+.drop-enter-active .identity-card,
+.drop-leave-active .identity-card {
+  transition: transform .35s ease;
+}
 
-.role-profile-header { position: relative; border-radius: var(--border-radius-large); padding: 16px; overflow: hidden; }
-.role-profile-content { position: relative; display: flex; align-items: center; gap: 16px; z-index: 3; }
-.avatar-container { width: 56px; height: 56px; flex-shrink: 0; }
-.role-avatar { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(255,255,255,0.6); }
-.role-name { font-weight: var(--font-weight-semibold); font-size: var(--font-size-md); }
-.role-stats { color: var(--text-secondary); font-size: var(--font-size-sm); display: flex; gap: 12px; }
-.rank-section { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.rank-icon { font-size: 14px; }
-.rank-title { font-size: 12px; font-weight: var(--font-weight-semibold); }
+.drop-enter-to .identity-card {
+  transform: translateY(0);
+}
 
-.glow-border { position: absolute; inset: 0; border-radius: var(--border-radius-large); background: linear-gradient(45deg, rgba(102,126,234,.4), rgba(118,75,162,.4), rgba(254,202,87,.4), rgba(102,126,234,.4)); background-size: 300% 300%; opacity: 0.6; z-index: 1; animation: glowAnimation 6s ease-in-out infinite; }
-@keyframes glowAnimation { 0%,100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
+.drop-leave-to .identity-card {
+  transform: translateY(-120%);
+}
 
-.rank-beginner .role-profile-header { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); }
-.rank-known .role-profile-header { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
-.rank-veteran .role-profile-header { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); }
-.rank-master .role-profile-header { background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%); }
-.rank-hero .role-profile-header { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
-.rank-overlord .role-profile-header { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
-.rank-supreme .role-profile-header { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); }
-.rank-emperor .role-profile-header { background: linear-gradient(135deg, #fee2e2 0%, #dc2626 20%); }
-.rank-legend .role-profile-header { background: linear-gradient(135deg, #ede9fe 0%, #7c3aed 30%); }
-.rank-infinite .role-profile-header { background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 30%, #f59e0b 100%); }
+.strap {
+  position: absolute;
+  top: -64px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
 
-.resources { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
-.res-item { background: var(--bg-primary); border: 1px solid var(--border-light); border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
-.res-item .label { color: var(--text-secondary); font-size: 12px; }
-.res-item .value { font-weight: var(--font-weight-semibold); }
+.strap-tape {
+  width: 22px;
+  height: 56px;
+  background: linear-gradient(180deg, #f59e0b, #fbbf24);
+  border-radius: 6px;
+  box-shadow: inset 0 -4px rgba(0, 0, 0, .15);
+}
+
+.strap-buckle {
+  width: 36px;
+  height: 18px;
+  background: #6b4f2a;
+  border-radius: 9px;
+  box-shadow: inset 0 -2px rgba(0, 0, 0, .2);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.info h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.close-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.role-profile-header {
+  position: relative;
+  border-radius: var(--border-radius-large);
+  padding: 16px;
+  overflow: hidden;
+}
+
+.role-profile-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 3;
+}
+
+.avatar-container {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.role-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.role-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+}
+
+.role-stats {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  display: flex;
+  gap: 12px;
+}
+
+.rank-section {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rank-icon {
+  font-size: 14px;
+}
+
+.rank-title {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.glow-border {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--border-radius-large);
+  background: linear-gradient(45deg, rgba(102, 126, 234, .4), rgba(118, 75, 162, .4), rgba(254, 202, 87, .4), rgba(102, 126, 234, .4));
+  background-size: 300% 300%;
+  opacity: 0.6;
+  z-index: 1;
+  animation: glowAnimation 6s ease-in-out infinite;
+}
+
+@keyframes glowAnimation {
+
+  0%,
+  100% {
+    background-position: 0% 50%
+  }
+
+  50% {
+    background-position: 100% 50%
+  }
+}
+
+.rank-beginner .role-profile-header {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.rank-known .role-profile-header {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.rank-veteran .role-profile-header {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.rank-master .role-profile-header {
+  background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+}
+
+.rank-hero .role-profile-header {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.rank-overlord .role-profile-header {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.rank-supreme .role-profile-header {
+  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+}
+
+.rank-emperor .role-profile-header {
+  background: linear-gradient(135deg, #fee2e2 0%, #dc2626 20%);
+}
+
+.rank-legend .role-profile-header {
+  background: linear-gradient(135deg, #ede9fe 0%, #7c3aed 30%);
+}
+
+.rank-infinite .role-profile-header {
+  background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 30%, #f59e0b 100%);
+}
+
+.resources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.res-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.res-item .label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.res-item .value {
+  font-weight: var(--font-weight-semibold);
+}
 </style>

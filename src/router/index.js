@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { handleHotUpdate, routes } from "vue-router/auto-routes";
 import { useTokenStore } from '@/stores/tokenStore'
 
-const routes = [
+const my_routes = [
   {
     path: '/',
     name: 'Home',
@@ -14,7 +15,7 @@ const routes = [
   {
     path: '/tokens',
     name: 'TokenImport',
-    component: () => import('@/views/TokenImport.vue'),
+    component: () => import('@/views/TokenImport/index.vue'),
     meta: {
       title: 'Token管理',
       requiresToken: false
@@ -32,10 +33,6 @@ const routes = [
     name: 'DefaultLayout',
     path: '/admin',
     component: () => import('@/layout/DefaultLayout.vue'),
-    meta: {
-      title: '默认布局',
-      requiresToken: true
-    },
     children: [
       {
         path: 'dashboard',
@@ -58,7 +55,7 @@ const routes = [
       {
         path: 'message-test',
         name: 'MessageTest',
-        component: () => import('@/components/MessageTester.vue'),
+        component: () => import('@/components/Test/MessageTester.vue'),
         meta: {
           title: '消息测试',
           requiresToken: true
@@ -82,12 +79,14 @@ const routes = [
           requiresToken: true
         }
       },
+      // 增加自动路由引用
+      ...routes,
     ]
   },
   {
     path: '/websocket-test',
     name: 'WebSocketTest',
-    component: () => import('@/components/WebSocketTester.vue'),
+    component: () => import('@/components/Test/WebSocketTester.vue'),
     meta: {
       title: 'WebSocket测试',
       requiresToken: true
@@ -106,6 +105,8 @@ const routes = [
     path: '/game-roles',
     redirect: '/tokens'
   },
+  // 增加自动路由引用
+  ...routes,
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
@@ -118,7 +119,7 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: my_routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
@@ -127,6 +128,9 @@ const router = createRouter({
     }
   }
 })
+
+// 热更新路由
+handleHotUpdate(router);
 
 // 导航守卫
 router.beforeEach((to, from, next) => {
@@ -149,5 +153,7 @@ router.beforeEach((to, from, next) => {
     next()
   }
 })
+
+
 
 export default router

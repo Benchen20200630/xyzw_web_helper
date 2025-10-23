@@ -206,7 +206,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
-import { useTokenStore } from '../../stores/tokenStore.js'
+import { useTokenStore } from '@stores/tokenStore'
 
 const message = useMessage()
 const tokenStore = useTokenStore()

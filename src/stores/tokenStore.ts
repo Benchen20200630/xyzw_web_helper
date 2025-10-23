@@ -1,9 +1,9 @@
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { g_utils, ProtoMsg } from '../utils/bonProtocol.js'
-import { gameLogger, tokenLogger, wsLogger } from '../utils/logger.js'
-import { XyzwWebSocketClient } from '../utils/xyzwWebSocket.js'
+import { g_utils, ProtoMsg } from '@/utils/bonProtocol'
+import { gameLogger, tokenLogger, wsLogger } from '@/utils/logger'
+import { XyzwWebSocketClient } from '@/utils/xyzwWebSocket'
 
 import { emitPlus } from './events/index.js'
 
@@ -948,7 +948,7 @@ export const useTokenStore = defineStore('tokens', () => {
       await Promise.all(cleanupPromises)
 
       // TODO:
-      // 清理所有锁和状态 
+      // 清理所有锁和状态
       // connectionLocks.value.clear()
       // activeConnections.value.clear()
 

@@ -1,4 +1,4 @@
-import { defineConfig, presetAttributify, presetIcons, presetWind4 } from "unocss";
+import { defineConfig, presetAttributify, presetIcons, presetWind } from "unocss";
 
 export default defineConfig({
   shortcuts: [
@@ -34,7 +34,7 @@ export default defineConfig({
     },
   },
   presets: [
-    presetWind4(),
+    presetWind(),
     presetAttributify({ /* preset options */ }),
     presetIcons({
       scale: 1.25,

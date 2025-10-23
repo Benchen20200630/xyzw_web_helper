@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { handleHotUpdate, routes } from "vue-router/auto-routes";
+import * as autoRoutes from "vue-router/auto-routes";
 import { useTokenStore } from '@/stores/tokenStore'
+
+const generatedRoutes = autoRoutes.routes ?? [];
 
 const my_routes = [
   {
@@ -80,7 +82,7 @@ const my_routes = [
         }
       },
       // 增加自动路由引用
-      ...routes,
+      ...generatedRoutes,
     ]
   },
   {
@@ -106,7 +108,7 @@ const my_routes = [
     redirect: '/tokens'
   },
   // 增加自动路由引用
-  ...routes,
+  ...generatedRoutes,
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
@@ -130,7 +132,7 @@ const router = createRouter({
 })
 
 // 热更新路由
-handleHotUpdate(router);
+autoRoutes.handleHotUpdate?.(router);
 
 // 导航守卫
 router.beforeEach((to, from, next) => {

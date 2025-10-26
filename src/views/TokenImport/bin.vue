@@ -183,11 +183,15 @@ const handleImport = async () => {
     const gameToken = tokenStore.gameTokens.find(t => t.name === role.name);
     if(gameToken) {
       console.log('移除同名token:', gameToken);
-      tokenStore.removeToken(gameToken.id);
+      // tokenStore.removeToken(gameToken.id);
+      tokenStore.updateToken(gameToken.id, {
+        ...role
+      });
+    } else {
+      tokenStore.addToken({
+        ...role
+      });
     }
-    tokenStore.addToken({
-      ...role
-    });
   });
   console.log('当前Token列表:', tokenStore.tokens);
   message.success('Token添加成功');

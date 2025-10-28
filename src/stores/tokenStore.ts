@@ -6,7 +6,12 @@ import { gameLogger, tokenLogger, wsLogger } from '@/utils/logger'
 import { XyzwWebSocketClient } from '@/utils/xyzwWebSocket'
 
 import { emitPlus } from './events/index.js'
+import useIndexedDB from '@/hooks/useIndexedDB';
+import { transformToken } from '@/utils/token';
 
+const {
+  getArrayBuffer
+} = useIndexedDB();
 
 declare interface TokenData {
   id: string;
@@ -185,7 +190,7 @@ export const useTokenStore = defineStore('tokens', () => {
   }
 
   // 游戏消息处理
-  const handleGameMessage = (tokenId: string, message: ProtoMsg, client: any) => {
+  const handleGameMessage = async (tokenId: string, message: ProtoMsg, client: any) => {
     try {
       if (!message) {
         gameLogger.warn(`消息处理跳过 [${tokenId}]: 无效消息`);
@@ -199,6 +204,19 @@ export const useTokenStore = defineStore('tokens', () => {
           if (conn) {
             conn.status = 'error'
             conn.lastError = { timestamp: new Date().toISOString(), error: 'token expired' }
+          }
+
+          const gameToken = gameTokens.value.find(t => t.id === tokenId)
+          console.log(gameToken)
+          if(gameToken) {
+            console.log('getArrayBuffer', await getArrayBuffer('小鱼'));
+            const userToken: ArrayBuffer | null = await getArrayBuffer(gameToken.name)
+            console.log('读取到的ArrayBuffer:',gameToken.name, userToken)
+            if(userToken) {
+              const token = await transformToken(userToken)
+              updateToken(tokenId, { ...gameToken, token })
+              console.log(gameToken)
+            }
           }
           wsLogger.error(`Token 已过期，需要重新导入 [${tokenId}]`)
         }

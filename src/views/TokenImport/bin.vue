@@ -63,12 +63,17 @@ import { useTokenStore } from '@/stores/tokenStore';
 import { CloudUpload } from '@vicons/ionicons5';
 
 import { NForm, NFormItem, NInput, NButton, NIcon, NCollapse, NCollapseItem, useMessage } from 'naive-ui';
-import axios from 'axios';
-import { g_utils } from '../../utils/bonProtocol';
+
 import PQueue from 'p-queue';
 // import { useI18n } from 'vue-i18n';
+import useIndexedDB from '@/hooks/useIndexedDB';
+import { transformToken } from '@/utils/token';
 
 const $emit = defineEmits(['cancel', 'ok']);
+
+const {
+  storeArrayBuffer
+} = useIndexedDB();
 
 const cancel = () => {
   roleList.value = [];
@@ -87,38 +92,7 @@ const roleList = ref<Array<{ name: string; token: string; server: string; wsUrl:
 
 const tQueue = new PQueue({ concurrency: 1, interval: 1000, });
 
-const transformToken = async (arrayBuffer: ArrayBuffer) => {
-  // 如果是data URL格式，提取base64部分
-  const res = await axios.post('https://xxz-xyzw.hortorgames.com/login/authuser', arrayBuffer, {
-    params: {
-      _seq: 1,
-    },
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      "referrerPolicy": "no-referrer",
-    },
-    responseType: 'arraybuffer'
-  })
-  console.log('转换Token:', typeof res.data);
 
-  const msg = g_utils.parse(res.data);
-  console.log('解析结果:', msg);
-
-
-  const data = msg.getData();
-  console.log('数据内容:', data);
-
-  const currentTime = Date.now();
-  const sessId = currentTime * 100 + Math.floor(Math.random() * 100);
-  const connId = currentTime + Math.floor(Math.random() * 10);
-
-  return JSON.stringify({
-    ...data,
-    sessId,
-    connId,
-    isRestore: 0
-  });
-};
 
 const initName = (fileName: string) => {
   if (!fileName) return;
@@ -149,8 +123,11 @@ const uploadBin = (binFile: File) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const userToken = e.target?.result as ArrayBuffer;
+      // console.log('转换Token:', userToken);
       const roleToken = await transformToken(userToken);
       const roleName = roleMeta.roleName || binFile.name.split('.')?.[0] || ''
+      // 刷新indexDB数据库token数据
+      storeArrayBuffer(roleName, userToken);
       // 上传列表中发现已存在的重复名称，提示消息
       if (roleList.value.some(role => role.name === roleName)) {
         message.error('上传列表中已存在同名角色! ');
@@ -177,7 +154,6 @@ const handleImport = async () => {
     message.error('请先上传bin文件！');
     return;
   }
-
   roleList.value.forEach(role => {
     // tokenStore.gameTokens中发现已存在的重复名称，则移出token后重新添加
     const gameToken = tokenStore.gameTokens.find(t => t.name === role.name);
@@ -193,7 +169,7 @@ const handleImport = async () => {
       });
     }
   });
-  console.log('当前Token列表:', tokenStore.tokens);
+  console.log('当前Token列表:', tokenStore.gameTokens);
   message.success('Token添加成功');
   roleList.value = [];
   $emit('ok');

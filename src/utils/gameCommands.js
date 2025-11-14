@@ -39,7 +39,7 @@ export class GameCommands {
     return {
       cmd: "role_getroleinfo",
       body: this.g_utils.bon.encode({
-        clientVersion: "1.65.3-wx",
+        clientVersion: "2.1.5-wx",
         inviteUid: 0,
         platform: "hortor",
         platformExt: "mix",
@@ -202,29 +202,15 @@ export class GameCommands {
    * 开始竞技场战斗
    */
   fight_startareaarena(ack = 0, seq = 0, params = {}) {
+    if (params?.targetId === undefined || params?.targetId === null) {
+      throw new Error("fight_startareaarena requires targetId in params")
+    }
     return {
       ack,
       body: this.g_utils.bon.encode({
-        targetId: 530479307,
         ...params
       }),
       cmd: "fight_startareaarena",
-      seq,
-      time: Date.now()
-    }
-  }
-
-  /**
-   * 获取竞技场排名
-   */
-  arena_getarearank(ack = 0, seq = 0, params = {}) {
-    return {
-      ack,
-      body: this.g_utils.bon.encode({
-        rankType: 0,
-        ...params
-      }),
-      cmd: "arena_getarearank",
       seq,
       time: Date.now()
     }

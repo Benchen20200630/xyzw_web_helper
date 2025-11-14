@@ -223,13 +223,13 @@ export class DataWriter {
     this.position += this._7BitIntLen(max);
     const from = this.position;
     const reserved = from - start;
-    
+
     const encoder = new TextEncoder();
     const { written } = encoder.encodeInto(str, this.data.subarray(this.position));
     this.position += written;
     const after = this.position;
     const size = after - from;
-    
+
     this.position = start;
     this._write7BitInt(size);
     const used = this.position - start;
@@ -563,7 +563,7 @@ const lx = {
     let e = lz4.compress(buf);
     const t = 2 + ~~(Math.random() * 248);
     for (let n = Math.min(e.length, 100); --n >= 0; ) e[n] ^= t;
-    
+
     // 写入标识与混淆位
     e[0] = 112; e[1] = 108;
     e[2] = (e[2] & 0b10101010) | ((t >> 7 & 1) << 6) | ((t >> 6 & 1) << 4) | ((t >> 5 & 1) << 2) | (t >> 4 & 1);
@@ -666,7 +666,7 @@ export const GameMessages = {
   getRoleInfo: (ack = 0, seq = 0, params = {}) => ({
     cmd: "role_getroleinfo",
     body: encode({
-      clientVersion: "1.65.3-wx",
+      clientVersion: "2.1.5-wx",
       inviteUid: 0,
       platform: "hortor",
       platformExt: "mix",

@@ -116,8 +116,21 @@ const isConnected = computed(() => {
 })
 
 
+const pickArenaTargetId = (targets) => {
+  const candidate =
+    targets?.rankList?.[0] ||
+    targets?.roleList?.[0] ||
+    targets?.targets?.[0] ||
+    targets?.targetList?.[0] ||
+    targets?.list?.[0]
+
+  if (candidate?.roleId) return candidate.roleId
+  if (candidate?.id) return candidate.id
+  return targets?.roleId || targets?.id
+}
+
 // 方法
-const handleFeatureAction = (featureType) => {
+const handleFeatureAction = async (featureType) => {
   if (!tokenStore.selectedToken) {
     message.warning('请先选择Token')
     router.push('/tokens')
@@ -133,9 +146,26 @@ const handleFeatureAction = (featureType) => {
   const tokenId = tokenStore.selectedToken.id
 
   const actions = {
-    'team-challenge': () => {
+    'team-challenge': async () => {
       message.info('开始执行队伍挑战...')
-      tokenStore.sendMessage(tokenId, 'fight_startareaarena')
+      let targets
+        try {
+          targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', {}, 8000)
+        } catch (err) {
+        message.error(`获取竞技场目标失败：${err.message}`)
+        return
+      }
+      const targetId = pickArenaTargetId(targets)
+      if (!targetId) {
+        message.warning('未找到可挑战的竞技场目标')
+        return
+      }
+      try {
+        await tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }, 15000)
+        message.success('竞技场战斗已发起')
+      } catch (err) {
+        message.error(`竞技场战斗失败：${err.message}`)
+      }
     },
     'daily-tasks': () => {
       message.info('启动每日任务服务...')
@@ -171,7 +201,7 @@ const handleFeatureAction = (featureType) => {
 
   const action = actions[featureType]
   if (action) {
-    action()
+    await action()
   } else {
     message.warning('功能暂未实现')
   }

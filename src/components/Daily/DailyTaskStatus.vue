@@ -365,6 +365,19 @@ const executeGameCommand = async (tokenId, cmd, params = {}, description = '', t
   }
 }
 
+const pickArenaTargetId = (targets) => {
+  const candidate =
+    targets?.rankList?.[0] ||
+    targets?.roleList?.[0] ||
+    targets?.targets?.[0] ||
+    targets?.targetList?.[0] ||
+    targets?.list?.[0]
+
+  if (candidate?.roleId) return candidate.roleId
+  if (candidate?.id) return candidate.id
+  return targets?.roleId || targets?.id
+}
+
 // 检查是否今日可用（简化版本）
 const isTodayAvailable = (statisticsTime) => {
   if (!statisticsTime) return true
@@ -564,10 +577,16 @@ const executeDailyTasks = async (roleInfoResp, logFn, progressFn) => {
           logFn(`竞技场战斗 ${i}/3`)
 
           // 获取目标
-          const targets = await executeGameCommand(tokenId, 'arena_getareatarget',
-            { refresh: false }, `获取竞技场目标${i}`)
+          let targets
+          try {
+            targets = await executeGameCommand(tokenId, 'arena_getareatarget',
+              {}, `获取竞技场目标${i}`)
+          } catch (err) {
+            logFn(`竞技场战斗${i} - 获取对手失败: ${err.message}`, 'error')
+            break
+          }
 
-          const targetId = targets?.roleList?.[0]?.roleId
+          const targetId = pickArenaTargetId(targets)
           if (targetId) {
             await executeGameCommand(tokenId, 'fight_startareaarena',
               { targetId }, `竞技场战斗${i}`, 10000)

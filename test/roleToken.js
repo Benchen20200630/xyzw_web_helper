@@ -1,5 +1,5 @@
 
-import { g_utils, getEnc, bon } from '../src/utils/bonProtocol.js'
+import { g_utils, getEnc, bon } from '@utils/bonProtocol.js'
 import { Buffer } from 'buffer';
 
 const resBase64 = "ddd=";
@@ -14,7 +14,7 @@ const main = async () => {
     const tooo = ress.getData();
 
     console.log("tooo =", tooo);
-    
+
     console.log("tooo buf =", tooo.roleToken);
 
 

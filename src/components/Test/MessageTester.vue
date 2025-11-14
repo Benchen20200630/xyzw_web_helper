@@ -85,11 +85,21 @@
           <div v-for="(message, index) in messageHistory" :key="index" class="message-item p-3 mb-2 rounded border"
             :class="message.type === 'sent' ? 'bg-blue-50 border-blue-200' :
               message.type === 'test' ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200'">
-            <div class="flex justify-between items-center mb-2">
-              <span class="font-semibold">
-                {{ message.type === 'sent' ? '📤 发送' : message.type === 'test' ? '🧪 测试' : '📨 接收' }}
-                <span class="text-sm text-gray-500 ml-2">{{ formatTime(message.timestamp) }}</span>
-              </span>
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <span class="font-semibold">
+                  {{ message.type === 'sent' ? '📤 发送' : message.type === 'test' ? '🧪 测试' : '📨 接收' }}
+                  <span class="text-sm text-gray-500 ml-2">{{ formatTime(message.timestamp) }}</span>
+                </span>
+                <div class="flex flex-wrap items-center gap-1 mt-1" v-if="hasSeqAck(message)">
+                  <n-tag size="tiny" type="info" v-if="getMessageSeq(message) !== undefined">
+                    SEQ {{ getMessageSeq(message) }}
+                  </n-tag>
+                  <n-tag size="tiny" type="warning" v-if="getMessageAck(message) !== undefined">
+                    ACK {{ getMessageAck(message) }}
+                  </n-tag>
+                </div>
+              </div>
               <div class="flex items-center gap-1">
                 <n-button size="tiny" type="tertiary" @click="copyMessage(message)" title="复制消息">
                   <n-icon size="12">
@@ -248,6 +258,19 @@ const customBody = ref('{}')
 const messageHistory = ref([])
 const lastProcessedMessage = ref(null) // 追踪最后处理的消息
 
+const extractPacketMeta = (data) => {
+  if (!data || typeof data !== 'object') return {}
+  const packet = data._raw || data
+  const meta = {}
+
+  if (typeof packet.seq === 'number') meta.seq = packet.seq
+  if (typeof packet.ack === 'number') meta.ack = packet.ack
+  if (typeof packet.resp === 'number') meta.resp = packet.resp
+  if (typeof packet.time === 'number') meta.time = packet.time
+
+  return meta
+}
+
 // 计算属性
 const tokenOptions = computed(() => {
   return tokenStore.gameTokens.map(token => ({
@@ -361,23 +384,33 @@ const testBONDecoding = async () => {
   }
 }
 
-const addToHistory = (type, data, cmd = null) => {
+const addToHistory = (type, data, cmd = null, metaOverrides = {}) => {
   // 过滤心跳消息 (但保留test类型)
   if (type !== 'test' && (cmd === '_sys/ack' || cmd === 'heartbeat')) {
-    return
+    return null
   }
 
-  messageHistory.value.unshift({
+  const meta = {
+    ...extractPacketMeta(data),
+    ...metaOverrides
+  }
+
+  const entry = {
     type,
     timestamp: new Date().toISOString(),
     cmd,
-    data
-  })
+    data,
+    meta
+  }
+
+  messageHistory.value.unshift(entry)
 
   // 保持历史记录在合理范围内
   if (messageHistory.value.length > 50) {
     messageHistory.value = messageHistory.value.slice(0, 50)
   }
+
+  return entry
 }
 
 const sendHeartbeat = () => {
@@ -433,10 +466,31 @@ const sendCustomMessage = () => {
 
   try {
     const body = JSON.parse(customBody.value || '{}')
-    const success = tokenStore.sendGameMessage(selectedTokenId.value, customCmd.value, body)
+    let historyEntry = null
+    const pendingMeta = {}
+
+    const success = tokenStore.sendGameMessage(
+      selectedTokenId.value,
+      customCmd.value,
+      body,
+      {
+        onSent: (metaInfo = {}) => {
+          const metaUpdate = {}
+          if (typeof metaInfo.seq === 'number') metaUpdate.seq = metaInfo.seq
+          if (typeof metaInfo.ack === 'number') metaUpdate.ack = metaInfo.ack
+          if (typeof metaInfo.time === 'number') metaUpdate.time = metaInfo.time
+
+          if (historyEntry) {
+            historyEntry.meta = { ...historyEntry.meta, ...metaUpdate }
+          } else if (Object.keys(metaUpdate).length > 0) {
+            Object.assign(pendingMeta, metaUpdate)
+          }
+        }
+      }
+    )
 
     if (success) {
-      addToHistory('sent', { cmd: customCmd.value, body }, customCmd.value)
+      historyEntry = addToHistory('sent', { cmd: customCmd.value, body }, customCmd.value, pendingMeta) || null
       message.success(`自定义消息 ${customCmd.value} 已发送`)
 
       // 清空输入
@@ -452,6 +506,24 @@ const sendCustomMessage = () => {
 
 const formatTime = (timestamp) => {
   return new Date(timestamp).toLocaleTimeString()
+}
+
+const getMessageSeq = (message) => {
+  if (!message) return undefined
+  if (message.meta?.seq !== undefined) return message.meta.seq
+  const source = message.data?._raw || message.data
+  return typeof source?.seq === 'number' ? source.seq : undefined
+}
+
+const getMessageAck = (message) => {
+  if (!message) return undefined
+  if (message.meta?.ack !== undefined) return message.meta.ack
+  const source = message.data?._raw || message.data
+  return typeof source?.ack === 'number' ? source.ack : undefined
+}
+
+const hasSeqAck = (message) => {
+  return getMessageSeq(message) !== undefined || getMessageAck(message) !== undefined
 }
 
 // 新增的辅助方法

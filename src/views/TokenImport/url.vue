@@ -87,40 +87,43 @@ const urlRules = {
   ]
 };
 
-const handleUrlImport = () => {
-  urlFormRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      isImporting.value = true;
-      try {
-        const response = await axios.get(urlForm.url);
-        if (response.status === 200 && response.data && response.data.token) {
-          const newToken = {
-            name: urlForm.name,
-            token: response.data.token,
-            server: urlForm.server || '未知',
-            wsUrl: urlForm.wsUrl || '',
-            id: Date.now().toString()
-          };
-          tokenStore.addToken(newToken);
-          message.success('Token添加成功');
-          // 重置表单
-          urlForm.name = '';
-          urlForm.url = '';
-          urlForm.server = '';
-          urlForm.wsUrl = '';
-           $emit('ok');
-        } else {
-          message.error('接口返回数据格式不正确，未找到token字段');
-        }
-      } catch (error) {
-        message.error('获取Token失败，请检查URL地址或网络连接');
-      } finally {
-        isImporting.value = false;
-      }
+const handleUrlImport = async () => {
+  if (!urlFormRef.value) return;
+
+  try {
+    await urlFormRef.value.validate();
+  } catch {
+    message.error('请修正表单中的错误后再提交');
+    return;
+  }
+
+  isImporting.value = true;
+  try {
+    const response = await axios.get(urlForm.url);
+    if (response.status === 200 && response.data && response.data.token) {
+      const newToken = {
+        name: urlForm.name,
+        token: response.data.token,
+        server: urlForm.server || '未知',
+        wsUrl: urlForm.wsUrl || '',
+        id: Date.now().toString()
+      };
+      tokenStore.addToken(newToken);
+      message.success('Token添加成功');
+      // 重置表单
+      urlForm.name = '';
+      urlForm.url = '';
+      urlForm.server = '';
+      urlForm.wsUrl = '';
+      $emit('ok');
     } else {
-      message.error('请修正表单中的错误后再提交');
+      message.error('接口返回数据格式不正确，未找到token字段');
     }
-  });
+  } catch (error) {
+    message.error('获取Token失败，请检查URL地址或网络连接');
+  } finally {
+    isImporting.value = false;
+  }
 };
 
 </script>

@@ -177,7 +177,7 @@ const gameMessageTemplates = {
     role_getroleinfo: (client, ack, seq, params) => ({
         cmd: "role_getroleinfo",
         body: client.bon.encode({
-            clientVersion: "1.65.3-wx",
+            clientVersion: "2.1.5-wx",
             inviteUid: 0,
             platform: "hortor",
             platformExt: "mix",
@@ -316,31 +316,22 @@ const gameMessageTemplates = {
         time: Date.now()
     }),
 
-    fight_startareaarena: (client, ack, seq, params) => ({
-        ack: ack,
-        body: client.bon.encode({
-            targetId: 530479307,
-            ...params
-        }),
-        c: undefined,
-        cmd: "fight_startareaarena",
-        hint: undefined,
-        seq: seq,
-        time: Date.now()
-    }),
-
-    arena_getarearank: (client, ack, seq, params) => ({
-        ack: ack,
-        body: client.bon.encode({
-            rankType: 0,
-            ...params
-        }),
-        c: undefined,
-        cmd: "arena_getarearank",
-        hint: undefined,
-        seq: seq,
-        time: Date.now()
-    }),
+    fight_startareaarena: (client, ack, seq, params) => {
+        if (params?.targetId === undefined || params?.targetId === null) {
+            throw new Error("fight_startareaarena requires targetId in params")
+        }
+        return {
+            ack: ack,
+            body: client.bon.encode({
+                ...params
+            }),
+            c: undefined,
+            cmd: "fight_startareaarena",
+            hint: undefined,
+            seq: seq,
+            time: Date.now()
+        }
+    },
 
     // 商店相关
     store_goodslist: (client, ack, seq, params) => ({

@@ -173,6 +173,19 @@ const autoTopUpFish = async (need, shouldBe, target) => {
   } finally { fishToppingUp.value = false }
 }
 
+const pickArenaTargetId = (targets) => {
+  const candidate =
+    targets?.rankList?.[0] ||
+    targets?.roleList?.[0] ||
+    targets?.targets?.[0] ||
+    targets?.targetList?.[0] ||
+    targets?.list?.[0]
+
+  if (candidate?.roleId) return candidate.roleId
+  if (candidate?.id) return candidate.id
+  return targets?.roleId || targets?.id
+}
+
 const autoTopUpArena = async (need, shouldBe, target) => {
   if (!tokenStore.selectedToken) return message.warning('请先选择Token')
   if (!isConnected.value) return message.warning('请先建立WS连接')
@@ -189,9 +202,15 @@ const autoTopUpArena = async (need, shouldBe, target) => {
       message.info(`竞技场补齐 第${round}轮：计划战斗 ${planFights} 场（估算每胜+2）`)
       for (let i = 0; i < planFights && safetyCounter < safetyMaxFights; i++) {
         let targets
-        try { targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', { refresh: false }, 8000) }
-        catch { try { targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', { refresh: true }, 8000) } catch (e2) { message.error(`获取竞技场目标失败：${e2.message}`); break } }
-        const targetId = targets?.roleList?.[0]?.roleId || targets?.targets?.[0]?.roleId || targets?.targets?.[0]?.id
+        try {
+          targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', {}, 8000)
+        } catch (err) {
+          message.error(`获取竞技场目标失败：${err.message}`)
+          break
+        }
+
+        console.info('[Arena] 获取竞技场目标响应', targets)
+        const targetId = pickArenaTargetId(targets)
         if (!targetId) { message.warning('未找到可用的竞技场目标，已停止此轮'); break }
         try { await tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }, 15000) }
         catch (e) { message.error(`竞技场对决失败：${e.message}`) }

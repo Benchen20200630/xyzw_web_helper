@@ -12,6 +12,33 @@ const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 /** Promise 版 sleep */
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 
+/** 为日志生成安全的 body 预览，避免控制台再次解析原始对象 */
+const formatBodyForLog = (body) => {
+  if (!body) return ''
+
+  if (body instanceof Uint8Array) {
+    return `[BON:${body.length}b]`
+  }
+
+  if (Array.isArray(body)) {
+    return `[Array:${body.length}]`
+  }
+
+  if (typeof body === 'object') {
+    const isNumericObject = Object.keys(body).every((key) => !Number.isNaN(parseInt(key)))
+    if (isNumericObject) {
+      return `[BON:Object:${Object.keys(body).length}]`
+    }
+    try {
+      return JSON.stringify(body)
+    } catch {
+      return '[Object]'
+    }
+  }
+
+  return String(body)
+}
+
 /**
  * 命令注册器：保存每个 cmd 的默认体，发送时与 params 合并
  */
@@ -69,10 +96,10 @@ export class CommandRegistry {
 
 /** 预注册游戏命令 */
 export function registerDefaultCommands(reg) {
-  return reg.registerHeartbeat()
+  const registry = reg.registerHeartbeat()
     // 角色/系统
     .register("role_getroleinfo", {
-      clientVersion: "1.65.3-wx",
+      clientVersion: "2.1.5-wx",
       inviteUid: 0,
       platform: "hortor",
       platformExt: "mix",
@@ -97,8 +124,6 @@ export function registerDefaultCommands(reg) {
     // 竞技场
     .register("arena_startarea")
     .register("arena_getareatarget", { refresh: false })
-    .register("fight_startareaarena", { targetId: 530479307 })
-    .register("arena_getarearank", { rankType: 0 })
 
     // 商店
     .register("store_goodslist", { storeId: 1 })
@@ -174,6 +199,26 @@ export function registerDefaultCommands(reg) {
     .register("car_claim", { carId: 0 })
     .register("car_send", { carId: 0, helperId: 0, text: "" })
     .register("car_getmemberhelpingcnt")
+
+  registry.commands.set("fight_startareaarena", (ack = 0, seq = 0, params = {}) => {
+    if (params?.targetId === undefined || params?.targetId === null) {
+      throw new Error("fight_startareaarena requires targetId in params")
+    }
+    const payload = { ...params }
+    const body = registry.encoder?.bon?.encode
+      ? registry.encoder.bon.encode(payload)
+      : payload
+
+    return {
+      cmd: "fight_startareaarena",
+      ack,
+      seq,
+      time: Date.now(),
+      body
+    }
+  })
+
+  return registry
 }
 
 /**
@@ -433,6 +478,31 @@ export class XyzwWebSocketClient {
     return null
   }
 
+  /** 尝试为日志解码BON体，成功返回对象 */
+  decodeBodyForLog(body) {
+    if (!body) return null
+    const decoder = this.utils?.bon?.decode
+    if (typeof decoder !== 'function') return null
+
+    let bytes = null
+    if (body instanceof Uint8Array) {
+      bytes = body
+    } else if (Array.isArray(body)) {
+      bytes = new Uint8Array(body)
+    } else if (this.shouldDecodeBody(body)) {
+      bytes = this.convertToUint8Array(body)
+    }
+
+    if (!bytes) return null
+
+    try {
+      return decoder(bytes)
+    } catch (error) {
+      gameLogger.warn('日志解析BON失败:', error.message)
+      return null
+    }
+  }
+
   /** 重连（防重复连接版本） */
   reconnect() {
     // 防止重复重连
@@ -598,24 +668,13 @@ export class XyzwWebSocketClient {
 
         // 发送前日志（仅标准五段）
         if (raw && raw.cmd !== '_sys/ack') {
-          let bodyForLog
-          try {
-            if (raw.body instanceof Uint8Array || Array.isArray(raw.body)) {
-              bodyForLog = '[BON]'
-            } else if (raw.body && typeof raw.body === 'object' && raw.body.constructor === Object && Object.keys(raw.body).every(k => !isNaN(parseInt(k)))) {
-              bodyForLog = '[BON]'
-            } else {
-              bodyForLog = raw.body || {}
-            }
-          } catch {
-            bodyForLog = '[BODY]'
-          }
+          const decodedBody = this.decodeBodyForLog(raw.body)
           wsLogger.info('📤 发送报文', {
             cmd: raw.cmd,
             ack: raw.ack ?? 0,
             seq: raw.seq ?? 0,
             time: raw.time,
-            body: bodyForLog
+            body: decodedBody ?? formatBodyForLog(raw.body)
           })
         }
 
@@ -640,7 +699,14 @@ export class XyzwWebSocketClient {
         // 触发发送回调
         if (task.onSent) {
           try {
-            task.onSent(task.respKey, task.cmd)
+            const meta = {
+              respKey: task.respKey,
+              cmd: task.cmd,
+              seq: raw?.seq ?? task.seq,
+              ack: raw?.ack ?? this.ack,
+              time: raw?.time ?? Date.now()
+            }
+            task.onSent(meta)
           } catch (error) {
             wsLogger.warn('发送回调执行失败:', error)
           }

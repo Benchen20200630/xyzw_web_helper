@@ -110,6 +110,7 @@ export function registerDefaultCommands(reg) {
     .register("system_claimhangupreward")
     .register("system_signinreward")
     .register("system_mysharecallback", { isSkipShareCard: true, type: 2 })
+    .register("system_custom", { key: "", value: 0 })
 
     // 任务相关
     .register("task_claimdailypoint", { taskId: 1 })

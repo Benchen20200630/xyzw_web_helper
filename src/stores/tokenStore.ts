@@ -8,6 +8,7 @@ import { XyzwWebSocketClient } from '@/utils/xyzwWebSocket'
 import { emitPlus } from './events/index.js'
 import useIndexedDB from '@/hooks/useIndexedDB';
 import { transformToken } from '@/utils/token';
+import { generateRandomSeed } from '@/utils/randomSeed';
 
 const {
   getArrayBuffer
@@ -29,6 +30,9 @@ declare interface WebSocketConnection {
   sessionId: string;
   createdAt: string;
   lastMessageAt: string | null;
+  randomSeedSynced?: boolean;
+  lastRandomSeedSource?: number | null;
+  lastRandomSeed?: number | null;
 }
 
 declare type WebCtx = Record<string, Partial<WebSocketConnection>>;
@@ -80,6 +84,83 @@ export const useTokenStore = defineStore('tokens', () => {
   const selectedTokenRoleInfo = computed(() => {
     return gameData.value.roleInfo
   })
+
+  const readStatisticsValue = (stats: any, key: string) => {
+    if (!stats) return undefined
+    try {
+      if (typeof stats.get === 'function') {
+        return stats.get(key)
+      }
+      if (Object.prototype.hasOwnProperty.call(stats, key)) {
+        return stats[key]
+      }
+    } catch (error) {
+      gameLogger.warn('读取统计数据失败:', error)
+    }
+    return undefined
+  }
+
+  const extractLastLoginTimestamp = (payload: any) => {
+    if (!payload) return null
+
+    const candidateSources = [
+      payload?.role?.statistics,
+      payload?.statistics,
+      payload?.role?.statisticsTime,
+      payload?.statisticsTime
+    ]
+
+    const candidateKeys = ['last:login:time', 'lastLoginTime', 'last_login_time']
+
+    for (const stats of candidateSources) {
+      if (!stats) continue
+      for (const key of candidateKeys) {
+        const value = readStatisticsValue(stats, key)
+        if (value !== undefined && value !== null) {
+          const numeric = Number(value)
+          if (!Number.isNaN(numeric) && numeric > 0) {
+            return numeric
+          }
+        }
+      }
+    }
+    return null
+  }
+
+  const syncRandomSeedFromStatistics = (tokenId: string, rolePayload: any, client: XyzwWebSocketClient | null) => {
+    if (!client) return
+    const connection = wsConnections.value[tokenId]
+    if (!connection || connection.status !== 'connected') {
+      return
+    }
+
+    const lastLoginTime = extractLastLoginTimestamp(rolePayload)
+    if (!lastLoginTime) {
+      return
+    }
+
+    if (connection.randomSeedSynced && connection.lastRandomSeedSource === lastLoginTime) {
+      return
+    }
+
+    const randomSeed = generateRandomSeed(lastLoginTime)
+
+    try {
+      client.send('system_custom', {
+        key: 'randomSeed',
+        value: randomSeed
+      })
+      connection.randomSeedSynced = true
+      connection.lastRandomSeedSource = lastLoginTime
+      connection.lastRandomSeed = randomSeed
+      wsLogger.info(`同步 randomSeed [${tokenId}]`, {
+        lastLoginTime,
+        randomSeed
+      })
+    } catch (error) {
+      wsLogger.error(`发送 randomSeed 失败 [${tokenId}]`, error)
+    }
+  }
 
   // Token管理
   const addToken = (tokenData: TokenData) => {
@@ -225,6 +306,10 @@ export const useTokenStore = defineStore('tokens', () => {
 
       const cmd = message.cmd?.toLowerCase()
       const body = message.getData();
+
+      if (cmd === 'role_getroleinforesp') {
+        syncRandomSeedFromStatistics(tokenId, body, client)
+      }
 
       emitPlus(cmd, {
         tokenId,
@@ -493,7 +578,10 @@ export const useTokenStore = defineStore('tokens', () => {
         connectedAt: null,
         lastMessage: null,
         lastError: null,
-        reconnectAttempts: 0
+        reconnectAttempts: 0,
+        randomSeedSynced: false,
+        lastRandomSeedSource: null,
+        lastRandomSeed: null
       }
 
       // 9. 设置事件监听（增强版）
@@ -503,9 +591,17 @@ export const useTokenStore = defineStore('tokens', () => {
           wsConnections.value[tokenId].status = 'connected'
           wsConnections.value[tokenId].connectedAt = new Date().toISOString()
           wsConnections.value[tokenId].reconnectAttempts = 0
+          wsConnections.value[tokenId].randomSeedSynced = false
+          wsConnections.value[tokenId].lastRandomSeedSource = null
+          wsConnections.value[tokenId].lastRandomSeed = null
         }
         updateCrossTabConnectionState(tokenId, 'connected')
         releaseConnectionLock(tokenId, 'connect')
+        try {
+          wsClient.send('role_getroleinfo')
+        } catch (error) {
+          wsLogger.warn(`初始化角色信息请求失败 [${tokenId}]`, error)
+        }
       }
 
       wsClient.onDisconnect = (event) => {
@@ -513,6 +609,7 @@ export const useTokenStore = defineStore('tokens', () => {
         wsLogger.wsDisconnect(tokenId, reason)
         if (wsConnections.value[tokenId]) {
           wsConnections.value[tokenId].status = 'disconnected'
+          wsConnections.value[tokenId].randomSeedSynced = false
         }
         updateCrossTabConnectionState(tokenId, 'disconnected')
       }
@@ -1124,5 +1221,3 @@ export const useTokenStore = defineStore('tokens', () => {
     }
   }
 })
-
-

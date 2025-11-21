@@ -147,7 +147,7 @@ const roleInfo = computed(() => {
 });
 const isShowTowerStatus = computed(() => {
     const tower = roleInfo.value?.role?.tower;
-    const towerId = tower.id;
+    const towerId = tower?.id;
     const floor = Math.floor(towerId / 10) + 1;
     if (floor > 450) {
         return false;

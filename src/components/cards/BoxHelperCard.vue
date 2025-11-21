@@ -100,7 +100,7 @@ const handleBoxHelper = async () => {
     const tokenId = tokenStore.selectedToken.id;
     state.value.isRunning = true;
     message.info("宝箱开启中");
-    if (number.value > 10) {
+    if (number.value >= 10) {
         const batches = Math.floor(number.value / 10);
         const remainder = number.value % 10;
         for (let i = 0; i < batches; i++) {

@@ -92,7 +92,7 @@ const state = ref({
     isRunning: false,
 });
 
-const handleBottleHelper = async () => {
+const handleBoxHelper = async () => {
     if (!tokenStore.selectedToken) {
         message.warning("请先选择Token");
         return;

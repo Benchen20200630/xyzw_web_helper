@@ -1,21 +1,13 @@
 <template>
   <div class="status-card tower-status">
     <div class="card-header">
-      <img
-        src="/icons/1733492491706148.png"
-        alt="爬塔图标"
-        class="status-icon"
-      >
+      <img src="/icons/1733492491706148.png" alt="爬塔图标" class="status-icon">
       <div class="status-info">
         <h3>咸将塔</h3>
         <p>一个不小心就过了</p>
       </div>
       <div class="energy-display">
-        <img
-          src="/icons/xiaoyugan.png"
-          alt="小鱼干"
-          class="energy-icon"
-        >
+        <img src="/icons/xiaoyugan.png" alt="小鱼干" class="energy-icon">
         <span class="energy-count">{{ towerEnergy }}</span>
       </div>
     </div>
@@ -28,26 +20,22 @@
     </div>
 
     <div class="card-actions">
-      <button
-        :class="[
-          'climb-button',
-          {
-            'active': canClimb,
-            'disabled': !canClimb
-          }
-        ]"
-        :disabled="!canClimb"
-        @click="startTowerClimb"
-      >
+      <button :class="[
+        'climb-button',
+        {
+          'active': canClimb,
+          'disabled': !canClimb
+        }
+      ]" :disabled="!canClimb" @click="startTowerClimb">
         {{ isClimbing.value ? '爬塔中...' : '开始爬塔' }}
       </button>
 
+      <!-- 停止批量爬塔按钮，仅批量时显示 -->
+      <button class="stop-button" @click="stopClimbing">
+        停止爬塔
+      </button>
       <!-- 调试用的重置按钮，只在开发环境显示 -->
-      <button
-        v-if="isClimbing.value"
-        class="reset-button"
-        @click="resetClimbingState"
-      >
+      <button v-if="false" class="reset-button" @click="resetClimbingState">
         重置状态
       </button>
     </div>
@@ -55,9 +43,21 @@
 </template>
 
 <script setup>
-import {computed, onMounted, ref, watch} from 'vue'
-import {useTokenStore} from '@/stores/tokenStore'
-import {useMessage} from 'naive-ui'
+// 停止批量爬塔操作
+let stopFlag = false
+
+const stopClimbing = () => {
+  stopFlag = true
+  if (climbTimeout.value) {
+    clearTimeout(climbTimeout.value)
+    climbTimeout.value = null
+  }
+  isClimbing.value = false
+  message.info('已手动停止批量爬塔')
+}
+import { computed, onMounted, ref, watch } from 'vue'
+import { useTokenStore } from '@/stores/tokenStore'
+import { useMessage } from 'naive-ui'
 
 const tokenStore = useTokenStore()
 const message = useMessage()
@@ -123,54 +123,43 @@ const startTowerClimb = async () => {
     climbTimeout.value = null
   }
 
-  // 确保在操作开始前设置状态
   isClimbing.value = true
-
-  // 设置超时保护，15秒后自动重置状态
+  stopFlag = false
+  let climbCount = 0
+  let maxClimb = 100 // 最多批量次数，防止死循环
+  // 设置超时保护，60秒后自动重置状态
   climbTimeout.value = setTimeout(() => {
     isClimbing.value = false
     climbTimeout.value = null
-  }, 15000)
+    stopFlag = true
+    message.info('批量爬塔已超时自动停止')
+  }, 60000)
 
   try {
     const tokenId = tokenStore.selectedToken.id
-
-    // 发送爬塔命令（日志精简：不输出控制台）
-
-    // 实际请求体将会是: {"ack":0,"body":{},"cmd":"fight_starttower","seq":XX,"time":TIMESTAMP}
-
-    await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 10000)
-
-    message.success('爬塔命令已发送')
-
-    // 立即查询塔信息以获取最新状态
-    await getTowerInfo()
-
-    // 再延迟查询一次确保数据同步
-    setTimeout(async () => {
+    for (let i = 0; i < maxClimb; i++) {
+      if (stopFlag) break
       await getTowerInfo()
-
-      // 清除超时并重置状态
-      if (climbTimeout.value) {
-        clearTimeout(climbTimeout.value)
-        climbTimeout.value = null
-      }
-      isClimbing.value = false
-    }, 2000)
-
-  } catch (error) {
-    message.error('爬塔失败: ' + (error.message || '未知错误'))
-
-    // 发生错误时立即重置状态
-    if (climbTimeout.value) {
-      clearTimeout(climbTimeout.value)
-      climbTimeout.value = null
+      // 体力判断必须每次都刷新
+      const tower = roleInfo.value?.role?.tower
+      const energy = tower?.energy || 0
+      if (energy <= 0) break
+      await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 10000)
+      climbCount++
+      message.success(`第${climbCount}次爬塔命令已发送`)
+      await new Promise(res => setTimeout(res, 2000)) // 每次间隔2秒
     }
-    isClimbing.value = false
+    message.success(`已自动爬塔${climbCount}次，体力已耗尽或达到上限。`)
+  } catch (error) {
+    message.error('批量爬塔失败: ' + (error.message || '未知错误'))
   }
 
-  // 注意：不要在这里设置 isClimbing.value = false
-  // 因为我们要等待延迟查询完成后再重置状态
+  // 清除超时并重置状态
+  if (climbTimeout.value) {
+    clearTimeout(climbTimeout.value)
+    climbTimeout.value = null
+  }
+  isClimbing.value = false
 }
 
 // 重置爬塔状态的方法
@@ -198,7 +187,7 @@ const getTowerInfo = async () => {
     const roleResult = tokenStore.sendMessage(tokenId, 'role_getroleinfo')
     // 直接请求塔信息
     const towerResult = tokenStore.sendMessage(tokenId, 'tower_getinfo')
-    if (!roleResult && !towerResult) {}
+    if (!roleResult && !towerResult) { }
   } catch (error) {
     // 获取塔信息失败：静默，避免噪声
   }
@@ -250,14 +239,16 @@ watch(() => tokenStore.gameData.towerResult, (newResult, oldResult) => {
       message.error('咸将塔挑战失败')
     }
 
-    // 重置爬塔状态
-    setTimeout(() => {
-      if (climbTimeout.value) {
-        clearTimeout(climbTimeout.value)
-        climbTimeout.value = null
-      }
-      isClimbing.value = false
-    }, 2000)
+    // 重置爬塔状态（仅在未批量时重置）
+    if (!stopFlag) {
+      setTimeout(() => {
+        if (climbTimeout.value) {
+          clearTimeout(climbTimeout.value)
+          climbTimeout.value = null
+        }
+        isClimbing.value = false
+      }, 2000)
+    }
   }
 }, { deep: true })
 
@@ -278,6 +269,24 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.stop-button {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--border-radius-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: #fff;
+  color: #e11d48;
+
+  &:hover {
+    background: #e11d48;
+    color: white;
+    border-color: #e11d48;
+  }
+}
 
 // 使用GameStatus中的统一卡片样式
 .tower-status {

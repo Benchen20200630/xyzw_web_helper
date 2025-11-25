@@ -26,9 +26,11 @@
         <!-- 挂机状态（提取组件） -->
         <HangUpStatusCard v-show="activeSection === 'daily'" />
 
-        <!-- 挂机状态（提取组件） -->
+        <!-- 宝箱助手（提取组件） -->
         <BoxHelperCard v-show="activeSection === 'tools'" />
 
+        <!-- 钓鱼助手（提取组件） -->
+        <FishHelperCard v-show="activeSection === 'tools'" />
         <!-- 俱乐部排位（暂时隐藏） -->
         <div class="status-card legion-match" v-if="ENABLE_LEGION_MATCH && activeSection === 'club'">
             <div class="card-header">
@@ -101,6 +103,7 @@ import { useMessage } from "naive-ui";
 import { preloadQuestions, getQuestionCount } from "@/utils/studyQuestionsFromJSON.js";
 import BottleHelperCard from "./cards/BottleHelperCard.vue";
 import BoxHelperCard from "./cards/BoxHelperCard.vue";
+import FishHelperCard from "./cards/FishHelperCard.vue";
 import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";

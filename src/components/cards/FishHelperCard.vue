@@ -28,7 +28,7 @@
         </template>
         <template #action>
             <a-button type="primary" :disabled="state.isRunning" secondary size="small" block @click="handleHelper">
-                {{ state.isRunning ? "运行中" : "开启宝箱" }}
+                {{ state.isRunning ? "运行中" : "开始钓鱼" }}
             </a-button>
         </template>
     </MyCard>

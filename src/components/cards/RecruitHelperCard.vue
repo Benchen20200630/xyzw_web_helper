@@ -21,14 +21,13 @@
                     </div>
                 </div>
                 <div class="selects">
-                    <n-select v-model:value="type" :options="typeOptions" />
                     <n-select v-model:value="number" :options="numberOptions" />
                 </div>
             </div>
         </template>
         <template #action>
             <a-button type="primary" :disabled="state.isRunning" secondary size="small" block @click="handleHelper">
-                {{ state.isRunning ? "运行中" : "开启宝箱" }}
+                {{ state.isRunning ? "运行中" : "开始招募" }}
             </a-button>
         </template>
     </MyCard>
@@ -48,32 +47,20 @@ const roleInfo = computed(() => tokenStore.gameData?.roleInfo || null);
 const dataList = computed(() => {
     return [
         {
-            type: "普通鱼竿",
-            img: "/fish/ptyg.png",
-            count: roleInfo.value?.role?.items?.[1011]?.quantity || 0,
-        },
-        {
-            type: "黄金鱼竿",
-            img: "/fish/hjyg.png",
-            count: roleInfo.value?.role?.items?.[1012]?.quantity || 0,
+            type: "招募令",
+            img: "/icons/zml.png",
+            count: roleInfo.value?.role?.items?.[1001]?.quantity || 0,
         },
     ];
 });
 
-const type = ref(1);
-const typeOptions = [
-    { label: "普通鱼竿", value: 1 },
-    { label: "黄金鱼竿", value: 2 },
-];
-
 const number = ref(10);
 const numberOptions = [
     { label: "10", value: 10 },
-    { label: "20", value: 20 },
     { label: "50", value: 50 },
-    { label: "80", value: 80 },
     { label: "100", value: 100 },
-    { label: "160", value: 160 },
+    { label: "200", value: 200 },
+    { label: "400", value: 400 },
 ];
 
 const state = ref({

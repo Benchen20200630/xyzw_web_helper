@@ -18,14 +18,11 @@
         </div>
         <div class="status-row">
           <span>英雄数量：{{ heroIds.length }}</span>
-          <span>进度：{{ state.progressText }}</span>
         </div>
       </div>
-      <div v-if="logs.length" class="log-container">
-        <div v-for="log in logs.slice(-6)" :key="log.id" class="log-item" :class="log.type">
-          <span class="time">{{ formatTime(log.timestamp) }}</span>
-          <span class="msg">{{ log.message }}</span>
-        </div>
+      <div class="progress-row">
+        <n-progress type="line" :percentage="percent" :show-indicator="false" />
+        <span class="progress-text">{{ state.done }}/{{ state.total }} {{ percent }}%</span>
       </div>
     </template>
     <template #action>
@@ -33,6 +30,7 @@
         <a-button type="primary" size="small" :disabled="state.isRunning" @click="startHeroUpgrade">升星</a-button>
         <a-button type="primary" size="small" :disabled="state.isRunning" @click="startBookUpgrade">图鉴</a-button>
         <a-button type="primary" size="small" :disabled="state.isRunning" @click="startClaimRewards">领奖</a-button>
+        <a-button size="small" :disabled="!state.isRunning" @click="stopRunning">停止</a-button>
       </div>
     </template>
   </MyCard>
@@ -50,13 +48,15 @@ const message = useMessage()
 
 const delay = ref(300)
 const logs = ref([])
-const state = ref({ isRunning: false, showConfirm: false, progressText: '待开始' })
+const state = ref({ isRunning: false, showConfirm: false, progressText: '待开始', stopRequested: false, total: 0, done: 0 })
 
 const heroIds = computed(() => [
   ...Array.from({ length: 20 }, (_, i) => 101 + i),
   ...Array.from({ length: 28 }, (_, i) => 201 + i),
   ...Array.from({ length: 14 }, (_, i) => 301 + i)
 ])
+
+const percent = computed(() => state.value.total > 0 ? Math.min(100, Math.round((state.value.done / state.value.total) * 100)) : 0)
 
 const addLog = (messageText, type = 'info') => {
   logs.value.push({ id: Date.now() + Math.random(), timestamp: Date.now(), type, message: messageText })
@@ -66,17 +66,30 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 /** 启动仅英雄升星 */
 const startHeroUpgrade = async () => {
+  state.value.stopRequested = false
+  state.value.total = heroIds.value.length
+  state.value.done = 0
   await runHeroUpgrade({ delay: delay.value })
 }
 
 /** 启动仅图鉴升星 */
 const startBookUpgrade = async () => {
+  state.value.stopRequested = false
+  state.value.total = heroIds.value.length
+  state.value.done = 0
   await runBookUpgrade({ delay: delay.value })
 }
 
 /** 启动仅领取奖励 */
 const startClaimRewards = async () => {
+  state.value.stopRequested = false
+  state.value.total = 10
+  state.value.done = 0
   await runClaimRewards({ delay: delay.value })
+}
+
+const stopRunning = () => {
+  state.value.stopRequested = true
 }
 
 /**
@@ -142,8 +155,10 @@ const runHeroUpgrade = async (mod) => {
   try {
     state.value.isRunning = true
     for (const heroId of heroIds.value) {
+      if (state.value.stopRequested) break
       let skip = false
       for (let i = 1; i <= 10; i++) {
+        if (state.value.stopRequested) { skip = true; break }
         try {
           const res = await tokenStore.sendMessageWithPromise(tokenId, 'hero_heroupgradestar', { heroId }, 8000)
           const ok = res && (res.code === 0 || res.success === true || res.result === 0)
@@ -156,9 +171,9 @@ const runHeroUpgrade = async (mod) => {
         }
         await sleep(mod.delay)
       }
-      if (skip) continue
+      state.value.done++
     }
-    message.success('英雄升星完成')
+    message.success(state.value.stopRequested ? '已停止' : '英雄升星完成')
   } finally { state.value.isRunning = false }
 }
 
@@ -175,8 +190,10 @@ const runBookUpgrade = async (mod) => {
   try {
     state.value.isRunning = true
     for (const heroId of heroIds.value) {
+      if (state.value.stopRequested) break
       let skip = false
       for (let i = 1; i <= 10; i++) {
+        if (state.value.stopRequested) { skip = true; break }
         try {
           const res = await tokenStore.sendMessageWithPromise(tokenId, 'book_upgrade', { heroId }, 8000)
           const ok = res && (res.code === 0 || res.success === true || res.result === 0)
@@ -189,9 +206,9 @@ const runBookUpgrade = async (mod) => {
         }
         await sleep(mod.delay)
       }
-      if (skip) continue
+      state.value.done++
     }
-    message.success('图鉴升星完成')
+    message.success(state.value.stopRequested ? '已停止' : '图鉴升星完成')
   } finally { state.value.isRunning = false }
 }
 
@@ -208,18 +225,21 @@ const runClaimRewards = async (mod) => {
   try {
     state.value.isRunning = true
     for (let i = 1; i <= 10; i++) {
+      if (state.value.stopRequested) break
       try {
         const res = await tokenStore.sendMessageWithPromise(tokenId, 'book_claimpointreward', {}, 8000)
         const ok = res && (res.code === 0 || res.success === true || res.result === 0)
         addLog(`领取图鉴奖励第${i}/10次`, ok ? 'success' : 'error')
         if (!ok) throw new Error('领取奖励失败')
+        state.value.done++
       } catch (err) {
         addLog(`领取图鉴奖励第${i}/10次失败，跳过剩余次数`, 'error')
+        state.value.done++
         break
       }
       await sleep(mod.delay)
     }
-    message.success('领取奖励完成')
+    message.success(state.value.stopRequested ? '已停止' : '领取奖励完成')
   } finally { state.value.isRunning = false }
 }
 
@@ -230,8 +250,8 @@ const formatTime = (ts) => new Date(ts).toLocaleTimeString('zh-CN')
 .settings {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-md);
+  justify-content: flex-start;
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
 }
 .setting-item {
@@ -239,10 +259,14 @@ const formatTime = (ts) => new Date(ts).toLocaleTimeString('zh-CN')
   align-items: center;
   gap: var(--spacing-sm);
 }
+.setting-item .n-input-number { width: 110px; }
 .status-row {
   display: flex;
   gap: var(--spacing-lg);
 }
+.progress-row { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: nowrap; }
+.progress-row .n-progress { flex: 1; }
+.progress-text { color: var(--text-secondary); font-size: var(--font-size-sm); white-space: nowrap; }
 .log-container {
   display: flex;
   flex-direction: column;

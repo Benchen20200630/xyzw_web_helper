@@ -210,13 +210,28 @@ export function registerDefaultCommands(reg) {
     if (params?.targetId === undefined || params?.targetId === null) {
       throw new Error("fight_startareaarena requires targetId in params")
     }
-    const payload = { ...params }
+    const payload = { battleVersion: 240475, ...params }
     const body = registry.encoder?.bon?.encode
       ? registry.encoder.bon.encode(payload)
       : payload
 
     return {
       cmd: "fight_startareaarena",
+      ack,
+      seq,
+      time: Date.now(),
+      body
+    }
+  })
+
+  registry.commands.set("fight_startpvp", (ack = 0, seq = 0, params = {}) => {
+    const payload = { battleVersion: 240475, ...params }
+    const body = registry.encoder?.bon?.encode
+      ? registry.encoder.bon.encode(payload)
+      : payload
+
+    return {
+      cmd: "fight_startpvp",
       ack,
       seq,
       time: Date.now(),

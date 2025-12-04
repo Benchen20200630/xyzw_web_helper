@@ -51,6 +51,7 @@
                 <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
+                <span class="stat-inline KD">K/D {{ parseFloat(member.winCnt/member.loseCnt).toFixed(2) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
                 <template #icon>
@@ -161,6 +162,7 @@
                 <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
+                <span class="stat-inline KD">K/D {{ member.winCnt/member.loseCnt || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
                 <template #icon>
@@ -550,6 +552,11 @@ onMounted(() => {
   &.siege {
     background: rgba(245, 158, 11, 0.1);
     color: #d97706;
+  }
+  
+  &.KD {
+    background: rgba(151, 151, 151, 0.1);
+    color: #858585;
   }
 }
 

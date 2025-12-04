@@ -96,6 +96,10 @@
             <ClubBattleRecords inline />
           </n-tab-pane>
 
+          <n-tab-pane name="history" tab="俱乐部历史战绩" display-directive="show:lazy">
+            <ClubHistoryRecords inline />
+          </n-tab-pane>
+
           
         </n-tabs>
       </div>
@@ -108,6 +112,7 @@ import { ref, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import ClubBattleRecords from './ClubBattleRecords.vue'
+import ClubHistoryRecords from './ClubHistoryRecords.vue'
 
 const tokenStore = useTokenStore()
 const message = useMessage()

@@ -55,7 +55,7 @@
                   <div class="value">{{ memberCount }}</div>
                 </div>
                 <div class="item">
-                  <div class="label">红洗次数</div>
+                  <div class="label">红粹数量</div>
                   <div class="value">{{ clubOverview.redQuench }}</div>
                 </div>
 

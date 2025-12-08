@@ -362,7 +362,10 @@ const fetchBattleRecords = async () => {
         const result = await tokenStore.sendMessageWithPromise(tokenId, "legionwar_getdetails", { date: queryDate.value }, 10000);
 
         if (result && result.roleDetailsList) {
-            battleRecords.value = result;
+            battleRecords.value = result.roleDetailsList.sort((a, b) => {
+                return b.winCnt - a.winCnt;
+            });
+            console.log("🚀 ~ fetchBattleRecords ~ battleRecords.value:", battleRecords.value);
             message.success("战绩加载成功");
         } else {
             battleRecords.value = null;

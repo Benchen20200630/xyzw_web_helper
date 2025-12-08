@@ -276,7 +276,9 @@ const showModal = computed({
 });
 
 const loading = ref(false);
-const battleRecords = ref(null);
+const battleRecords = ref({
+    roleDetailsList: [],
+});
 const expandedMembers = ref(new Set());
 const queryDate = ref("");
 
@@ -362,7 +364,7 @@ const fetchBattleRecords = async () => {
         const result = await tokenStore.sendMessageWithPromise(tokenId, "legionwar_getdetails", { date: queryDate.value }, 10000);
 
         if (result && result.roleDetailsList) {
-            battleRecords.value = result.roleDetailsList.sort((a, b) => {
+            battleRecords.value.roleDetailsList = result.roleDetailsList.sort((a, b) => {
                 return b.winCnt - a.winCnt;
             });
             console.log("🚀 ~ fetchBattleRecords ~ battleRecords.value:", battleRecords.value);

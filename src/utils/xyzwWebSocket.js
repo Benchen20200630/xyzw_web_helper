@@ -124,6 +124,7 @@ export function registerDefaultCommands(reg) {
 
     // 竞技场
     .register("arena_startarea")
+    .register("fight_startlevel") // 获取 battleVersion
     .register("arena_getareatarget", { refresh: false })
 
     // 商店
@@ -210,7 +211,8 @@ export function registerDefaultCommands(reg) {
     if (params?.targetId === undefined || params?.targetId === null) {
       throw new Error("fight_startareaarena requires targetId in params")
     }
-    const payload = { battleVersion: 240475, ...params }
+    // battleVersion 由调用方通过 params 传入
+    const payload = { ...params }
     const body = registry.encoder?.bon?.encode
       ? registry.encoder.bon.encode(payload)
       : payload
@@ -225,7 +227,8 @@ export function registerDefaultCommands(reg) {
   })
 
   registry.commands.set("fight_startpvp", (ack = 0, seq = 0, params = {}) => {
-    const payload = { battleVersion: 240475, ...params }
+    // battleVersion 由调用方通过 params 传入
+    const payload = { ...params }
     const body = registry.encoder?.bon?.encode
       ? registry.encoder.bon.encode(payload)
       : payload
@@ -335,7 +338,7 @@ export class XyzwWebSocketClient {
               // 更新 ack 为服务端最新的 seq（若存在）
               const actualPacket = packet._raw || packet
               const incomingSeq = (typeof actualPacket?.seq === 'number') ? actualPacket.seq :
-                                   (typeof packet?.seq === 'number') ? packet.seq : undefined
+                (typeof packet?.seq === 'number') ? packet.seq : undefined
               if (typeof incomingSeq === 'number' && incomingSeq >= 0) {
                 this.ack = incomingSeq
               }
@@ -375,7 +378,7 @@ export class XyzwWebSocketClient {
 
           // 更新 ack 为服务端最新的 seq（若存在）
           const incomingSeq = (typeof actualPacket.seq === 'number') ? actualPacket.seq :
-                               (typeof packet.seq === 'number') ? packet.seq : undefined
+            (typeof packet.seq === 'number') ? packet.seq : undefined
           if (typeof incomingSeq === 'number' && incomingSeq >= 0) {
             this.ack = incomingSeq
           }
@@ -751,8 +754,8 @@ export class XyzwWebSocketClient {
 
       // 获取响应数据，优先使用 rawData（ProtoMsg 自动解码），然后 decodedBody（手动解码），最后 body
       const responseBody = packet.rawData !== undefined ? packet.rawData :
-                         packet.decodedBody !== undefined ? packet.decodedBody :
-                         packet.body
+        packet.decodedBody !== undefined ? packet.decodedBody :
+          packet.body
 
       if (packet.code === 0 || packet.code === undefined) {
         promiseData.resolve(responseBody || packet)
@@ -770,7 +773,7 @@ export class XyzwWebSocketClient {
     // 命令到响应的映射 - 处理响应命令与原始命令不匹配的情况
     const responseToCommandMap = {
       // 1:1 响应映射（优先级高）
-      'studyresp':'study_startgame',
+      'studyresp': 'study_startgame',
       'role_getroleinforesp': 'role_getroleinfo',
       'hero_recruitresp': 'hero_recruit',
       'friend_batchresp': 'friend_batch',
@@ -813,7 +816,7 @@ export class XyzwWebSocketClient {
       // 同步响应映射（优先级低）
       'syncresp': ['system_mysharecallback', 'task_claimdailypoint'],
       'syncrewardresp': ['system_buygold', 'discount_claimreward', 'card_claimreward',
-                        'artifact_lottery', 'genie_sweep', 'genie_buysweep','system_signinreward']
+        'artifact_lottery', 'genie_sweep', 'genie_buysweep', 'system_signinreward']
     }
 
     // 获取原始命令名（支持一对一和一对多映射）
@@ -833,8 +836,8 @@ export class XyzwWebSocketClient {
 
         // 获取响应数据，优先使用 rawData（ProtoMsg 自动解码），然后 decodedBody（手动解码），最后 body
         const responseBody = packet.rawData !== undefined ? packet.rawData :
-                           packet.decodedBody !== undefined ? packet.decodedBody :
-                           packet.body
+          packet.decodedBody !== undefined ? packet.decodedBody :
+            packet.body
 
         if (packet.code === 0 || packet.code === undefined) {
           promiseData.resolve(responseBody || packet)

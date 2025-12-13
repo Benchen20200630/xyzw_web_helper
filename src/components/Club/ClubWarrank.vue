@@ -144,7 +144,7 @@ const handleImageError = (event) => {
 
 
 const disabledDate = current => {
-    return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
+    return (current.getDay() != 6) || current > Date.now()
 }
 
 //日期选择时调用查询战绩方法

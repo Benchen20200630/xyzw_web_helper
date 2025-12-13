@@ -499,8 +499,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  margin-top: 10px;
-  margin-bottom: 10px;
+  padding: 10px;
 }
 
 .records-info {

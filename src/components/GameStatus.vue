@@ -9,6 +9,10 @@
       <n-tab-pane name="club" tab="俱乐部" />
       <n-tab-pane name="activity" tab="活动" />
       <n-tab-pane v-if="ENABLE_TOOLS_TAB" name="tools" tab="工具" />
+	  <n-tab-pane name="warrank" tab="盐场" />
+	  <n-tab-pane name="toprank" tab="巅峰榜" />
+	  <n-tab-pane name="topclubrank" tab="俱乐部榜" />
+	  <n-tab-pane name="goldclubrank" tab="黄金积分榜" />
     </n-tabs>
 
     <!-- 阵容（仅日常） -->
@@ -99,6 +103,18 @@
 
     <!-- 咸鱼大冲关（提取组件） -->
     <StudyChallengeCard v-show="activeSection === 'activity'" />
+	
+	<!-- 盐场（提取组件） -->
+	<ClubWarrank v-if="activeSection === 'warrank'" />
+	
+	<!-- 巅峰榜（提取组件） -->
+    <TopRankList v-if="activeSection === 'toprank'" />
+    
+    <!-- 百服俱乐部（提取组件） -->
+    <TopClubList v-if="activeSection === 'topclubrank'" />
+
+    <!-- 黄金积分（提取组件） -->
+    <GoldClubList v-if="activeSection === 'goldclubrank'" />
   </div>
 </template>
 
@@ -115,6 +131,10 @@ import StarUpgradeCard from "./cards/StarUpgradeCard.vue";
 import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";
+import ClubWarrank from './Club/ClubWarrank.vue';
+import TopRankList from './cards/TopRankListPageCard.vue';
+import TopClubList from './cards/TopClubListPageCard.vue';
+import GoldClubList from './cards/GoldRankListPageCard.vue';
 
 const tokenStore = useTokenStore();
 const message = useMessage();
@@ -452,7 +472,7 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .game-status-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--spacing-lg);
   padding: var(--spacing-lg);
 
@@ -465,13 +485,18 @@ onUnmounted(() => {
 
   // 在中等屏幕上确保有足够空间
   @media (max-width: 1200px) {
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
 
   // 在较小屏幕上使用单列布局
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
     gap: var(--spacing-md);
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--spacing-md);
   }
 }
 

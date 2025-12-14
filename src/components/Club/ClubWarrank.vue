@@ -144,7 +144,7 @@ const handleImageError = (event) => {
 
 
 const disabledDate = current => {
-    return (current.getDay() != 6) || current > Date.now()
+    return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
 }
 
 //日期选择时调用查询战绩方法
@@ -176,12 +176,8 @@ const fetchBattleRecordsByDate = val => {
         loading1.value = true
         queryDate.value = formatTimestamp1(inputDate1.value)
 
-        if(gettoday() == queryDate.value&&new Date().getHours()<18){
-          message.error('盐场日18点之前无法获取数据')
-          return
-        }
 
-         if (gettoday() == queryDate.value && new Date().getHours()<20) {
+         if (gettoday() == queryDate.value ) {
             const getbattlefield = await tokenStore.sendMessageWithPromise(tokenId, 'legion_getbattlefield', {}, 10000)
             if (!getbattlefield.info) {
                 battleRecords1.value = null;

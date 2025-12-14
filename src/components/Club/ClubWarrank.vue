@@ -177,7 +177,7 @@ const fetchBattleRecordsByDate = val => {
         queryDate.value = formatTimestamp1(inputDate1.value)
 
 
-         if (gettoday() == queryDate.value ) {
+         if (gettoday() == queryDate.value && new Date().getHours()<20) {
             const getbattlefield = await tokenStore.sendMessageWithPromise(tokenId, 'legion_getbattlefield', {}, 10000)
             if (!getbattlefield.info) {
                 battleRecords1.value = null;

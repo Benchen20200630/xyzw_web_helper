@@ -122,7 +122,7 @@ const defaultAvatars = [
   "/icons/1736425783912140.png",
   "/icons/173746572831736.png",
   "/icons/174023274867420.png",
-];
+].map(path => import.meta.env.BASE_URL + path.replace(/^\//, ''));
 const roleAvatar = ref("");
 const selectedDefaultAvatar = ref("");
 

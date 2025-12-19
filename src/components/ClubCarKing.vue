@@ -42,9 +42,9 @@
             <div class="kv" v-if="c.level != null"><span class="k">等级</span><span class="v">{{ c.level }}</span></div>
             <div class="kv" v-if="c.star != null"><span class="k">星级</span><span class="v">{{ c.star }}</span></div>
             <div class="kv"><span class="k">状态</span><span class="v">{{ Number(c.sendAt || 0) === 0 ? '未发车' : '已发车'
-                }}</span></div>
+            }}</span></div>
             <div class="kv"><span class="k">帮手</span><span class="v">{{ Number(c.color || 0) >= 5 ? '可携带' : '—'
-                }}</span></div>
+            }}</span></div>
             <div class="kv" v-if="isBigPrize(c.rewards)"><span class="k">奖励</span><span class="v"
                 style="color:#f59e0b">包含大奖</span></div>
           </div>
@@ -165,7 +165,8 @@ const gradeIcon = (color) => {
     5: '/icons/保时捷.svg',
     6: '/icons/兰博基尼.svg'
   }
-  return map[color] || '/icons/大众.svg'
+  const path = map[color] || '/icons/大众.svg'
+  return import.meta.env.BASE_URL + path.replace(/^\//, '')
 }
 
 // —— 奖励与发车策略 ——

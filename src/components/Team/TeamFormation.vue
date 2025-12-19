@@ -192,13 +192,15 @@ const currentTeamHeroes = computed(() => {
     const hid = (hero as any)?.heroId ?? (hero as any)?.id;
     if (!hid) continue;
     const meta = HERO_DICT[Number(hid)];
+    const avatarPath = meta?.avatar;
+    const fullAvatarPath = avatarPath ? (import.meta.env.BASE_URL + avatarPath.replace(/^\//, '')) : undefined;
     heroes.push({
       id: Number(hid),
       name: meta?.name ?? `英雄${hid}`,
       type: meta?.type ?? "",
       position: Number(pos),
       level: (hero as any)?.level ?? 1,
-      avatar: meta?.avatar,
+      avatar: fullAvatarPath
     });
   }
   heroes.sort((a, b) => a.position - b.position);

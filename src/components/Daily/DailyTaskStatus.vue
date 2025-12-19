@@ -541,6 +541,15 @@ const executeDailyTasks = async (roleInfoResp, logFn, progressFn) => {
     })
   }
 
+  // 盐罐重新计时先停止计时，再开始计时
+  taskList.push({
+    name: '停止盐罐计时',
+    execute: () => executeGameCommand(tokenId, 'bottlehelper_stop', {}, '停止盐罐计时')
+  })
+  taskList.push({
+    name: '开始盐罐计时',
+    execute: () => executeGameCommand(tokenId, 'bottlehelper_start', {}, '开始盐罐计时')
+  })
   // 盐罐 (任务ID: 14)
   if (!isTaskCompleted(14) && settings.claimBottle) {
     taskList.push({

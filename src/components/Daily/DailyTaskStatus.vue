@@ -52,7 +52,7 @@
     </div>
 
     <!-- 任务设置模态框 -->
-    <n-modal v-model:show="showSettings" preset="card" title="任务设置" style="width: 400px">
+    <n-modal v-model:show="showSettings" preset="card" title="任务设置" style="width: 90%; max-width: 400px">
       <template #header>
         <div class="modal-header">
           <n-icon>
@@ -123,7 +123,7 @@
     </n-modal>
 
     <!-- 任务详情模态框 -->
-    <n-modal v-model:show="showTaskDetails" preset="card" title="每日任务详情" style="width: 400px">
+    <n-modal v-model:show="showTaskDetails" preset="card" title="每日任务详情" style="width: 90%; max-width: 400px">
       <template #header>
         <div class="modal-header">
           <n-icon>
@@ -156,7 +156,7 @@
     </n-modal>
 
     <!-- 执行日志模态框 -->
-    <n-modal v-model:show="showLog" preset="card" title="任务执行日志" style="width: 500px">
+    <n-modal v-model:show="showLog" preset="card" title="任务执行日志" style="width: 90%; max-width: 500px">
       <template #header>
         <div class="modal-header">
           <n-icon>
@@ -1252,14 +1252,19 @@ onBeforeUnmount(() => {
 
 // 响应式设计
 @media (max-width: 768px) {
-  .task-header {
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    text-align: center;
+  .daily-task {
+    padding: var(--spacing-md);
+    min-height: auto;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
   }
 
   .header-right {
-    justify-content: center;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: var(--spacing-sm);
   }
 }
 </style>

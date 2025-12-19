@@ -1,5 +1,5 @@
 <template>
-  <div class="game-status-container" :class="activeSection === 'fightPvp'?'full-grid':''">
+  <div class="game-status-container" :class="activeSection === 'fightPvp' ? 'full-grid' : ''">
     <!-- 身份牌常驻（嵌入式，Tabs 上方） -->
     <IdentityCard embedded />
 
@@ -104,21 +104,21 @@
 
     <!-- 咸鱼大冲关（提取组件） -->
     <StudyChallengeCard v-show="activeSection === 'activity'" />
-	
-	<!-- 盐场（提取组件） -->
-	<ClubWarrank v-if="activeSection === 'warrank'" />
-	
-	<!-- 巅峰榜（提取组件） -->
+
+    <!-- 盐场（提取组件） -->
+    <ClubWarrank v-if="activeSection === 'warrank'" />
+
+    <!-- 巅峰榜（提取组件） -->
     <TopRankList v-if="activeSection === 'toprank'" />
-    
+
     <!-- 百服俱乐部（提取组件） -->
     <TopClubList v-if="activeSection === 'topclubrank'" />
 
     <!-- 黄金积分（提取组件） -->
     <GoldClubList v-if="activeSection === 'goldclubrank'" />
-    
+
     <!-- 切磋（提取组件） -->
-    <fightPvp v-if="activeSection === 'fightPvp'"  />
+    <fightPvp v-if="activeSection === 'fightPvp'" />
   </div>
 </template>
 
@@ -501,11 +501,13 @@ onUnmounted(() => {
 
   @media (max-width: 768px) {
     grid-template-columns: minmax(0, 1fr);
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
+    gap: var(--spacing-md);
   }
 }
-.full-grid{
-    grid-template-columns: repeat(1, 1fr);     
+
+.full-grid {
+  grid-template-columns: repeat(1, 1fr);
 }
 
 .section-header {
@@ -513,7 +515,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px var(--spacing-lg);
+  padding: 8px var(--spacing-sm);
 }
 
 .identity-toggle {
@@ -527,7 +529,7 @@ onUnmounted(() => {
 }
 
 .section-tabs {
-  margin: 0 var(--spacing-lg) var(--spacing-md) var(--spacing-lg);
+  margin: 0 var(--spacing-sm) var(--spacing-md) var(--spacing-sm);
   grid-column: 1 / -1;
   border-bottom: 1px solid var(--border-light);
 }
@@ -659,7 +661,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .game-status-container {
     grid-template-columns: 1fr;
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
   }
 
   .status-card {
@@ -667,9 +669,17 @@ onUnmounted(() => {
   }
 
   .card-header {
-    flex-direction: column;
-    text-align: center;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
+
+    .status-info {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .status-badge {
+      margin-left: auto;
+    }
   }
 }
 </style>

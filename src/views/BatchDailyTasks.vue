@@ -16,9 +16,14 @@
     <!-- Token Selection -->
     <n-card title="账号列表" class="token-list-card">
       <template #header-extra>
-        <n-button size="small" @click="resetBottles" :disabled="isRunning || selectedTokens.length === 0">
-          批量重置罐子
-        </n-button>
+        <n-space>
+          <n-button size="small" @click="claimHangUpRewards" :disabled="isRunning || selectedTokens.length === 0">
+            领取挂机
+          </n-button>
+          <n-button size="small" @click="resetBottles" :disabled="isRunning || selectedTokens.length === 0">
+            重置罐子
+          </n-button>
+        </n-space>
       </template>
       <n-space vertical>
         <n-checkbox :checked="isAllSelected" :indeterminate="isIndeterminate" @update:checked="handleSelectAll">
@@ -299,6 +304,77 @@ const resetBottles = async () => {
   isRunning.value = false
   currentRunningTokenId.value = null
   message.success('批量重置罐子结束')
+}
+
+const claimHangUpRewards = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始领取挂机: ${token.name} ===`, type: 'info' })
+
+      // Ensure connection
+      let status = tokenStore.getWebSocketStatus(tokenId)
+      if (status !== 'connected') {
+        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
+        const latestToken = tokens.value.find(t => t.id === tokenId)
+        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
+        const connected = await waitForConnection(tokenId)
+        if (!connected) {
+          throw new Error('连接超时')
+        }
+      }
+
+      // Execute commands
+      // 1. Add time 4 times
+      for (let i = 0; i < 4; i++) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `挂机加钟 ${i + 1}/4`, type: 'info' })
+        await tokenStore.sendMessageWithPromise(tokenId, 'system_mysharecallback', { isSkipShareCard: true, type: 2 }, 5000)
+        await new Promise(r => setTimeout(r, 500))
+      }
+
+      // 2. Claim reward
+      addLog({ time: new Date().toLocaleTimeString(), message: `领取挂机奖励`, type: 'info' })
+      await tokenStore.sendMessageWithPromise(tokenId, 'system_claimhangupreward', {}, 5000)
+      await new Promise(r => setTimeout(r, 500))
+
+      // 3. Add time 1 more time
+      addLog({ time: new Date().toLocaleTimeString(), message: `挂机加钟 5/5`, type: 'info' })
+      await tokenStore.sendMessageWithPromise(tokenId, 'system_mysharecallback', { isSkipShareCard: true, type: 2 }, 5000)
+
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 领取完成 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `领取失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量领取挂机结束')
 }
 
 const startBatch = async () => {

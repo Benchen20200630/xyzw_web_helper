@@ -23,6 +23,9 @@
           <n-button size="small" @click="resetBottles" :disabled="isRunning || selectedTokens.length === 0">
             重置罐子
           </n-button>
+          <n-button size="small" @click="climbTower" :disabled="isRunning || selectedTokens.length === 0">
+            一键爬塔
+          </n-button>
         </n-space>
       </template>
       <n-space vertical>
@@ -375,6 +378,110 @@ const claimHangUpRewards = async () => {
   isRunning.value = false
   currentRunningTokenId.value = null
   message.success('批量领取挂机结束')
+}
+
+const climbTower = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始爬塔: ${token.name} ===`, type: 'info' })
+
+      // Ensure connection
+      let status = tokenStore.getWebSocketStatus(tokenId)
+      if (status !== 'connected') {
+        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
+        const latestToken = tokens.value.find(t => t.id === tokenId)
+        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
+        const connected = await waitForConnection(tokenId)
+        if (!connected) {
+          throw new Error('连接超时')
+        }
+      }
+
+      // Initial check
+      let roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
+      let energy = roleInfo?.role?.tower?.energy || 0
+      addLog({ time: new Date().toLocaleTimeString(), message: `初始体力: ${energy}`, type: 'info' })
+
+      let count = 0
+      const MAX_CLIMB = 100
+      let consecutiveFailures = 0
+
+      while (energy > 0 && count < MAX_CLIMB) {
+        if (shouldStop.value) break
+
+        try {
+          await tokenStore.sendMessageWithPromise(tokenId, 'fight_starttower', {}, 5000)
+          count++
+          consecutiveFailures = 0
+          addLog({ time: new Date().toLocaleTimeString(), message: `爬塔第 ${count} 次`, type: 'info' })
+
+          await new Promise(r => setTimeout(r, 1500))
+
+          // Refresh energy
+          roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
+          energy = roleInfo?.role?.tower?.energy || 0
+        } catch (err) {
+          // Check for specific error code indicating no energy/attempts left
+          if (err.message && err.message.includes('200400')) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `爬塔次数已用完 (200400)`, type: 'info' })
+            break
+          }
+
+          consecutiveFailures++
+          addLog({ time: new Date().toLocaleTimeString(), message: `战斗出错: ${err.message} (重试 ${consecutiveFailures}/3)`, type: 'warning' })
+
+          if (consecutiveFailures >= 3) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `连续失败次数过多，停止爬塔`, type: 'error' })
+            break
+          }
+
+          await new Promise(r => setTimeout(r, 2000))
+
+          // 尝试刷新体力，防止因体力不足导致的错误死循环
+          try {
+            roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
+            energy = roleInfo?.role?.tower?.energy || 0
+          } catch (e) {
+            // 忽略刷新失败
+          }
+        }
+      }
+
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 爬塔结束，共 ${count} 次 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `爬塔失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量爬塔结束')
 }
 
 const startBatch = async () => {

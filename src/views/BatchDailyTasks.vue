@@ -15,6 +15,11 @@
 
     <!-- Token Selection -->
     <n-card title="账号列表" class="token-list-card">
+      <template #header-extra>
+        <n-button size="small" @click="resetBottles" :disabled="isRunning || selectedTokens.length === 0">
+          批量重置罐子
+        </n-button>
+      </template>
       <n-space vertical>
         <n-checkbox :checked="isAllSelected" :indeterminate="isIndeterminate" @update:checked="handleSelectAll">
           全选
@@ -231,6 +236,69 @@ const waitForConnection = async (tokenId, timeout = 10000) => {
     await new Promise(r => setTimeout(r, 500))
   }
   return false
+}
+
+const resetBottles = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始重置罐子: ${token.name} ===`, type: 'info' })
+
+      // Ensure connection
+      let status = tokenStore.getWebSocketStatus(tokenId)
+      if (status !== 'connected') {
+        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
+        const latestToken = tokens.value.find(t => t.id === tokenId)
+        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
+        const connected = await waitForConnection(tokenId)
+        if (!connected) {
+          throw new Error('连接超时')
+        }
+      }
+
+      // Execute commands
+      addLog({ time: new Date().toLocaleTimeString(), message: `停止计时...`, type: 'info' })
+      await tokenStore.sendMessageWithPromise(tokenId, 'bottlehelper_stop', {}, 5000)
+
+      await new Promise(r => setTimeout(r, 500))
+
+      addLog({ time: new Date().toLocaleTimeString(), message: `开始计时...`, type: 'info' })
+      await tokenStore.sendMessageWithPromise(tokenId, 'bottlehelper_start', {}, 5000)
+
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 重置完成 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `重置失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量重置罐子结束')
 }
 
 const startBatch = async () => {

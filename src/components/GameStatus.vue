@@ -42,6 +42,10 @@
 
     <!-- 升星助手（提取组件） -->
     <StarUpgradeCard v-if="activeSection === 'tools'" />
+	
+	<!-- 竞技场助手（提取组件） -->
+    <FightHelperCard v-if="activeSection === 'tools'" />
+	
     <!-- 俱乐部排位（暂时隐藏） -->
     <div class="status-card legion-match" v-if="ENABLE_LEGION_MATCH && activeSection === 'club'">
       <div class="card-header">
@@ -140,7 +144,7 @@ import TopRankList from './cards/TopRankListPageCard.vue';
 import TopClubList from './cards/TopClubListPageCard.vue';
 import GoldClubList from './cards/GoldRankListPageCard.vue';
 import FightPvp from './cards/FightPvp.vue';
-
+import FightHelperCard from './cards/FightHelperCard.vue';
 const tokenStore = useTokenStore();
 const message = useMessage();
 

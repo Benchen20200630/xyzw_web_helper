@@ -428,6 +428,8 @@ const climbTower = async () => {
       await ensureConnection(tokenId)
 
       // Initial check
+      // 模仿 TowerStatus.vue 的逻辑，同时请求 tower_getinfo 和 role_getroleinfo
+      await tokenStore.sendMessageWithPromise(tokenId, 'tower_getinfo', {}, 5000).catch(() => { })
       let roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
       let energy = roleInfo?.role?.tower?.energy || 0
       addLog({ time: new Date().toLocaleTimeString(), message: `初始体力: ${energy}`, type: 'info' })
@@ -445,11 +447,17 @@ const climbTower = async () => {
           consecutiveFailures = 0
           addLog({ time: new Date().toLocaleTimeString(), message: `爬塔第 ${count} 次`, type: 'info' })
 
-          await new Promise(r => setTimeout(r, 1500))
+          // 增加等待时间，确保服务器数据更新
+          await new Promise(r => setTimeout(r, 2000))
 
-          // Refresh energy
+          // Refresh energy - 同时发送 tower_getinfo 以确保数据最新
+          tokenStore.sendMessage(tokenId, 'tower_getinfo')
           roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
-          energy = roleInfo?.role?.tower?.energy || 0
+
+          // 优先从 store 中获取最新的（虽然 sendGetRoleInfo 返回的也是最新的，但双重保险）
+          const storeRoleInfo = tokenStore.gameData?.roleInfo
+          energy = storeRoleInfo?.role?.tower?.energy ?? roleInfo?.role?.tower?.energy ?? 0
+
         } catch (err) {
           // Check for specific error code indicating no energy/attempts left
           if (err.message && err.message.includes('200400')) {

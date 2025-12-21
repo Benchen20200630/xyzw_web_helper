@@ -3,6 +3,14 @@ import { useTokenStore } from '@/stores/tokenStore'
 
 // 辅助函数
 const pickArenaTargetId = (targets) => {
+  if (!targets) return null
+
+  // Handle if targets is an array directly
+  if (Array.isArray(targets)) {
+    const candidate = targets[0]
+    return candidate?.roleId || candidate?.id || candidate?.targetId
+  }
+
   const candidate =
     targets?.rankList?.[0] ||
     targets?.roleList?.[0] ||
@@ -10,9 +18,13 @@ const pickArenaTargetId = (targets) => {
     targets?.targetList?.[0] ||
     targets?.list?.[0]
 
-  if (candidate?.roleId) return candidate.roleId
-  if (candidate?.id) return candidate.id
-  return targets?.roleId || targets?.id
+  if (candidate) {
+    if (candidate.roleId) return candidate.roleId
+    if (candidate.id) return candidate.id
+    if (candidate.targetId) return candidate.targetId
+  }
+
+  return targets?.roleId || targets?.id || targets?.targetId
 }
 
 const isTodayAvailable = (statisticsTime) => {
@@ -266,7 +278,7 @@ export class DailyTaskRunner {
             if (targetId) {
               await this.executeGameCommand(tokenId, 'fight_startareaarena', { targetId }, `竞技场战斗${i}`, 10000)
             } else {
-              this.log(`竞技场战斗${i} - 未找到目标`, 'warning')
+              this.log(`竞技场战斗${i} - 未找到目标: ${JSON.stringify(targets)}`, 'warning')
             }
             await new Promise(resolve => setTimeout(resolve, 1000))
           }

@@ -270,17 +270,7 @@ const resetBottles = async () => {
     try {
       addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始重置罐子: ${token.name} ===`, type: 'info' })
 
-      // Ensure connection
-      let status = tokenStore.getWebSocketStatus(tokenId)
-      if (status !== 'connected') {
-        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
-        const latestToken = tokens.value.find(t => t.id === tokenId)
-        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
-        const connected = await waitForConnection(tokenId)
-        if (!connected) {
-          throw new Error('连接超时')
-        }
-      }
+      await ensureConnection(tokenId)
 
       // Execute commands
       addLog({ time: new Date().toLocaleTimeString(), message: `停止计时...`, type: 'info' })
@@ -333,17 +323,7 @@ const claimHangUpRewards = async () => {
     try {
       addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始领取挂机: ${token.name} ===`, type: 'info' })
 
-      // Ensure connection
-      let status = tokenStore.getWebSocketStatus(tokenId)
-      if (status !== 'connected') {
-        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
-        const latestToken = tokens.value.find(t => t.id === tokenId)
-        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
-        const connected = await waitForConnection(tokenId)
-        if (!connected) {
-          throw new Error('连接超时')
-        }
-      }
+      await ensureConnection(tokenId)
 
       // Execute commands
       // 1. Add time 4 times
@@ -380,6 +360,47 @@ const claimHangUpRewards = async () => {
   message.success('批量领取挂机结束')
 }
 
+const ensureConnection = async (tokenId) => {
+  // Always fetch the latest token data from the store
+  const latestToken = tokens.value.find(t => t.id === tokenId)
+
+  // 1. Check current status
+  let status = tokenStore.getWebSocketStatus(tokenId)
+
+  // 2. If not connected, try to connect
+  if (status !== 'connected') {
+    addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
+    tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
+    const connected = await waitForConnection(tokenId)
+    if (connected) return true
+
+    // First attempt failed
+    addLog({ time: new Date().toLocaleTimeString(), message: `连接超时，尝试重连...`, type: 'warning' })
+  } else {
+    // Already connected...
+    return true
+  }
+
+  // 3. Retry connection (Force reconnect)
+  // Close existing if any
+  tokenStore.closeWebSocketConnection(tokenId)
+  await new Promise(r => setTimeout(r, 2000)) // Wait longer for cleanup
+
+  addLog({ time: new Date().toLocaleTimeString(), message: `正在重连...`, type: 'info' })
+
+  // Re-fetch token again just in case it was updated during the wait
+  const refreshedToken = tokens.value.find(t => t.id === tokenId)
+  tokenStore.createWebSocketConnection(tokenId, refreshedToken.token, refreshedToken.wsUrl)
+
+  const connected = await waitForConnection(tokenId)
+
+  if (!connected) {
+    throw new Error('连接失败 (重试后仍超时)')
+  }
+
+  return true
+}
+
 const climbTower = async () => {
   if (selectedTokens.value.length === 0) return
 
@@ -404,17 +425,7 @@ const climbTower = async () => {
     try {
       addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始爬塔: ${token.name} ===`, type: 'info' })
 
-      // Ensure connection
-      let status = tokenStore.getWebSocketStatus(tokenId)
-      if (status !== 'connected') {
-        addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
-        const latestToken = tokens.value.find(t => t.id === tokenId)
-        tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
-        const connected = await waitForConnection(tokenId)
-        if (!connected) {
-          throw new Error('连接超时')
-        }
-      }
+      await ensureConnection(tokenId)
 
       // Initial check
       let roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
@@ -517,24 +528,7 @@ const startBatch = async () => {
           addLog({ time: new Date().toLocaleTimeString(), message: `=== 尝试重试: ${token.name} (第${retryCount}次) ===`, type: 'info' })
         }
 
-        // Ensure connection (Force reconnect on retry to use potentially updated token)
-        let status = tokenStore.getWebSocketStatus(tokenId)
-        if (status !== 'connected' || retryCount > 0) {
-          if (status === 'connected') {
-            addLog({ time: new Date().toLocaleTimeString(), message: `断开旧连接...`, type: 'info' })
-            tokenStore.closeWebSocketConnection(tokenId)
-            await new Promise(r => setTimeout(r, 500))
-          }
-
-          addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
-          // Always get the latest token data from store in case it was updated
-          const latestToken = tokens.value.find(t => t.id === tokenId)
-          tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
-          const connected = await waitForConnection(tokenId)
-          if (!connected) {
-            throw new Error('连接超时')
-          }
-        }
+        await ensureConnection(tokenId)
 
         // Run tasks
         await runner.run(tokenId, {

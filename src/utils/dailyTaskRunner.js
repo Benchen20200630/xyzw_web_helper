@@ -29,8 +29,12 @@ const pickArenaTargetId = (targets) => {
 
 const isTodayAvailable = (statisticsTime) => {
   if (!statisticsTime) return true
+
+  // 如果有时间戳，检查是否为今天
   const today = new Date().toDateString()
-  const recordDate = new Date(statisticsTime).toDateString()
+  //系统返回得时间戳是秒，要转换成毫秒
+  const recordDate = new Date(statisticsTime * 1000).toDateString()
+
   return today !== recordDate
 }
 

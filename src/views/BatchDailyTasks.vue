@@ -370,47 +370,52 @@ const ensureConnection = async (tokenId) => {
 
   // 1. Check current status
   let status = tokenStore.getWebSocketStatus(tokenId)
+  let connected = status === 'connected'
 
   // 2. If not connected, try to connect
-  if (status !== 'connected') {
+  if (!connected) {
     addLog({ time: new Date().toLocaleTimeString(), message: `正在连接...`, type: 'info' })
     tokenStore.createWebSocketConnection(tokenId, latestToken.token, latestToken.wsUrl)
-    const connected = await waitForConnection(tokenId)
-    if (connected) return true
+    connected = await waitForConnection(tokenId)
 
-    // First attempt failed
-    addLog({ time: new Date().toLocaleTimeString(), message: `连接超时，尝试重连...`, type: 'warning' })
-  } else {
-    // Already connected...
-    return true
+    if (!connected) {
+      // First attempt failed
+      addLog({ time: new Date().toLocaleTimeString(), message: `连接超时，尝试重连...`, type: 'warning' })
+
+      // 3. Retry connection (Force reconnect)
+      tokenStore.closeWebSocketConnection(tokenId)
+      await new Promise(r => setTimeout(r, 2000)) // Wait longer for cleanup
+
+      addLog({ time: new Date().toLocaleTimeString(), message: `正在重连...`, type: 'info' })
+
+      // Re-fetch token again just in case it was updated during the wait
+      const refreshedToken = tokens.value.find(t => t.id === tokenId)
+      tokenStore.createWebSocketConnection(tokenId, refreshedToken.token, refreshedToken.wsUrl)
+
+      connected = await waitForConnection(tokenId)
+    }
   }
-
-  // 3. Retry connection (Force reconnect)
-  // Close existing if any
-  tokenStore.closeWebSocketConnection(tokenId)
-  await new Promise(r => setTimeout(r, 2000)) // Wait longer for cleanup
-
-  addLog({ time: new Date().toLocaleTimeString(), message: `正在重连...`, type: 'info' })
-
-  // Re-fetch token again just in case it was updated during the wait
-  const refreshedToken = tokens.value.find(t => t.id === tokenId)
-  tokenStore.createWebSocketConnection(tokenId, refreshedToken.token, refreshedToken.wsUrl)
-
-  const connected = await waitForConnection(tokenId)
 
   if (!connected) {
     throw new Error('连接失败 (重试后仍超时)')
   }
 
-  // Initialize battle version
+  // Initialize Game Data (Critical for Battle Version and Session)
   try {
+    // Fetch Role Info first (Standard flow)
+    await tokenStore.sendMessageWithPromise(tokenId, "role_getroleinfo", {}, 5000);
+
+    // Fetch other infos
+    tokenStore.sendMessage(tokenId, "tower_getinfo");
+    tokenStore.sendMessage(tokenId, "presetteam_getinfo");
+
+    // Fetch Battle Version
     const res = await tokenStore.sendMessageWithPromise(tokenId, "fight_startlevel", {}, 5000);
     if (res?.battleData?.version) {
       tokenStore.setBattleVersion(res.battleData.version);
-      // addLog({ time: new Date().toLocaleTimeString(), message: `获取战斗版本: ${res.battleData.version}`, type: 'info' })
     }
   } catch (e) {
-    addLog({ time: new Date().toLocaleTimeString(), message: `获取战斗版本失败: ${e.message}`, type: 'warning' })
+    addLog({ time: new Date().toLocaleTimeString(), message: `初始化数据失败: ${e.message}`, type: 'warning' })
   }
 
   return true

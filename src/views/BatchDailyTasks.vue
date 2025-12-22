@@ -405,10 +405,6 @@ const ensureConnection = async (tokenId) => {
     // Fetch Role Info first (Standard flow)
     await tokenStore.sendMessageWithPromise(tokenId, "role_getroleinfo", {}, 5000);
 
-    // Fetch other infos
-    tokenStore.sendMessage(tokenId, "tower_getinfo");
-    tokenStore.sendMessage(tokenId, "presetteam_getinfo");
-
     // Fetch Battle Version
     const res = await tokenStore.sendMessageWithPromise(tokenId, "fight_startlevel", {}, 5000);
     if (res?.battleData?.version) {

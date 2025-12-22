@@ -26,6 +26,9 @@
           <n-button size="small" @click="climbTower" :disabled="isRunning || selectedTokens.length === 0">
             一键爬塔
           </n-button>
+          <n-button size="small" @click="batchStudy" :disabled="isRunning || selectedTokens.length === 0">
+            一键答题
+          </n-button>
         </n-space>
       </template>
       <n-space vertical>
@@ -117,6 +120,7 @@
 import { ref, computed, nextTick, reactive } from 'vue'
 import { useTokenStore } from '@/stores/tokenStore'
 import { DailyTaskRunner } from '@/utils/dailyTaskRunner'
+import { preloadQuestions } from '@/utils/studyQuestionsFromJSON.js'
 import { useMessage } from 'naive-ui'
 import { Settings } from '@vicons/ionicons5'
 
@@ -501,6 +505,108 @@ const climbTower = async () => {
   isRunning.value = false
   currentRunningTokenId.value = null
   message.success('批量爬塔结束')
+}
+
+const batchStudy = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  // Preload questions
+  addLog({ time: new Date().toLocaleTimeString(), message: `正在加载题库...`, type: 'info' })
+  await preloadQuestions()
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始答题: ${token.name} ===`, type: 'info' })
+
+      await ensureConnection(tokenId)
+
+      // Reset local study status
+      tokenStore.gameData.studyStatus = {
+        isAnswering: false,
+        questionCount: 0,
+        answeredCount: 0,
+        status: '',
+        timestamp: null
+      }
+
+      // Send start command
+      await tokenStore.sendMessageWithPromise(tokenId, 'study_startgame', {}, 5000)
+
+      // Wait for completion
+      let maxWait = 90 // 90 seconds timeout
+      let completed = false
+      let lastStatus = ''
+
+      while (maxWait > 0) {
+        if (shouldStop.value) break
+
+        const status = tokenStore.gameData.studyStatus
+
+        if (status.status !== lastStatus) {
+          lastStatus = status.status
+          if (status.status === 'answering') {
+            addLog({ time: new Date().toLocaleTimeString(), message: `开始答题...`, type: 'info' })
+          } else if (status.status === 'claiming_rewards') {
+            addLog({ time: new Date().toLocaleTimeString(), message: `正在领取奖励...`, type: 'info' })
+          }
+        }
+
+        if (status.status === 'answering' && status.questionCount > 0) {
+          // Update progress log occasionally or just rely on final success
+          // addLog({ time: new Date().toLocaleTimeString(), message: `进度: ${status.answeredCount}/${status.questionCount}`, type: 'info' })
+        }
+
+        if (status.status === 'completed') {
+          completed = true
+          break
+        }
+
+        await new Promise(r => setTimeout(r, 1000))
+        maxWait--
+      }
+
+      if (completed) {
+        tokenStatus.value[tokenId] = 'completed'
+        addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 答题完成 ===`, type: 'success' })
+      } else {
+        if (shouldStop.value) {
+          addLog({ time: new Date().toLocaleTimeString(), message: `已停止`, type: 'warning' })
+        } else {
+          tokenStatus.value[tokenId] = 'failed'
+          addLog({ time: new Date().toLocaleTimeString(), message: `答题超时或未开始`, type: 'error' })
+        }
+      }
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `答题失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量答题结束')
 }
 
 const startBatch = async () => {

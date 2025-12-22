@@ -402,6 +402,17 @@ const ensureConnection = async (tokenId) => {
     throw new Error('连接失败 (重试后仍超时)')
   }
 
+  // Initialize battle version
+  try {
+    const res = await tokenStore.sendMessageWithPromise(tokenId, "fight_startlevel", {}, 5000);
+    if (res?.battleData?.version) {
+      tokenStore.setBattleVersion(res.battleData.version);
+      // addLog({ time: new Date().toLocaleTimeString(), message: `获取战斗版本: ${res.battleData.version}`, type: 'info' })
+    }
+  } catch (e) {
+    addLog({ time: new Date().toLocaleTimeString(), message: `获取战斗版本失败: ${e.message}`, type: 'warning' })
+  }
+
   return true
 }
 

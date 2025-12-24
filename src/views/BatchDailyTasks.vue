@@ -356,9 +356,12 @@ const claimHangUpRewards = async () => {
       await tokenStore.sendMessageWithPromise(tokenId, 'system_claimhangupreward', {}, 5000)
       await new Promise(r => setTimeout(r, 500))
 
-      // 3. Add time 1 more time
-      addLog({ time: new Date().toLocaleTimeString(), message: `挂机加钟 5/5`, type: 'info' })
-      await tokenStore.sendMessageWithPromise(tokenId, 'system_mysharecallback', { isSkipShareCard: true, type: 2 }, 5000)
+      // 3. Add time 4 more time
+      for (let i = 0; i < 4; i++) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `挂机加钟 ${i + 1}/4`, type: 'info' })
+        await tokenStore.sendMessageWithPromise(tokenId, 'system_mysharecallback', { isSkipShareCard: true, type: 2 }, 5000)
+        await new Promise(r => setTimeout(r, 500))
+      }
 
       tokenStatus.value[tokenId] = 'completed'
       addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 领取完成 ===`, type: 'success' })

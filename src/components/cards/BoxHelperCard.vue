@@ -34,6 +34,7 @@
             <a-button type="primary" :disabled="state.isRunning" secondary size="small" block @click="handleBoxHelper">
                 {{ state.isRunning ? "运行中" : "开启宝箱" }}
             </a-button>
+			<a-button type="primary" size="small" @click="batchclaimboxpointreward">领取宝箱积分</a-button>
         </template>
     </MyCard>
 </template>
@@ -108,6 +109,18 @@ const state = ref({
     isRunning: false,
 });
 
+const batchclaimboxpointreward = async () => {
+    if (!tokenStore.selectedToken) {
+        message.warning("请先选择Token");
+        return;
+    }
+    const tokenId = tokenStore.selectedToken.id;
+    await tokenStore.sendMessage(tokenId, "item_batchclaimboxpointreward");
+    await new Promise(r => setTimeout(r, 500))
+    await tokenStore.sendMessage(tokenId, "role_getroleinfo");
+    message.success("宝箱积分领取完毕");
+};
+
 const handleBoxHelper = async () => {
     if (!tokenStore.selectedToken) {
         message.warning("请先选择Token");
@@ -125,6 +138,8 @@ const handleBoxHelper = async () => {
         if (remainder > 0) {
             const result = await tokenStore.sendMessageWithPromise(tokenId, "item_openbox", { itemId: type.value, number: remainder });
         }
+		await tokenStore.sendMessage(tokenId, "item_batchclaimboxpointreward");
+        await new Promise(r => setTimeout(r, 500))
         await tokenStore.sendMessage(tokenId, "role_getroleinfo");
         // 更新活动进度
         tokenStore.sendMessage(tokenId, "activity_get");

@@ -112,6 +112,7 @@
                                     :style="bodyStyle"
                                     title="武将信息"
                                     size="huge"
+                                    :auto-focus="false"
                                     :bordered="false"
                                     :segmented="segmented"
                                 >
@@ -144,34 +145,49 @@
                                         <n-descriptions-item label="武将红数">
                                         {{ heroModealTemp.red }}
                                         </n-descriptions-item>
+                                        <n-descriptions-item label="鱼灵">
+                                        {{ heroModealTemp.PearlInfo?.FishInfo.name !=undefined ? heroModealTemp.PearlInfo?.FishInfo.name:'无' }}
+                                        </n-descriptions-item>
+                                        <n-descriptions-item label="鱼灵洗练">
+                                            <div v-for="item in heroModealTemp.PearlInfo.slotMap" v-if="heroModealTemp.PearlInfo?.slotMap?.length>0"
+                                            class="ModalEquipment"
+                                            :style="'background-color:'+ item.value ">    
+                                            </div>
+                                            <div v-else>
+                                                无
+                                            </div>
+                                        </n-descriptions-item>
+                                        <n-descriptions-item label="鱼珠技能">
+                                        {{ heroModealTemp.PearlInfo?.PearlSkill?.name !=undefined ? heroModealTemp.PearlInfo?.PearlSkill.name:'无' }}
+                                        </n-descriptions-item>
                                     </n-descriptions>
                                     <template #footer>
                                         <n-grid :x-gap="12" :y-gap="8" :cols="2">
                                             <n-gi >
                                                 武器：
                                                 <div v-for="item in Object.values(Object.values(heroModealTemp.equipment)[0].quenches)" 
-                                                style="width: 12px;height: 12px;transform: rotate(45deg);border: 1px solid rgb(167 167 167);display: inline-block;margin-right: 10px;" 
+                                                class="ModalEquipment"
                                                 :style="'background-color:'+ (item.colorId==6?'red':'white') ">    
                                                 </div>
                                             </n-gi>
                                             <n-gi>
                                                 衣服：
                                                 <div v-for="item in Object.values(Object.values(heroModealTemp.equipment)[1].quenches)" 
-                                                style="width: 12px;height: 12px;transform: rotate(45deg);border: 1px solid rgb(167 167 167);display: inline-block;margin-right: 10px;" 
+                                                class="ModalEquipment"
                                                 :style="'background-color:'+ (item.colorId==6?'red':'white') ">    
                                                 </div>
                                             </n-gi>
                                             <n-gi>
                                                 头盔：
                                                 <div v-for="item in Object.values(Object.values(heroModealTemp.equipment)[2].quenches)" 
-                                                style="width: 12px;height: 12px;transform: rotate(45deg);border: 1px solid rgb(167 167 167);display: inline-block;margin-right: 10px;" 
+                                                class="ModalEquipment"
                                                 :style="'background-color:'+ (item.colorId==6?'red':'white') ">    
                                                 </div>
                                             </n-gi>
                                             <n-gi>
                                                 坐骑：
                                                 <div v-for="item in Object.values(Object.values(heroModealTemp.equipment)[3].quenches)" 
-                                                style="width: 12px;height: 12px;transform: rotate(45deg);border: 1px solid rgb(167 167 167);display: inline-block;margin-right: 10px;" 
+                                                class="ModalEquipment"
                                                 :style="'background-color:'+ (item.colorId==6?'red':'white') ">    
                                                 </div>
                                             </n-gi>
@@ -258,6 +274,9 @@ import {
   formatBattleRecordsForExport,
   copyToClipboard
 } from '@/utils/clubBattleUtils'
+import {
+    HeroFillInfo
+} from '@/utils/HeroList'
 import { gettoday, formatWarrankRecordsForExport, allianceincludes } from '@/utils/goldWarrankUtils'
 import html2canvas from 'html2canvas';
 
@@ -559,53 +578,53 @@ const fetchTargetInfo = async () => {
     return
   }
 
-  loading1.value = true
-  queryDate.value = gettoday()
+    loading1.value = true
+    queryDate.value = gettoday()
 
 
-  try {
-    const result = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
-      {
-        bottleType: 0,
-        includeBottleTeam: false,
-        isSearch: false,
-        roleId: targetId.value
-      }, 5000)
-    if (!result.roleInfo && !result.legionInfo) {
-      memberData.value = null;
-      message.warning('未查询到对手信息');
-      return;
+    try {
+        const result = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
+            {
+                bottleType: 0,
+                includeBottleTeam: false,
+                isSearch: false,
+                roleId: targetId.value
+            }, 5000)
+        if (!result.roleInfo && !result.legionInfo) {
+            memberData.value = null;
+            message.warning('未查询到对手信息');
+            return;
+        }
+        const teamData = {};
+        const heroAndholdAndRed = getHeroInfo(result.roleInfo);
+        // 俱乐部名称
+        teamData.legionName = result.legionInfo.name;
+        // 俱乐部当前红数
+        teamData.legionRed = result.legionInfo.statistics['battle:red:quench'];
+        // 俱乐部历史最高红数
+        teamData.legionMaxRed = result.legionInfo.statistics['red:quench'];
+        // 俱乐部历史最高战力
+        teamData.MaxPower = formatPower(result.legionInfo.statistics['max:power']);
+        // 切磋对手武将信息
+        teamData.heroList = heroAndholdAndRed.heroList;
+        // 切磋对手玩家头像
+        teamData.headImg = result.roleInfo.headImg;
+        // 切磋对手玩家名称
+        teamData.name = result.roleInfo.name;
+        teamData.power = formatPower(result.roleInfo.power);
+        teamData.serverName = result.roleInfo.serverName;
+        teamData.hole = heroAndholdAndRed.holeCount;
+        teamData.red = heroAndholdAndRed.redCount;
+        memberData.value = teamData;
+        message.success('对手信息加载成功');
+        return teamData;
+
+    } catch (error) {
+        message.error(`查询失败: ${error.message}`);
+        topranklist.value = null;
+    } finally {
+        loading1.value = false;
     }
-    const teamData = {};
-    const heroAndholdAndRed = getHeroInfo(result.roleInfo.heroes);
-    // 俱乐部名称
-    teamData.legionName = result.legionInfo.name;
-    // 俱乐部当前红数
-    teamData.legionRed = result.legionInfo.statistics['battle:red:quench'];
-    // 俱乐部历史最高红数
-    teamData.legionMaxRed = result.legionInfo.statistics['red:quench'];
-    // 俱乐部历史最高战力
-    teamData.MaxPower = formatPower(result.legionInfo.statistics['max:power']);
-    // 切磋对手武将信息
-    teamData.heroList = heroAndholdAndRed.heroList;
-    // 切磋对手玩家头像
-    teamData.headImg = result.roleInfo.headImg;
-    // 切磋对手玩家名称
-    teamData.name = result.roleInfo.name;
-    teamData.power = formatPower(result.roleInfo.power);
-    teamData.serverName = result.roleInfo.serverName;
-    teamData.hole = heroAndholdAndRed.holeCount;
-    teamData.red = heroAndholdAndRed.redCount;
-    memberData.value = teamData;
-    message.success('对手信息加载成功');
-    return teamData;
-
-  } catch (error) {
-    message.error(`查询失败: ${error.message}`);
-    topranklist.value = null;
-  } finally {
-    loading1.value = false;
-  }
 }
 
 /**
@@ -617,14 +636,17 @@ const getHeroInfo = (heroObj) => {
     let redCount = 0;
     let holeCount = 0;
     let heroList = [];
-    Object.values(heroObj).forEach(hero => {
+    const PearlAndFishMap = HeroFillInfo(heroObj);
+    Object.values(heroObj.heroes).forEach(hero => {
         let heroInfo = HERO_DICT[hero.heroId];
+        let PearlInfo = PearlAndFishMap[hero.artifactId]
         let equipmentInfo = getEquipment(hero.equipment);
         let tempObj = {
             heroId: hero.heroId, //英雄ID
             power: formatPower(hero.power), //英雄战力
             star: hero.star, //英雄星级
             equipment:hero.equipment, //英雄具体孔数和红数
+            PearlInfo:PearlInfo, //鱼和鱼珠信息
             heroName: heroInfo.name, //英雄姓名
             heroAvate: heroInfo.avatar,
             level: hero.level, //英雄等级
@@ -982,6 +1004,14 @@ onMounted(() => {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     transform: translateY(-2px);
   }
+}
+.ModalEquipment{
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    border: 1px solid rgb(167 167 167);
+    display: inline-block;
+    margin-right: 10px;
 }
 
 .card-header {

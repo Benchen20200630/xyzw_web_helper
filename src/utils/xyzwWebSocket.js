@@ -203,6 +203,10 @@ export function registerDefaultCommands(reg) {
     .register("presetteam_saveteam", { teamId: 1 })
     .register("role_gettargetteam")
 
+    // 武将升级相关
+    .register("hero_heroupgradelevel") //武将升级
+    .register("hero_heroupgradeorder") //武将进阶
+
     // 升星相关
     .register("hero_heroupgradestar")
     .register("book_upgrade")
@@ -215,6 +219,7 @@ export function registerDefaultCommands(reg) {
     .register("nightmare_getroleinfo")
 	.register("dungeon_selecthero")
     .register("bosstower_gethelprank")
+    .register("dungeon_buymerchant")
     // 活动/任务
     .register("activity_get")
 	.register("activity_recyclewarorderrewardclaim")

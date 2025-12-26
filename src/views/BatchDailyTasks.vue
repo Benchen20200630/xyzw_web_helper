@@ -42,6 +42,15 @@
           :disabled="isRunning || selectedTokens.length === 0 || !isCarActivityOpen">
           一键收车
         </n-button>
+        <n-button size="small" @click="openHelperModal('box')" :disabled="isRunning || selectedTokens.length === 0">
+          批量开箱
+        </n-button>
+        <n-button size="small" @click="openHelperModal('fish')" :disabled="isRunning || selectedTokens.length === 0">
+          批量钓鱼
+        </n-button>
+        <n-button size="small" @click="openHelperModal('recruit')" :disabled="isRunning || selectedTokens.length === 0">
+          批量招募
+        </n-button>
         <n-button size="small" @click="batchbaoku13" :disabled="isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen">
           一键宝库前3层
         </n-button>
@@ -128,6 +137,31 @@
       </div>
     </n-modal>
 
+    <!-- Helper Modal (开箱/钓鱼/招募) -->
+    <n-modal v-model:show="showHelperModal" preset="card" :title="helperModalTitle"
+      style="width: 90%; max-width: 400px">
+      <div class="settings-content">
+        <div class="settings-grid">
+          <div class="setting-item" v-if="helperType === 'box'">
+            <label class="setting-label">宝箱类型</label>
+            <n-select v-model:value="helperSettings.boxType" :options="boxTypeOptions" size="small" />
+          </div>
+          <div class="setting-item" v-if="helperType === 'fish'">
+            <label class="setting-label">鱼竿类型</label>
+            <n-select v-model:value="helperSettings.fishType" :options="fishTypeOptions" size="small" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">消耗数量（10的倍数）</label>
+            <n-input-number v-model:value="helperSettings.count" :min="10" :max="10000" :step="10" size="small" />
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right;">
+          <n-button @click="showHelperModal = false" style="margin-right: 12px">取消</n-button>
+          <n-button type="primary" @click="executeHelper">开始执行</n-button>
+        </div>
+      </div>
+    </n-modal>
+
     <!-- Progress & Logs -->
     <div class="execution-area" v-if="currentRunningTokenId || logs.length > 0">
       <n-card :title="currentRunningTokenName ? `正在执行: ${currentRunningTokenName}` : '执行日志'" style="margin-top: 16px">
@@ -195,6 +229,53 @@ const currentSettings = reactive({
   claimEmail: true,
   blackMarketPurchase: true
 })
+
+// Helper Modal State
+const showHelperModal = ref(false)
+const helperType = ref('box') // 'box' | 'fish' | 'recruit'
+const helperSettings = reactive({
+  boxType: 2001,
+  fishType: 1,
+  count: 100
+})
+
+const helperModalTitle = computed(() => {
+  const titles = { box: '批量开宝箱', fish: '批量钓鱼', recruit: '批量招募' }
+  return titles[helperType.value] || '批量助手'
+})
+
+const boxTypeOptions = [
+  { label: '木质宝箱', value: 2001 },
+  { label: '青铜宝箱', value: 2002 },
+  { label: '黄金宝箱', value: 2003 },
+  { label: '铂金宝箱', value: 2004 }
+]
+
+const fishTypeOptions = [
+  { label: '普通鱼竿', value: 1 },
+  { label: '黄金鱼竿', value: 2 }
+]
+
+const openHelperModal = (type) => {
+  helperType.value = type
+  showHelperModal.value = true
+}
+
+const executeHelper = () => {
+  // 验证数量是10的倍数
+  if (helperSettings.count % 10 !== 0 || helperSettings.count < 10) {
+    message.warning('消耗数量必须是10的整数倍，最小为10')
+    return
+  }
+  showHelperModal.value = false
+  if (helperType.value === 'box') {
+    batchOpenBox()
+  } else if (helperType.value === 'fish') {
+    batchFish()
+  } else if (helperType.value === 'recruit') {
+    batchRecruit()
+  }
+}
 
 const formationOptions = [1, 2, 3, 4, 5, 6].map(v => ({ label: `阵容${v}`, value: v }))
 const bossTimesOptions = [0, 1, 2, 3, 4].map(v => ({ label: `${v}次`, value: v }))
@@ -1334,6 +1415,197 @@ const startBatch = async () => {
   isRunning.value = false
   currentRunningTokenId.value = null
   message.success('批量任务执行结束')
+}
+
+// --- 批量助手函数 ---
+const batchOpenBox = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  const boxType = helperSettings.boxType
+  const totalCount = helperSettings.count
+  const batches = Math.floor(totalCount / 10)
+  const remainder = totalCount % 10
+  const boxNames = { 2001: '木质宝箱', 2002: '青铜宝箱', 2003: '黄金宝箱', 2004: '铂金宝箱' }
+
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始批量开箱: ${token.name} ===`, type: 'info' })
+      addLog({ time: new Date().toLocaleTimeString(), message: `宝箱类型: ${boxNames[boxType]}, 数量: ${totalCount}`, type: 'info' })
+
+      await ensureConnection(tokenId)
+
+      for (let i = 0; i < batches; i++) {
+        if (shouldStop.value) break
+        await tokenStore.sendMessageWithPromise(tokenId, 'item_openbox', { itemId: boxType, number: 10 }, 5000)
+        currentProgress.value = Math.floor(((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100)
+        addLog({ time: new Date().toLocaleTimeString(), message: `开箱进度: ${(i + 1) * 10}/${totalCount}`, type: 'info' })
+        await new Promise(r => setTimeout(r, 300))
+      }
+
+      if (remainder > 0 && !shouldStop.value) {
+        await tokenStore.sendMessageWithPromise(tokenId, 'item_openbox', { itemId: boxType, number: remainder }, 5000)
+        addLog({ time: new Date().toLocaleTimeString(), message: `开箱进度: ${totalCount}/${totalCount}`, type: 'info' })
+      }
+
+      await tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 开箱完成 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `开箱失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量开箱结束')
+}
+
+const batchFish = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  const fishType = helperSettings.fishType
+  const totalCount = helperSettings.count
+  const batches = Math.floor(totalCount / 10)
+  const remainder = totalCount % 10
+  const fishNames = { 1: '普通鱼竿', 2: '黄金鱼竿' }
+
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始批量钓鱼: ${token.name} ===`, type: 'info' })
+      addLog({ time: new Date().toLocaleTimeString(), message: `鱼竿类型: ${fishNames[fishType]}, 数量: ${totalCount}`, type: 'info' })
+
+      await ensureConnection(tokenId)
+
+      for (let i = 0; i < batches; i++) {
+        if (shouldStop.value) break
+        await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { type: fishType, lotteryNumber: 10, newFree: true }, 5000)
+        currentProgress.value = Math.floor(((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100)
+        addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼进度: ${(i + 1) * 10}/${totalCount}`, type: 'info' })
+        await new Promise(r => setTimeout(r, 300))
+      }
+
+      if (remainder > 0 && !shouldStop.value) {
+        await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { type: fishType, lotteryNumber: remainder, newFree: true }, 5000)
+        addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼进度: ${totalCount}/${totalCount}`, type: 'info' })
+      }
+
+      await tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 钓鱼完成 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量钓鱼结束')
+}
+
+const batchRecruit = async () => {
+  if (selectedTokens.value.length === 0) return
+
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+
+  const totalCount = helperSettings.count
+  const batches = Math.floor(totalCount / 10)
+  const remainder = totalCount % 10
+
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+
+    const token = tokens.value.find(t => t.id === tokenId)
+
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始批量招募: ${token.name} ===`, type: 'info' })
+      addLog({ time: new Date().toLocaleTimeString(), message: `招募数量: ${totalCount}`, type: 'info' })
+
+      await ensureConnection(tokenId)
+
+      for (let i = 0; i < batches; i++) {
+        if (shouldStop.value) break
+        await tokenStore.sendMessageWithPromise(tokenId, 'hero_recruit', { recruitType: 1, recruitNumber: 10 }, 5000)
+        currentProgress.value = Math.floor(((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100)
+        addLog({ time: new Date().toLocaleTimeString(), message: `招募进度: ${(i + 1) * 10}/${totalCount}`, type: 'info' })
+        await new Promise(r => setTimeout(r, 300))
+      }
+
+      if (remainder > 0 && !shouldStop.value) {
+        await tokenStore.sendMessageWithPromise(tokenId, 'hero_recruit', { recruitType: 1, recruitNumber: remainder }, 5000)
+        addLog({ time: new Date().toLocaleTimeString(), message: `招募进度: ${totalCount}/${totalCount}`, type: 'info' })
+      }
+
+      await tokenStore.sendMessage(tokenId, 'role_getroleinfo')
+      tokenStatus.value[tokenId] = 'completed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== ${token.name} 招募完成 ===`, type: 'success' })
+
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `招募失败: ${error.message}`, type: 'error' })
+    }
+
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量招募结束')
 }
 
 const stopBatch = () => {

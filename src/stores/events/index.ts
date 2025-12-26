@@ -102,6 +102,19 @@ onSome(['activity_getresp', 'activity_get'], (data: Session) => {
   data.gameData.value.lastUpdated = new Date().toISOString()
 });
 
+onSome(['bosstower_getinforesp', 'bosstower_getinfo'], (data: Session) => {
+  gameLogger.verbose(`收到咸王宝库信息事件: ${data.tokenId}`, data);
+  const { body } = data;
+  console.log("🚀 ~ body:", body)
+  if (!body) {
+    gameLogger.debug('咸王宝库响应为空');
+    return;
+  }
+
+  data.gameData.value.bossTowerInfo = body;
+  data.gameData.value.lastUpdated = new Date().toISOString()
+});
+
 onSome([
   'team_getteaminfo',
   'team_getteaminforesp',

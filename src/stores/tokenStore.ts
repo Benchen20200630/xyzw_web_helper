@@ -69,6 +69,7 @@ export const useTokenStore = defineStore('tokens', () => {
   const gameData = ref({
     roleInfo: null,
     legionInfo: null,
+    commonActivityInfo: null, // 消耗活动进度
     presetTeam: null,
     battleVersion: null as number | null, // 战斗版本号
     studyStatus: {

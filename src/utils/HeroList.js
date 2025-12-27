@@ -1,6 +1,6 @@
 
 //英雄字典
-const HERO_DICT = {
+export const HERO_DICT = {
     101: { name: "司马懿", type: "魏国", avatar: "/team/simayi.png" },
     102: { name: "郭嘉", type: "魏国", avatar: "/team/guojia.png" },
     103: { name: "关羽", type: "蜀国", avatar: "/team/guanyu.png" },

@@ -591,6 +591,19 @@ onMounted(() => {
   align-items: center;
   flex: 1;
 }
+ @media (max-width: 768px) {
+  .member-stats-inline {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+    flex: 1;
+    flex-direction: column;
+    .tipsgg {
+      background: rgba(194, 166, 248, 0.1);
+      color: #AE86F9;
+      white-space:normal
+    }
+  }
 .details-button {
   flex-shrink: 0;
   margin-left: auto;

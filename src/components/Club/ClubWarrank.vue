@@ -24,9 +24,16 @@
                     <template #icon>
                         <n-icon><Copy /></n-icon>
                     </template>导出</n-button>
-              <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="hcSort">
+                <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="hcSort">
                 <template #icon>
                 </template>红淬排序</n-button>
+                <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="scoreSort">
+                <template #icon>
+                </template>积分排序</n-button>
+                <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
+                    <n-checkbox value="1">表格导出</n-checkbox>
+                    <n-checkbox value="2">图片导出</n-checkbox>
+                </n-checkbox-group>
             </div>
 
 
@@ -57,10 +64,10 @@
                                 <span class="stat-inline win">区服 {{ member.serverId || 0 }}</span>
                                 <span class="stat-inline siege">战力 {{ formatPower(member.power) || 0 }}</span>
                                 <span class="stat-inline Resurrectio">总红粹 {{ member.redQuench || 0 }}</span>
-                                <span class="stat-inline rednumber">车头1 {{ member.redno1 || 0 }}/{{ member.hb1 }}四圣</span>
-                                <span class="stat-inline rednumber">车头2 {{ member.redno2 || 0 }}/{{ member.hb2 }}四圣</span>
-                                <span class="stat-inline rednumber">车头3 {{ member.redno3 || 0 }}/{{ member.hb3 }}四圣</span>
-                                <!-- <span class="stat-inline Sscore">积分 {{ formatScore(member.sRScore) || 0 }}</span> -->
+                                <span class="stat-inline rednumber">车头1 {{ member.redno1 || 0 }}/{{ member.hb1 || 0 }}四圣</span>
+                                <span class="stat-inline rednumber">车头2 {{ member.redno2 || 0 }}/{{ member.hb2 || 0 }}四圣</span>
+                                <span class="stat-inline rednumber">车头3 {{ member.redno3 || 0 }}/{{ member.hb3 || 0 }}四圣</span>
+                                <span class="stat-inline Sscore" v-if="member.sRScore !== -1">积分 {{ formatScore(member.sRScore) || 0 }}</span>
                                 <span class="stat-inline alliance">所属联盟: {{ allianceincludes(member.announcement) || '' }}</span>
                                 <span class="stat-inline tipsgg">公告: {{ member.announcement || '' }}</span>
                             </div>
@@ -74,7 +81,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useMessage, NDatePicker } from 'naive-ui'
+import { useMessage, NDatePicker, NCheckboxGroup, NCheckbox } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from "html2canvas"
 import {
@@ -116,7 +123,7 @@ const showModal = computed({
   get: () => props.visible,
   set: (val) => emit('update:visible', val)
 })
-
+const exportmethod = ref([]);
 const loading1 = ref(false)
 const battleRecords1 = ref(null)
 const expandedMembers = ref(new Set())
@@ -180,7 +187,7 @@ const fetchBattleRecordsByDate = val => {
         queryDate.value = formatTimestamp1(inputDate1.value)
 
 
-         if (gettoday() == queryDate.value && new Date().getHours()<20) {
+         if (gettoday() == queryDate.value && new Date().getHours() < 21) {
             const getbattlefield = await tokenStore.sendMessageWithPromise(tokenId, 'legion_getbattlefield', {}, 10000)
             if (!getbattlefield.info) {
                 battleRecords1.value = null;
@@ -211,19 +218,34 @@ const fetchBattleRecordsByDate = val => {
                             { legionId: club.id },
                             5000
                         );
+                        if (!detail){
+                        return {
+                            ...club,
+                            redQuench: 0,
+                            power: 0,
+                            announcement: '未知',
+                            redno: 0,
+                            redno1: '0红',
+                            redno2: '0红',
+                            redno3: '0红',
+                            hb1: 0,
+                            hb2: 0,
+                            hb3: 0,
+                        };
+                        }
                         const redQuenchCounts = [];
                         const HolyBeastNum = [];
                         for (const [roleId, memberData] of Object.entries(detail?.legionData?.members)) {
                             if (memberData.custom?.red_quench_cnt !== undefined) {
                                 redQuenchCounts.push(memberData.custom.red_quench_cnt + "红");
                             }
-                          const tempRoleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
-                              {
-                                bottleType: 0,
-                                includeBottleTeam: false,
-                                isSearch: false,
-                                roleId: roleId
-                              }, 5000)
+                        const tempRoleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
+                          {
+                              bottleType: 0,
+                              includeBottleTeam: false,
+                              isSearch: false,
+                              roleId: roleId
+                          }, 5000)
                           let holyBeast = 0;
                           for (const [heroId, heroData] of Object.entries(tempRoleInfo?.roleInfo?.heroes)) {
                             if(heroData.hB?.active !== undefined){
@@ -231,8 +253,7 @@ const fetchBattleRecordsByDate = val => {
                             }
                           }
                           HolyBeastNum.push(holyBeast)
-                        }
-
+                    }
                         return {
                             ...club,
                             redQuench: detail?.legionData?.quenchNum || 0,
@@ -242,15 +263,24 @@ const fetchBattleRecordsByDate = val => {
                             redno1: redQuenchCounts[0] || '0红',
                             redno2: redQuenchCounts[1] || '0红',
                             redno3: redQuenchCounts[2] || '0红',
-                            hb1:HolyBeastNum[0]||0,
-                            hb2:HolyBeastNum[1]||0,
-                            hb3:HolyBeastNum[2]||0
+                            hb1: HolyBeastNum[0] || 0,
+                            hb2: HolyBeastNum[1] || 0,
+                            hb3: HolyBeastNum[2] || 0,
                         };
                     } catch (error) {
                         console.error(`查询俱乐部${club.id}详情失败:`, error);
                         return {
                             ...club,
-                            redQuench: 0
+                            redQuench: 0,
+                            power: 0,
+                            announcement: '未知',
+                            redno: 0,
+                            redno1: '0红',
+                            redno2: '0红',
+                            redno3: '0红',
+                            hb1: 0,
+                            hb2: 0,
+                            hb3: 0,
                         };
                     }
                 });
@@ -277,6 +307,7 @@ const fetchBattleRecordsByDate = val => {
                 { date: queryDate.value },
                 10000
             )
+
             if (!result?.legionRankList) {
                 battleRecords1.value = null;
                 message.warning('未查询到盐场匹配数据');
@@ -290,13 +321,29 @@ const fetchBattleRecordsByDate = val => {
                         { legionId: club.id },
                         5000
                     );
+                    club.sRScore = -1;
+                    if (!detail){
+                        return {
+                            ...club,
+                            redQuench: 0,
+                            power: 0,
+                            announcement: '未知',
+                            redno: 0,
+                            redno1: '0红',
+                            redno2: '0红',
+                            redno3: '0红',
+                            hb1: 0,
+                            hb2: 0,
+                            hb3: 0,
+                        };
+                        }
                     const redQuenchCounts = [];
                     const HolyBeastNum = [];
                     for (const [roleId, memberData] of Object.entries(detail?.legionData?.members)) {
                         if (memberData.custom?.red_quench_cnt !== undefined) {
                             redQuenchCounts.push(memberData.custom.red_quench_cnt + "红");
                         }
-                        
+
                         const tempRoleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
                           {
                               bottleType: 0,
@@ -321,16 +368,25 @@ const fetchBattleRecordsByDate = val => {
                         redno1: redQuenchCounts[0] || 0,
                         redno2: redQuenchCounts[1] || 0,
                         redno3: redQuenchCounts[2] || 0,
-                        hb1:HolyBeastNum[0]||0,
-                        hb2:HolyBeastNum[1]||0,
-                        hb3:HolyBeastNum[2]||0
+                        hb1: HolyBeastNum[0] || 0,
+                        hb2: HolyBeastNum[1] || 0,
+                        hb3: HolyBeastNum[2] || 0,
                     };
                 } catch (error) {
                     console.error(`查询俱乐部${club.id}详情失败:`, error);
                     return {
-                        ...club,
-                        redQuench: 0
-                    };
+                            ...club,
+                            redQuench: 0,
+                            power: 0,
+                            announcement: '未知',
+                            redno: 0,
+                            redno1: '0红',
+                            redno2: '0红',
+                            redno3: '0红',
+                            hb1: 0,
+                            hb2: 0,
+                            hb3: 0,
+                        };
                 }
             });
             const processedClubs = await Promise.all(detailPromises);
@@ -354,6 +410,15 @@ const handleRefresh1 = () => {
   fetchBattleRecords1()
 }
 
+const hcSort = async () =>{
+  // battleRecords1.legionRankList 按照 redQuench 降序
+  battleRecords1.value.legionRankList.sort((a, b) => b.redQuench - a.redQuench)
+}
+
+const scoreSort = async () =>{
+  // battleRecords1.legionRankList 按照 sRScore 降序
+  battleRecords1.value.legionRankList.sort((a, b) => b.sRScore - a.sRScore)
+}
 // 导出战绩
 const handleExport1 = async () => {
   if (!battleRecords1.value || !battleRecords1.value.legionRankList) {
@@ -362,23 +427,20 @@ const handleExport1 = async () => {
   }
 
   try {
-    //导出图片
-    exportToImage() 
-    //导出excel,俩种方式自选一种吧
-    // const exportText = formatWarrankRecordsForExport(
-    //   battleRecords1.value.legionRankList,
-    //   queryDate.value
-    // )
+    if(exportmethod.value.includes('1')){
+    const exportText = formatWarrankRecordsForExport(
+      battleRecords1.value.legionRankList,
+      queryDate.value
+    )}
+    if(exportmethod.value.includes('2')){
+    exportToImage()}
     message.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)
     message.error('导出失败，请重试')
   }
 }
-const hcSort = async () =>{
-  // battleRecords1.legionRankList 按照 redQuench 降序
-  battleRecords1.value.legionRankList.sort((a, b) => b.redQuench - a.redQuench)
-}
+
 
 const exportToImage = async () => {
     // 校验：确保DOM已正确绑定
@@ -403,6 +465,7 @@ const exportToImage = async () => {
         // 7. 创建下载链接，触发浏览器下载
         const link = document.createElement("a")
         link.href = imgUrl
+        console.log()
         link.download = queryDate.value.replace("/", "年").replace("/", "月") + "日盐场匹配信息.png"
         document.body.appendChild(link)
         link.click()
@@ -528,20 +591,9 @@ onMounted(() => {
   align-items: center;
   flex: 1;
 }
-
-@media (max-width: 768px) {
-  .member-stats-inline {
-    display: flex;
-    gap: var(--spacing-xs);
-    align-items: flex-start;
-    flex: 1;
-    flex-direction: column;
-    .tipsgg {
-      background: rgba(194, 166, 248, 0.1);
-      color: #AE86F9;
-      white-space:normal
-    }
-  }
+.details-button {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .stat-inline {
@@ -711,6 +763,7 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all var(--transition-normal);
   min-height: 200px;
+  min-width: 800px;
 
   &:hover {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);

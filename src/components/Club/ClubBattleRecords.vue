@@ -25,7 +25,7 @@
           <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
           <n-checkbox value="1">表格导出</n-checkbox>
           <n-checkbox value="2">图片导出</n-checkbox>
-        </n-checkbox-group>
+          </n-checkbox-group>
         </div>
       </div>
 
@@ -139,6 +139,10 @@
             </template>
             导出
           </n-button>
+          <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
+          <n-checkbox value="1">表格导出</n-checkbox>
+          <n-checkbox value="2">图片导出</n-checkbox>
+          </n-checkbox-group>
         </div>
       </template>
 
@@ -170,6 +174,7 @@
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
                 <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt/member.loseCnt)||0).toFixed(2)  }}</span>
+                <span class="stat-inline Sscore">复活丹 {{ Math.max(member.loseCnt - 6, 0) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
                 <template #icon>
@@ -328,8 +333,8 @@ const handleImageError = (event) => {
   event.target.style.display = 'none'
 }
 
-const disabledDate = (current)=>{
-  return current.getDay()!=6 || current>Date.now();
+const disabledDate = current => {
+  return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
 }
 
 //日期选择时调用查询战绩方法

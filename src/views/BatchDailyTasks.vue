@@ -69,6 +69,12 @@
         <n-button size="small" @click="batcharenafight" :disabled="isRunning || selectedTokens.length === 0 || !isarenaActivityOpen">
           一键竞技场战斗3次
         </n-button>
+        <n-button size="small" @click="batchTopUpFish" :disabled="isRunning || selectedTokens.length === 0">
+          一键钓鱼补齐
+        </n-button>
+        <n-button size="small" @click="batchTopUpArena" :disabled="isRunning || selectedTokens.length === 0 || !isarenaActivityOpen">
+          一键竞技场补齐
+        </n-button>
       </n-space>
       <n-space vertical>
         <n-checkbox :checked="isAllSelected" :indeterminate="isIndeterminate" @update:checked="handleSelectAll">
@@ -830,6 +836,20 @@ const pickArenaTargetId = (targets) => {
   return targets?.roleId || targets?.id
 }
 
+// 月度任务常量
+const FISH_TARGET = 320
+const ARENA_TARGET = 240
+// 日期辅助函数
+const getTodayStartSec = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return Math.floor(d.getTime() / 1000) }
+const isTodayAvailable = (lastTimeSec) => { if (!lastTimeSec || typeof lastTimeSec !== 'number') return true; return lastTimeSec < getTodayStartSec() }
+// 计算月度任务进度
+const calculateMonthProgress = () => {
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const dayOfMonth = now.getDate()
+  return Math.min(1, Math.max(0, dayOfMonth / daysInMonth))
+}
+
 const addLog = (log) => {
   logs.value.push(log)
   nextTick(() => {
@@ -1541,6 +1561,254 @@ const batchStudy = async () => {
   isRunning.value = false
   currentRunningTokenId.value = null
   message.success('批量答题结束')
+}
+
+// 批量钓鱼补齐
+const batchTopUpFish = async () => {
+  if (selectedTokens.value.length === 0) return
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+    const token = tokens.value.find(t => t.id === tokenId)
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始钓鱼补齐: ${token.name} ===`, type: 'info' })
+      await ensureConnection(tokenId)
+      // 获取月度任务进度
+      addLog({ time: new Date().toLocaleTimeString(), message: `获取月度任务进度...`, type: 'info' })
+      const result = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+      const act = result?.activity || result?.body?.activity || result
+      
+      if (!act) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `获取月度任务进度失败`, type: 'error' })
+        tokenStatus.value[tokenId] = 'failed'
+        continue
+      }
+      const myMonthInfo = act.myMonthInfo || {}
+      const fishNum = Number(myMonthInfo?.['2']?.num || 0)
+      
+      // 计算目标数量
+      const monthProgress = calculateMonthProgress()
+      const now = new Date()
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+      const dayOfMonth = now.getDate()
+      const remainingDays = Math.max(0, daysInMonth - dayOfMonth)
+      const shouldBe = remainingDays === 0 ? FISH_TARGET : Math.min(FISH_TARGET, Math.ceil(monthProgress * FISH_TARGET))
+      const need = Math.max(0, shouldBe - fishNum)
+      addLog({ time: new Date().toLocaleTimeString(), message: `当前进度: ${fishNum}/${FISH_TARGET}，需要补齐: ${need}次`, type: 'info' })
+      if (need <= 0) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `当前进度已达标，无需补齐`, type: 'success' })
+        tokenStatus.value[tokenId] = 'completed'
+        continue
+      }
+      // 执行钓鱼补齐
+      addLog({ time: new Date().toLocaleTimeString(), message: `开始执行钓鱼补齐...`, type: 'info' })
+      // 检查免费次数
+      let role = tokenStore.gameData?.roleInfo?.role
+      if (!role) {
+        try {
+          const roleInfo = await tokenStore.sendGetRoleInfo(tokenId)
+          role = roleInfo?.role
+        } catch {}
+      }
+      let freeUsed = 0
+      const lastFreeTime = Number(role?.statisticsTime?.['artifact:normal:lottery:time'] || 0)
+      if (isTodayAvailable(lastFreeTime)) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `检测到今日免费钓鱼次数，开始消耗 3 次`, type: 'info' })
+        for (let i = 0; i < 3 && need > freeUsed && !shouldStop.value; i++) {
+          try {
+            await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: 1, newFree: true, type: 1 }, 8000)
+            freeUsed++
+            await new Promise(r => setTimeout(r, 500))
+          } catch (e) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `免费钓鱼失败: ${e.message}`, type: 'error' })
+            break
+          }
+        }
+      }
+      // 获取最新进度
+      const updatedResult = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+      const updatedAct = updatedResult?.activity || updatedResult?.body?.activity || updatedResult
+      const updatedMyMonthInfo = updatedAct.myMonthInfo || {}
+      const updatedFishNum = Number(updatedMyMonthInfo?.['2']?.num || 0)
+      let remaining = Math.max(0, shouldBe - updatedFishNum)
+      addLog({ time: new Date().toLocaleTimeString(), message: `免费次数后进度: ${updatedFishNum}/${FISH_TARGET}，还需补齐: ${remaining}次`, type: 'info' })
+      if (remaining <= 0) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `已通过免费次数完成目标`, type: 'success' })
+        tokenStatus.value[tokenId] = 'completed'
+        continue
+      }
+      // 付费钓鱼
+      addLog({ time: new Date().toLocaleTimeString(), message: `开始付费钓鱼补齐: 共需 ${remaining} 次（每次最多10）`, type: 'info' })
+      
+      while (remaining > 0 && !shouldStop.value) {
+        const batch = Math.min(10, remaining)
+        try {
+          await tokenStore.sendMessageWithPromise(tokenId, 'artifact_lottery', { lotteryNumber: batch, newFree: true, type: 1 }, 12000)
+          addLog({ time: new Date().toLocaleTimeString(), message: `完成 ${batch} 次付费钓鱼`, type: 'info' })
+          remaining -= batch
+          await new Promise(r => setTimeout(r, 800))
+        } catch (e) {
+          addLog({ time: new Date().toLocaleTimeString(), message: `付费钓鱼失败: ${e.message}`, type: 'error' })
+          break
+        }
+      }
+      // 最终进度检查
+      const finalResult = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+      const finalAct = finalResult?.activity || finalResult?.body?.activity || finalResult
+      const finalMyMonthInfo = finalAct.myMonthInfo || {}
+      const finalFishNum = Number(finalMyMonthInfo?.['2']?.num || 0)
+      if (finalFishNum >= shouldBe || finalFishNum >= FISH_TARGET) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼补齐完成，最终进度: ${finalFishNum}/${FISH_TARGET}`, type: 'success' })
+      } else {
+        addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼补齐已停止，未达到目标，最终进度: ${finalFishNum}/${FISH_TARGET}`, type: 'warning' })
+      }
+      tokenStatus.value[tokenId] = 'completed'
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `钓鱼补齐失败: ${error.message}`, type: 'error' })
+    }
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量钓鱼补齐结束')
+}
+// 批量竞技场补齐
+const batchTopUpArena = async () => {
+  if (selectedTokens.value.length === 0) return
+  isRunning.value = true
+  shouldStop.value = false
+  logs.value = []
+  // Reset status
+  selectedTokens.value.forEach(id => {
+    tokenStatus.value[id] = 'waiting'
+  })
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break
+    currentRunningTokenId.value = tokenId
+    tokenStatus.value[tokenId] = 'running'
+    currentProgress.value = 0
+    const token = tokens.value.find(t => t.id === tokenId)
+    try {
+      addLog({ time: new Date().toLocaleTimeString(), message: `=== 开始竞技场补齐: ${token.name} ===`, type: 'info' })
+      await ensureConnection(tokenId)
+      // 获取月度任务进度
+      addLog({ time: new Date().toLocaleTimeString(), message: `获取月度任务进度...`, type: 'info' })
+      const result = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+      const act = result?.activity || result?.body?.activity || result
+      
+      if (!act) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `获取月度任务进度失败`, type: 'error' })
+        tokenStatus.value[tokenId] = 'failed'
+        continue
+      }
+      const myArenaInfo = act.myArenaInfo || {}
+      const arenaNum = Number(myArenaInfo?.num || 0)
+      
+      // 计算目标数量
+      const monthProgress = calculateMonthProgress()
+      const now = new Date()
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+      const dayOfMonth = now.getDate()
+      const remainingDays = Math.max(0, daysInMonth - dayOfMonth)
+      const shouldBe = remainingDays === 0 ? ARENA_TARGET : Math.min(ARENA_TARGET, Math.ceil(monthProgress * ARENA_TARGET))
+      const need = Math.max(0, shouldBe - arenaNum)
+      addLog({ time: new Date().toLocaleTimeString(), message: `当前进度: ${arenaNum}/${ARENA_TARGET}，需要补齐: ${need}次`, type: 'info' })
+      if (need <= 0) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `当前进度已达标，无需补齐`, type: 'success' })
+        tokenStatus.value[tokenId] = 'completed'
+        continue
+      }
+      // 执行竞技场补齐
+      addLog({ time: new Date().toLocaleTimeString(), message: `开始执行竞技场补齐...`, type: 'info' })
+      // 开始竞技场
+      try {
+        await tokenStore.sendMessageWithPromise(tokenId, 'arena_startarea', {}, 6000)
+      } catch (error) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `开始竞技场失败: ${error.message}`, type: 'warning' })
+        // 继续执行，可能已经在竞技场中
+      }
+      let safetyCounter = 0
+      const safetyMaxFights = 100
+      let round = 1
+      let remaining = need
+      while (remaining > 0 && safetyCounter < safetyMaxFights && !shouldStop.value) {
+        const planFights = Math.ceil(remaining / 2) // 估计每场战斗可能获得2次进度
+        addLog({ time: new Date().toLocaleTimeString(), message: `第${round}轮：计划战斗 ${planFights} 场`, type: 'info' })
+        
+        for (let i = 0; i < planFights && safetyCounter < safetyMaxFights && !shouldStop.value; i++) {
+          let targets
+          try {
+            targets = await tokenStore.sendMessageWithPromise(tokenId, 'arena_getareatarget', {}, 8000)
+          } catch (err) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `获取竞技场目标失败：${err.message}`, type: 'error' })
+            break
+          }
+          
+          const targetId = pickArenaTargetId(targets)
+          if (!targetId) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `未找到可用的竞技场目标`, type: 'warning' })
+            break
+          }
+          
+          try {
+            await tokenStore.sendMessageWithPromise(tokenId, 'fight_startareaarena', { targetId }, 15000)
+            addLog({ time: new Date().toLocaleTimeString(), message: `竞技场战斗 ${i + 1}/${planFights} 完成`, type: 'info' })
+          } catch (e) {
+            addLog({ time: new Date().toLocaleTimeString(), message: `竞技场对决失败：${e.message}`, type: 'error' })
+            // 继续尝试下一场战斗
+          }
+          
+          safetyCounter++
+          await new Promise(r => setTimeout(r, 1200))
+        }
+        
+        // 获取最新进度
+        const updatedResult = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+        const updatedAct = updatedResult?.activity || updatedResult?.body?.activity || updatedResult
+        const updatedMyArenaInfo = updatedAct.myArenaInfo || {}
+        const updatedArenaNum = Number(updatedMyArenaInfo?.num || 0)
+        remaining = Math.max(0, shouldBe - updatedArenaNum)
+        
+        addLog({ time: new Date().toLocaleTimeString(), message: `第${round}轮后进度: ${updatedArenaNum}/${ARENA_TARGET}，还需补齐: ${remaining}次`, type: 'info' })
+        
+        round++
+      }
+      // 最终进度检查
+      const finalResult = await tokenStore.sendMessageWithPromise(tokenId, 'activity_get', {}, 10000)
+      const finalAct = finalResult?.activity || finalResult?.body?.activity || finalResult
+      const finalMyArenaInfo = finalAct.myArenaInfo || {}
+      const finalArenaNum = Number(finalMyArenaInfo?.num || 0)
+      if (finalArenaNum >= shouldBe || finalArenaNum >= ARENA_TARGET) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `竞技场补齐完成，最终进度: ${finalArenaNum}/${ARENA_TARGET}`, type: 'success' })
+      } else if (safetyCounter >= safetyMaxFights) {
+        addLog({ time: new Date().toLocaleTimeString(), message: `达到安全上限，竞技场补齐已停止，最终进度: ${finalArenaNum}/${ARENA_TARGET}`, type: 'warning' })
+      } else {
+        addLog({ time: new Date().toLocaleTimeString(), message: `竞技场补齐已停止，未达到目标，最终进度: ${finalArenaNum}/${ARENA_TARGET}`, type: 'warning' })
+      }
+      tokenStatus.value[tokenId] = 'completed'
+    } catch (error) {
+      console.error(error)
+      tokenStatus.value[tokenId] = 'failed'
+      addLog({ time: new Date().toLocaleTimeString(), message: `竞技场补齐失败: ${error.message}`, type: 'error' })
+    }
+    currentProgress.value = 100
+    await new Promise(r => setTimeout(r, 500))
+  }
+  isRunning.value = false
+  currentRunningTokenId.value = null
+  message.success('批量竞技场补齐结束')
 }
 
 // --- Car Helper Functions ---

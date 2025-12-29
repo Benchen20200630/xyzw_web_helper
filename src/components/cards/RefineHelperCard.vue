@@ -638,28 +638,28 @@ const executeQuench = async () => {
     quenchCount.value++
     
     // 更新装备信息
-        if (result?.role?.heroes) {
-          const updatedHero = result.role.heroes[String(selectedHeroId.value)]
-          if (updatedHero?.equipment) {
-            // 更新英雄装备数据
-            const updatedEquip = updatedHero.equipment[selectedPart.value]
-            if (updatedEquip) {
-              // 更新装备对象
-              heroEquipment.value[selectedPart.value] = updatedEquip
-              
-              // 更新淬炼次数和加成
-              quenchTimes.value = updatedEquip.quenchTimes || 0
-              const bonusType = selectedPart.value === 1 ? 'quenchAttackExt' : 
-                               selectedPart.value === 3 ? 'quenchDefenseExt' : 'quenchHpExt'
-              equipBonusValue.value = updatedEquip[bonusType] || 0
-              
-              // 更新孔位信息
-              if (updatedEquip.quenches) {
-                updateSlots(updatedEquip.quenches)
-              }
-            }
+    if (result?.role?.heroes) {
+      const updatedHero = result.role.heroes[String(selectedHeroId.value)]
+      if (updatedHero?.equipment) {
+        // 更新英雄装备数据
+        const updatedEquip = updatedHero.equipment[selectedPart.value]
+        if (updatedEquip) {
+          // 更新装备对象
+          heroEquipment.value[selectedPart.value] = updatedEquip
+          
+          // 更新淬炼次数和加成
+          quenchTimes.value = updatedEquip.quenchTimes || 0
+          const bonusType = selectedPart.value === 1 ? 'quenchAttackExt' : 
+                           selectedPart === 3 ? 'quenchDefenseExt' : 'quenchHpExt'
+          equipBonusValue.value = updatedEquip[bonusType] || 0
+          
+          // 更新孔位信息
+          if (updatedEquip.quenches) {
+            updateSlots(updatedEquip.quenches)
           }
         }
+      }
+    }
     
     // 更新白玉和彩玉数量
     if (result?.role?.items) {

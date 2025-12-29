@@ -12,14 +12,42 @@ import * as XLSX from 'xlsx';
 export function getLastSaturday() {
   const today = new Date()
   const dayOfWeek = today.getDay() // 0=周日, 1=周一, ..., 6=周六
+  const todayDate = today.getDate() // 当天日期
+  const year = today.getFullYear()
+  const month = today.getMonth()
 
   let daysToSubtract = 0
   if (dayOfWeek === 6) {
     // 今天是周六
     daysToSubtract = 0
   } else if (dayOfWeek === 0) {
-    // 今天是周日，返回昨天（周六）
-    daysToSubtract = 1
+    // 今天是周日，需要判断是否是本月的第四周周日
+    // 计算本月第四个周日的日期
+    const firstDay = new Date(year, month, 1)
+    const firstDayOfWeek = firstDay.getDay()
+    
+    // 计算本月第一个周日的日期
+    let firstSunday = new Date(year, month, 1)
+    if (firstDayOfWeek === 0) {
+      // 本月第一天就是周日
+      firstSunday.setDate(1)
+    } else {
+      // 否则，第一个周日是7 - firstDayOfWeek天后
+      firstSunday.setDate(1 + (7 - firstDayOfWeek))
+    }
+    
+    // 计算第四个周日的日期
+    const fourthSunday = new Date(firstSunday)
+    fourthSunday.setDate(firstSunday.getDate() + 21) // 21天 = 3周
+    
+    // 判断今天是否是第四个周日
+    if (today.getDate() === fourthSunday.getDate()) {
+      // 今天是第四周周日，返回今天
+      daysToSubtract = 0
+    } else {
+      // 不是第四周周日，返回昨天（周六）
+      daysToSubtract = 1
+    }
   } else {
     // 周一到周五，计算距离上周六的天数
     daysToSubtract = dayOfWeek + 1
@@ -28,11 +56,11 @@ export function getLastSaturday() {
   const targetDate = new Date(today)
   targetDate.setDate(today.getDate() - daysToSubtract)
 
-  const year = targetDate.getFullYear()
-  const month = String(targetDate.getMonth() + 1).padStart(2, '0')
-  const day = String(targetDate.getDate()).padStart(2, '0')
+  const targetYear = targetDate.getFullYear()
+  const targetMonth = String(targetDate.getMonth() + 1).padStart(2, '0')
+  const targetDay = String(targetDate.getDate()).padStart(2, '0')
 
-  return `${year}/${month}/${day}`
+  return `${targetYear}/${targetMonth}/${targetDay}`
 }
 
 export function formatTimestamp1(timestamp) {

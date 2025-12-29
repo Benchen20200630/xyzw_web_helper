@@ -22,6 +22,10 @@
             </template>
             导出
           </n-button>
+          <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
+          <n-checkbox value="1">表格导出</n-checkbox>
+          <n-checkbox value="2">图片导出</n-checkbox>
+          </n-checkbox-group>
         </div>
       </div>
 
@@ -53,6 +57,7 @@
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
                 <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt/member.loseCnt)||0).toFixed(2)  }}</span>
+                <span class="stat-inline Sscore">复活丹 {{ Math.max(member.loseCnt - 6, 0) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
                 <template #icon>
@@ -134,6 +139,10 @@
             </template>
             导出
           </n-button>
+          <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
+          <n-checkbox value="1">表格导出</n-checkbox>
+          <n-checkbox value="2">图片导出</n-checkbox>
+          </n-checkbox-group>
         </div>
       </template>
 
@@ -165,6 +174,7 @@
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
                 <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt/member.loseCnt)||0).toFixed(2)  }}</span>
+                <span class="stat-inline Sscore">复活丹 {{ Math.max(member.loseCnt - 6, 0) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
                 <template #icon>
@@ -228,7 +238,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, NCheckboxGroup, NCheckbox } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from 'html2canvas';
 import {
@@ -259,7 +269,7 @@ const props = defineProps({
   }
 })
 
-
+const exportmethod = ref([]);
 const exportDom = ref(null);
 const emit = defineEmits(['update:visible'])
 
@@ -323,8 +333,8 @@ const handleImageError = (event) => {
   event.target.style.display = 'none'
 }
 
-const disabledDate = (current)=>{
-  return current.getDay()!=6 || current>Date.now();
+const disabledDate = current => {
+  return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
 }
 
 //日期选择时调用查询战绩方法
@@ -392,15 +402,13 @@ const handleExport = async () => {
   }
 
   try {
-    //导出成excel
-    // const exportText = formatBattleRecordsForExport(
-    //   battleRecords.value.roleDetailsList,
-    //   queryDate.value
-    // )
-    // await copyToClipboard(exportText)
-    //导出成图片,两种方式自选一吧
-    exportToImage()
-    message.success('战绩已复制到剪贴板')
+    if (exportmethod.value.includes('1')) {
+      const exportText = formatBattleRecordsForExport(battleRecords.value.roleDetailsList, queryDate.value)
+    }
+    if (exportmethod.value.includes('2')) {
+      exportToImage()
+    }
+    message.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)
     message.error('导出失败，请重试')
@@ -614,6 +622,11 @@ onMounted(() => {
   &.KD {
     background: rgba(151, 151, 151, 0.1);
     color: #858585;
+  }
+
+  &.Sscore {
+    background: rgba(244, 162, 216, 0.1);
+    color: #FA79CE;
   }
 }
 

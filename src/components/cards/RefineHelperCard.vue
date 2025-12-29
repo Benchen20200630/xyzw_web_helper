@@ -627,12 +627,12 @@ const executeQuench = async () => {
       .filter(slot => slot.isLocked)
       .map(slot => slot.id)
     
-    // 发送淬炼请求
+    // 发送淬炼请求（设置更长的超时时间，淬炼操作可能较慢）
     const result = await tokenStore.sendMessageWithPromise(tokenId, 'equipment_quench', {
       heroId: selectedHeroId.value,
       part: selectedPart.value,
       lockedSlot: lockedSlots
-    })
+    }, 15000)
     
     // 更新淬炼次数
     quenchCount.value++

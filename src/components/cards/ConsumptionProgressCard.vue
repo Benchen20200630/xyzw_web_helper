@@ -499,9 +499,10 @@ const remainingGoldNeeded = computed(() => Math.max(0, targetGold.value - curren
 const goldRateObserved = computed(() => {
     const g = currentGold.value || 0;
     const o = totalObtained.value || 0;
-    if (g > 0 && o > 0) {
-        // 返回普通道具/黄金（即平均需要多少普通道具产出 1 个黄金）
-        return o / g;
+    const s = ActivityItem.value || 0;
+    if (g > 0 && o > 0 && o > s) {
+        // 返回使用的普通道具/黄金（即平均需要多少普通道具产出 1 个黄金）
+        return (o-s) / g;
     }
     return null;
 });

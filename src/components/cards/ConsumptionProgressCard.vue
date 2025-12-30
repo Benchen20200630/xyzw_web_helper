@@ -519,10 +519,6 @@ const currentOrdStock = computed(() => ActivityItem.value || 0);
 // 对于显示，向上取整剩余所需的普通道具数，确保提示为整数
 const remainingOrdNeeded = computed(() => Math.max(0, Math.ceil(neededOrd.value - currentOrdStock.value)));
 
-// 基线：当前已累计普通道具（已获得 + 库存）
-const baselineOrd = computed(() => {
-    return (totalObtained.value || 0) + (ActivityItem.value || 0);
-});
 
 // 构造可选升级项分组：对每个类别列出未来每个档位的选项
 const groupedUpgradeOptions = computed(() => {
@@ -567,7 +563,7 @@ const feasibleCombos = computed(() => {
         if (idx === m) {
             if (sumDelta >= target) {
                 // chosen is array of option objects
-                combos.push({ sumDelta, sumCost, combo: chosen.slice(), totalOrd: (baselineOrd.value || 0) + sumDelta });
+                combos.push({ sumDelta, sumCost, combo: chosen.slice(), totalOrd: (totalObtained.value || 0) + sumDelta });
             }
             count++;
             return;

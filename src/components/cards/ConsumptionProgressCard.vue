@@ -61,7 +61,7 @@
                 <div v-if="feasibleCombos.length === 0">暂无可行组合或已满足目标</div>
                 <div v-else>
                     <div v-for="(combo, idx) in feasibleCombos" :key="idx" style="margin-bottom:12px;">
-                        <div><strong>方案 {{ idx + 1 }} : 新增 {{ combo.sumDelta }}，完成后总普通道具 {{ combo.totalOrd }}，总消耗 {{ combo.sumCost }}</strong></div>
+                        <div><strong>方案 {{ idx + 1 }} : {{ combo.totalOrd }}档</strong></div>
                         <ol>
                             <li v-for="step in combo.combo" :key="step.id + '-' + step.threshold">{{ step.name }} -> 达到 {{ step.threshold }} (可得 {{ step.delta }} 普通道具, 还需消耗 {{ step.cost }})</li>
                         </ol>

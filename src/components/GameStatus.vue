@@ -127,7 +127,9 @@
         <StudyChallengeCard v-show="activeSection === 'activity'" />
 
         <!-- 盐场（提取组件） -->
-        <ClubWarrank v-if="activeSection === 'warrank'" />
+        <div class="warrank-full-container" v-if="activeSection === 'warrank'">
+          <ClubWarrank />
+        </div>
 
         <!-- 巅峰榜（提取组件） -->
         <TopRankList v-if="activeSection === 'toprank'" />
@@ -566,6 +568,19 @@ onUnmounted(() => {
 
 .section-tabs :deep(.n-tabs-pane-wrapper) {
     display: none;
+}
+
+.warrank-full-container {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: calc(100vh - 200px);
+    min-height: 600px;
+    overflow: hidden;
+    
+    @media (max-width: 768px) {
+        height: calc(100vh - 180px);
+        min-height: 500px;
+    }
 }
 
 .monthly-tasks .description.muted {

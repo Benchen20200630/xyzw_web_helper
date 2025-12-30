@@ -1,46 +1,92 @@
 <template>
-  <div>
-    <div class="status-card club-warrank">
-      <div class="card-header">
-        <img src="/icons/moonPalace.png" alt="俱乐部图标" class="status-icon">
-        <div class="status-info">
-          <h3>盐场匹配信息详情</h3>
-          <p>俱乐部盐场匹配详情</p>
+  <div class="club-warrank-container">
+    <div class="club-warrank-card">
+      <!-- 头部信息区 -->
+      <div class="header-section">
+        <div class="header-left">
+          <img src="/icons/moonPalace.png" alt="俱乐部图标" class="header-icon">
+          <div class="header-title">
+            <h2>盐场匹配信息详情</h2>
+            <p>俱乐部盐场匹配详情</p>
+          </div>
+        </div>
+        
+        <!-- 数据统计区 -->
+        <div class="stats-section" v-if="battleRecords1 && battleRecords1.legionRankList">
+          <div class="stat-item">
+            <span class="stat-label">查询日期:</span>
+            <n-tag type="info">{{ formatTimestamp1(inputDate1) }}</n-tag>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">总俱乐部数:</span>
+            <n-tag type="success">{{ battleRecords1.legionRankList.length }}</n-tag>
+          </div>
         </div>
       </div>
-      <div class="inline-container">
-        <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
-          <n-checkbox value="1">表格导出</n-checkbox>
-          <n-checkbox value="2">图片导出</n-checkbox>
-        </n-checkbox-group>
-      </div>
-      <div class="inline-container">
-        <a-date-picker v-model:value="inputDate1" :defaultValue="inputDate1" @change="fetchBattleRecordsByDate" valueFormat="YYYY/MM/DD" format="YYYY/MM/DD"
-          :disabled-date="disabledDate" />
-        <n-button size="small" :disabled="loading1" @click="handleRefresh1">
-          <template #icon>
-            <n-icon>
-              <Refresh />
-            </n-icon>
-          </template>查询</n-button>
-        <n-button type="primary" size="small" :disabled="!battleRecords1 || loading1" @click="handleExport1">
-          <template #icon>
-            <n-icon>
-              <Copy />
-            </n-icon>
-          </template>导出</n-button>
-      </div>
-      <div class="inline-container">
-        <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="hcSort">
-          <template #icon>
-          </template>红淬排序</n-button>
-        <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="scoreSort">
-          <template #icon>
-          </template>积分排序</n-button>
+      
+      <!-- 功能操作区 -->
+      <div class="function-section">
+        <div class="function-left">
+          <div class="export-options">
+            <n-checkbox-group v-model:value="exportmethod" name="group-exportmethod" size="small">
+              <n-checkbox value="1">表格导出</n-checkbox>
+              <n-checkbox value="2">图片导出</n-checkbox>
+            </n-checkbox-group>
+          </div>
+        </div>
+        
+        <div class="function-right">
+          <a-date-picker v-model:value="inputDate1" :defaultValue="inputDate1" @change="fetchBattleRecordsByDate" 
+            valueFormat="YYYY/MM/DD" format="YYYY/MM/DD" :disabled-date="disabledDate" />
+          <n-button size="small" :disabled="loading1" @click="handleRefresh1" class="action-btn refresh-btn">
+            <template #icon>
+              <n-icon>
+                <Refresh />
+              </n-icon>
+            </template>刷新</n-button>
+          <n-button type="primary" size="small" :disabled="!battleRecords1 || loading1" @click="handleExport1" class="action-btn export-btn">
+            <template #icon>
+              <n-icon>
+                <Copy />
+              </n-icon>
+            </template>导出</n-button>
+          <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="hcSort" class="action-btn sort-btn">
+            红淬排序</n-button>
+          <n-button type="info" size="small" :disabled="!battleRecords1 || loading1" @click="scoreSort" class="action-btn sort-btn">
+            积分排序</n-button>
+        </div>
       </div>
 
+      <!-- 公告区域 -->
+      <div v-if="battleRecords1 && battleRecords1.legionRankList" class="announcement-section">
+        <div class="announcement-content">
+          <span class="announcement-text">盐场匹配信息实时更新中，请关注最新排名变化</span>
+        </div>
+      </div>
 
-      <div class="battle-records-content">
+      <!-- 联盟分类标签栏 -->
+      <div v-if="battleRecords1 && battleRecords1.legionRankList" class="alliance-tabs-section">
+        <div class="alliance-tab" :class="{ active: activeAlliance === '大联盟' }" @click="setActiveAlliance('大联盟')">
+          <span class="tab-text">大联盟</span>
+          <span class="tab-count">{{ getActiveAllianceCount('大联盟') }}</span>
+        </div>
+        <div class="alliance-tab" :class="{ active: activeAlliance === '梦盟' }" @click="setActiveAlliance('梦盟')">
+          <span class="tab-text">梦盟</span>
+          <span class="tab-count">{{ getActiveAllianceCount('梦盟') }}</span>
+        </div>
+        <div class="alliance-tab" :class="{ active: activeAlliance === '未知联盟' }" @click="setActiveAlliance('未知联盟')">
+          <span class="tab-text">未知联盟</span>
+          <span class="tab-count">{{ getActiveAllianceCount('未知联盟') }}</span>
+        </div>
+
+        <div class="alliance-tab all" :class="{ active: activeAlliance === 'all' }" @click="setActiveAlliance('all')">
+          <span class="tab-text">全部</span>
+          <span class="tab-count">{{ battleRecords1.legionRankList.length }}</span>
+        </div>
+      </div>
+
+      <!-- 表格内容区 -->
+      <div class="table-content">
         <!-- 加载状态 -->
         <div v-if="loading1" class="loading-state">
           <n-spin size="large">
@@ -51,33 +97,76 @@
         </div>
 
         <!-- 匹配列表 -->
-        <div v-else-if="battleRecords1 && battleRecords1.legionRankList" ref="exportDom" class="records-list">
-          <div class="records-info">
-            <n-tag type="info">查询日期: {{ formatTimestamp1(inputDate1) }}</n-tag>
+        <div v-else-if="battleRecords1 && battleRecords1.legionRankList" ref="exportDom" class="table-container">
+          <!-- 表格标题行 -->
+          <div class="table-header">
+            <div class="table-cell rank">排名</div>
+            <div class="table-cell alliance">联盟</div>
+            <div class="table-cell avatar">头像</div>
+            <div class="table-cell name">名称</div>
+            <div class="table-cell score">积分</div>
+            <div class="table-cell red-quench">红淬</div>
+            <div class="table-cell first-3">前三车头</div>
+            <div class="table-cell power">战力</div>
+            <div class="table-cell level">等级</div>
+            <div class="table-cell server">服务区</div>
+            <div class="table-cell announcement">公告</div>
           </div>
-
-          <div v-for="member in battleRecords1.legionRankList" :key="member.id" class="member-card">
-            <div class="member-header">
-              <div class="member-info">
-                <img v-if="member.logo" :src="member.logo" :alt="member.name" class="member-avatar"
-                  @error="handleImageError">
-                <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
-                <span class="member-name">{{ member.name }}</span>
-              </div>
-              <div class="member-stats-inline">
-                <span class="stat-inline win">区服 {{ member.serverId || 0 }}</span>
-                <span class="stat-inline siege">战力 {{ formatPower(member.power) || 0 }}</span>
-                <span class="stat-inline Resurrectio">总红粹 {{ member.redQuench || 0 }}</span>
-                <span class="stat-inline rednumber">车头1 {{ member.redno1 || 0 }}/{{ member.hb1 || 0 }}四圣</span>
-                <span class="stat-inline rednumber">车头2 {{ member.redno2 || 0 }}/{{ member.hb2 || 0 }}四圣</span>
-                <span class="stat-inline rednumber">车头3 {{ member.redno3 || 0 }}/{{ member.hb3 || 0 }}四圣</span>
-                <span class="stat-inline Sscore" v-if="member.sRScore !== -1">积分 {{ formatScore(member.sRScore) || 0
-                  }}</span>
-                <span class="stat-inline alliance">所属联盟: {{ allianceincludes(member.announcement) || '' }}</span>
-                <span class="stat-inline tipsgg">公告: {{ member.announcement || '' }}</span>
+          
+          <!-- 表格数据行 -->
+          <div v-for="(member, index) in filteredLegionList" :key="member.id" 
+               class="table-row" 
+               :class="getAllianceClass(allianceincludes(member.announcement))">
+            <div class="table-cell rank">
+              <div class="rank-container">
+                <span v-if="index === 0" class="rank-medal gold"></span>
+                <span v-else-if="index === 1" class="rank-medal silver"></span>
+                <span v-else-if="index === 2" class="rank-medal bronze"></span>
+                <span v-else class="rank-number">{{ index + 1 }}</span>
               </div>
             </div>
+            <div class="table-cell alliance">
+              <span class="alliance-tag">{{ allianceincludes(member.announcement) || '未知联盟' }}</span>
+            </div>
+            <div class="table-cell avatar">
+              <img v-if="member.logo" :src="member.logo" :alt="member.name" class="member-avatar"
+                @error="handleImageError">
+              <div v-else class="member-avatar-placeholder">{{ member.name?.charAt(0) || '?' }}</div>
+            </div>
+            <div class="table-cell name">{{ member.name }}</div>
+            <div class="table-cell score">{{ formatScore(member.sRScore) || 0 }}</div>
+            <div class="table-cell red-quench">{{ member.redQuench || 0 }}</div>
+            <div class="table-cell first-3">
+              <div class="hero-avatars">
+                <div v-for="(hero, index) in member.topHeroes" :key="index" class="hero-card">
+                  <img v-if="hero.headImg" :src="hero.headImg" :alt="hero.name" class="hero-avatar">
+                  <div v-else class="hero-avatar-placeholder">{{ hero.name?.charAt(0) || '?' }}</div>
+                  <div class="hero-info">
+                    <div class="hero-name">{{ hero.name || '未知' }}</div>
+                    <div class="hero-stats">
+                      <span class="hero-power">{{ formatPower(hero.power) }}</span>
+                      <span class="hero-redquench" :class="getRedQuenchClass(hero.redQuench)">{{ hero.redQuench }}红</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="table-cell power">{{ formatPower(member.power) || 0 }}</div>
+            <div class="table-cell level"><span>{{ member.level || 30 }}</span></div>
+            <div class="table-cell server">{{ member.serverId || 0 }}</div>
+            <div class="table-cell announcement">{{ member.announcement || '' }}</div>
           </div>
+        </div>
+        
+        <!-- 空状态 -->
+        <div v-else-if="!loading1" class="empty-state">
+          <n-empty description="暂无盐场匹配数据" size="large">
+            <template #icon>
+              <n-icon>
+                <DocumentText />
+              </n-icon>
+            </template>
+          </n-empty>
         </div>
       </div>
     </div>
@@ -88,7 +177,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessage, NDatePicker, NCheckboxGroup, NCheckbox } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
-import html2canvas from "html2canvas"
+import html2canvas from 'html2canvas';
 import {
   Trophy,
   Refresh,
@@ -119,6 +208,8 @@ const props = defineProps({
   }
 })
 
+const exportmethod = ref([]);
+const exportDom = ref(null);
 const emit = defineEmits(['update:visible'])
 
 const message = useMessage()
@@ -128,13 +219,54 @@ const showModal = computed({
   get: () => props.visible,
   set: (val) => emit('update:visible', val)
 })
-const exportmethod = ref([]);
+
 const loading1 = ref(false)
 const battleRecords1 = ref(null)
 const expandedMembers = ref(new Set())
 const queryDate = ref('')
-const exportDom = ref(null)
 const inputDate1 = ref(getLastSaturday())
+
+// 新增联盟筛选功能
+const activeAlliance = ref('all')
+
+// 联盟筛选计算属性
+const filteredLegionList = computed(() => {
+  if (!battleRecords1.value?.legionRankList) {
+    return []
+  }
+  
+  if (activeAlliance.value === 'all') {
+    return battleRecords1.value.legionRankList
+  }
+  
+  return battleRecords1.value.legionRankList.filter(member => {
+    const memberAlliance = allianceincludes(member.announcement)
+    if (activeAlliance.value === '空白') {
+      return !member.announcement || member.announcement === 0 || member.announcement === '0'
+    }
+    return memberAlliance === activeAlliance.value
+  })
+})
+
+// 设置当前选中联盟
+const setActiveAlliance = (alliance) => {
+  activeAlliance.value = alliance
+}
+
+// 获取联盟数量
+const getActiveAllianceCount = (alliance) => {
+  if (!battleRecords1.value?.legionRankList) {
+    return 0
+  }
+  
+  return battleRecords1.value.legionRankList.filter(member => {
+    const memberAlliance = allianceincludes(member.announcement)
+    if (alliance === '空白') {
+      return !member.announcement || member.announcement === 0 || member.announcement === '0'
+    }
+    return memberAlliance === alliance
+  }).length
+}
 
 // 格式化战力
 const formatPower = (power) => {
@@ -149,7 +281,7 @@ const formatPower = (power) => {
 }
 
 const formatScore = (Score) => {
-  return Score.toFixed(0).toString()
+  return Score ? Score.toFixed(0).toString() : '0'
 }
 
 // 处理图片加载错误
@@ -160,6 +292,31 @@ const handleImageError = (event) => {
 
 const disabledDate = current => {
   return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
+}
+
+// 联盟样式类
+const getAllianceClass = (alliance) => {
+  switch(alliance) {
+    case '大联盟':
+      return 'alliance-large';
+    case '梦盟':
+      return 'alliance-dream';
+    case '未知联盟':
+      return 'alliance-unknown';
+    default:
+      return 'alliance-other';
+  }
+}
+
+// 红淬样式类
+const getRedQuenchClass = (redQuench) => {
+  if (redQuench >= 60) {
+    return 'redquench-high';
+  } else if (redQuench >= 50) {
+    return 'redquench-medium';
+  } else {
+    return 'redquench-low';
+  }
 }
 
 //日期选择时调用查询战绩方法
@@ -224,26 +381,25 @@ const fetchBattleRecords1 = async () => {
             5000
           );
           if (!detail) {
-            return {
-              ...club,
-              redQuench: 0,
-              power: 0,
-              announcement: '未知',
-              redno: 0,
-              redno1: '0红',
-              redno2: '0红',
-              redno3: '0红',
-              hb1: 0,
-              hb2: 0,
-              hb3: 0,
-            };
-          }
-          const redQuenchCounts = [];
-          const HolyBeastNum = [];
+        return {
+          ...club,
+          redQuench: 0,
+          power: 0,
+          announcement: '未知',
+          redno: 0,
+          redno1: '0红',
+          redno2: '0红',
+          redno3: '0红',
+          hb1: 0,
+          hb2: 0,
+          hb3: 0,
+          topHeroes: [],
+          level: 30
+        };
+      }
+          const topHeroes = [];
+          
           for (const [roleId, memberData] of Object.entries(detail?.legionData?.members)) {
-            if (memberData.custom?.red_quench_cnt !== undefined) {
-              redQuenchCounts.push(memberData.custom.red_quench_cnt + "红");
-            }
             const tempRoleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
               {
                 bottleType: 0,
@@ -251,14 +407,33 @@ const fetchBattleRecords1 = async () => {
                 isSearch: false,
                 roleId: roleId
               }, 5000)
+            
             let holyBeast = 0;
             for (const [heroId, heroData] of Object.entries(tempRoleInfo?.roleInfo?.heroes)) {
               if (heroData.hB?.active !== undefined) {
                 holyBeast++;
               }
             }
-            HolyBeastNum.push(holyBeast)
+            
+            topHeroes.push({
+              id: roleId,
+              name: memberData.name || memberData.custom?.name || '未知',
+              headImg: memberData.headImg || memberData.custom?.headImg || '',
+              power: tempRoleInfo?.roleInfo?.power || 0,
+              redQuench: memberData.custom?.red_quench_cnt || 0,
+              holyBeast: holyBeast
+            });
           }
+          
+          // 按红淬数量降序排序，取前三
+          topHeroes.sort((a, b) => b.redQuench - a.redQuench);
+          const top3Heroes = topHeroes.slice(0, 3);
+          
+          // 提取红淬数量数组
+          const redQuenchCounts = top3Heroes.map(hero => hero.redQuench + '红');
+          // 提取圣物数量数组
+          const HolyBeastNum = top3Heroes.map(hero => hero.holyBeast);
+          
           return {
             ...club,
             redQuench: detail?.legionData?.quenchNum || 0,
@@ -271,6 +446,8 @@ const fetchBattleRecords1 = async () => {
             hb1: HolyBeastNum[0] || 0,
             hb2: HolyBeastNum[1] || 0,
             hb3: HolyBeastNum[2] || 0,
+            topHeroes: top3Heroes,
+            level: 30
           };
         } catch (error) {
           console.error(`查询俱乐部${club.id}详情失败:`, error);
@@ -286,6 +463,8 @@ const fetchBattleRecords1 = async () => {
             hb1: 0,
             hb2: 0,
             hb3: 0,
+            topHeroes: [],
+            level: 30
           };
         }
       });
@@ -340,15 +519,13 @@ const fetchBattleRecords1 = async () => {
               hb1: 0,
               hb2: 0,
               hb3: 0,
+              topHeroes: [],
+              level: 30
             };
           }
-          const redQuenchCounts = [];
-          const HolyBeastNum = [];
+          const topHeroes = [];
+          
           for (const [roleId, memberData] of Object.entries(detail?.legionData?.members)) {
-            if (memberData.custom?.red_quench_cnt !== undefined) {
-              redQuenchCounts.push(memberData.custom.red_quench_cnt + "红");
-            }
-
             const tempRoleInfo = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
               {
                 bottleType: 0,
@@ -356,26 +533,47 @@ const fetchBattleRecords1 = async () => {
                 isSearch: false,
                 roleId: roleId
               }, 5000)
+            
             let holyBeast = 0;
             for (const [heroId, heroData] of Object.entries(tempRoleInfo?.roleInfo?.heroes)) {
               if (heroData.hB?.active !== undefined) {
                 holyBeast++;
               }
             }
-            HolyBeastNum.push(holyBeast)
+            
+            topHeroes.push({
+              id: roleId,
+              name: memberData.name || memberData.custom?.name || '未知',
+              headImg: memberData.headImg || memberData.custom?.headImg || '',
+              power: tempRoleInfo?.roleInfo?.power || 0,
+              redQuench: memberData.custom?.red_quench_cnt || 0,
+              holyBeast: holyBeast
+            });
           }
+          
+          // 按红淬数量降序排序，取前三
+          topHeroes.sort((a, b) => b.redQuench - a.redQuench);
+          const top3Heroes = topHeroes.slice(0, 3);
+          
+          // 提取红淬数量数组
+          const redQuenchCounts = top3Heroes.map(hero => hero.redQuench + '红');
+          // 提取圣物数量数组
+          const HolyBeastNum = top3Heroes.map(hero => hero.holyBeast);
+          
           return {
             ...club,
             redQuench: detail?.legionData?.quenchNum || 0,
             power: detail?.legionData?.power || 0,
             announcement: detail?.legionData?.announcement || 0,
             redno: redQuenchCounts || 0,
-            redno1: redQuenchCounts[0] || 0,
-            redno2: redQuenchCounts[1] || 0,
-            redno3: redQuenchCounts[2] || 0,
+            redno1: redQuenchCounts[0] || '0红',
+            redno2: redQuenchCounts[1] || '0红',
+            redno3: redQuenchCounts[2] || '0红',
             hb1: HolyBeastNum[0] || 0,
             hb2: HolyBeastNum[1] || 0,
             hb3: HolyBeastNum[2] || 0,
+            topHeroes: top3Heroes,
+            level: 30
           };
         } catch (error) {
           console.error(`查询俱乐部${club.id}详情失败:`, error);
@@ -391,6 +589,8 @@ const fetchBattleRecords1 = async () => {
             hb1: 0,
             hb2: 0,
             hb3: 0,
+            topHeroes: [],
+            level: 30
           };
         }
       });
@@ -448,12 +648,11 @@ const handleExport1 = async () => {
   }
 }
 
-
 const exportToImage = async () => {
   // 校验：确保DOM已正确绑定
   if (!exportDom.value) {
-    alert("未找到要导出的DOM元素")
-    return
+    alert("未找到要导出的DOM元素");
+    return;
   }
 
   try {
@@ -500,454 +699,907 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.club-warrank {
-  .toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: var(--spacing-sm);
-  }
+// 主容器样式
+.club-warrank-container {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
 
-  .overview {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
+// 卡片样式
+.club-warrank-card {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
-  .overview-actions {
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .club-header {
+// 头部信息区
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+  
+  .header-left {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
   }
-
-  .member-card {
+  
+  .header-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: var(--border-radius-md);
     background: var(--bg-secondary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--border-radius-medium);
-    padding: var(--spacing-sm);
-    transition: all var(--transition-fast);
-
-    &:hover {
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    padding: var(--spacing-xs);
+    box-sizing: border-box;
+  }
+  
+  .header-title {
+    h2 {
+      margin: 0;
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--text-primary);
     }
-
-    &+& {
-      margin-top: var(--spacing-sm);
+    
+    p {
+      margin: var(--spacing-xs) 0 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
     }
   }
-
-  .inline-container {
+  
+  // 数据统计区
+  .stats-section {
     display: flex;
+    gap: var(--spacing-lg);
     align-items: center;
-    gap: 8px;
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .member-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .member-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    min-width: 120px;
-    max-width: 120px;
-    flex-shrink: 0;
-  }
-
-  .member-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .member-avatar-placeholder {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-bold);
-    flex-shrink: 0;
-  }
-
-  .member-name {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .member-stats-inline {
-    display: flex;
-    gap: var(--spacing-xs);
-    align-items: center;
-    flex: 1;
-  }
-
-  @media (max-width: 768px) {
-    .member-stats-inline {
-      display: flex;
-      gap: var(--spacing-xs);
-      align-items: flex-start;
-      flex: 1;
-      flex-direction: column;
-
-      .tipsgg {
-        background: rgba(194, 166, 248, 0.1);
-        color: #AE86F9;
-        white-space: normal
-      }
-    }
-  }
-
-    .details-button {
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-
-    .stat-inline {
-      font-size: var(--font-size-xs);
-      padding: 2px 8px;
-      border-radius: var(--border-radius-small);
-      white-space: nowrap;
-      min-width: 52px;
-      text-align: center;
-
-      &.win {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-      }
-
-      &.loss {
-        background: rgba(239, 68, 68, 0.1);
-        color: #dc2626;
-      }
-
-      &.siege {
-        background: rgba(245, 158, 11, 0.1);
-        color: #d97706;
-      }
-
-      &.Resurrectio {
-        background: rgba(250, 76, 44, 0.1);
-        color: #F96F19;
-      }
-
-      &.rednumber {
-        background: rgba(0, 204, 221, 0.1);
-        color: #00BFFF;
-      }
-
-      &.alliance {
-        background: rgba(166, 211, 248, 0.1);
-        color: #7AC1F9;
-      }
-
-      &.tipsgg {
-        background: rgba(194, 166, 248, 0.1);
-        color: #AE86F9;
-      }
-
-      &.Sscore {
-        background: rgba(244, 162, 216, 0.1);
-        color: #FA79CE;
-      }
-
-    }
-
-    .battle-details {
-      margin-top: var(--spacing-lg);
-      padding-top: var(--spacing-lg);
-      border-top: 1px solid var(--border-light);
-    }
-
-    .battles-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-md);
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .battle-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-md);
-      background: var(--bg-primary);
-      border-radius: var(--border-radius-medium);
-      border-left: 3px solid transparent;
-
-      &.battle-win {
-        border-left-color: #10b981;
-      }
-
-      &.battle-loss {
-        border-left-color: #ef4444;
-      }
-    }
-
-    .battle-participants {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-lg);
-      flex: 1;
-    }
-
-    .participant {
+    
+    .stat-item {
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
-      min-width: 0;
-    }
-
-    .participant-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      object-fit: cover;
-      flex-shrink: 0;
-    }
-
-    .participant-name {
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .battle-vs {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-xs);
-      align-items: center;
-    }
-
-    .battle-time {
-      font-size: var(--font-size-xs);
-      color: var(--text-tertiary);
-      white-space: nowrap;
-    }
-
-    .no-battles {
-      padding: var(--spacing-xl);
-      text-align: center;
-    }
-
-    .meta {
-      .name {
-        font-size: var(--font-size-lg);
-        font-weight: var(--font-weight-semibold);
-      }
-
-      .sub {
+      
+      .stat-label {
+        font-size: var(--font-size-sm);
         color: var(--text-secondary);
+        font-weight: var(--font-weight-medium);
+      }
+      
+      :deep(.n-tag) {
+        font-size: var(--font-size-sm);
+        padding: 4px 8px;
+      }
+    }
+  }
+}
+
+// 功能操作区
+.function-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+  
+  .function-left {
+    .export-options {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      
+      :deep(.n-checkbox-group) {
+        display: flex;
+        gap: var(--spacing-md);
+        
+        .n-checkbox {
+          font-size: var(--font-size-sm);
+          color: var(--text-primary);
+        }
+      }
+    }
+  }
+  
+  .function-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    
+    :deep(.n-date-picker) {
+      font-size: var(--font-size-sm);
+      width: 200px;
+      
+      .n-input-wrapper {
         font-size: var(--font-size-sm);
       }
     }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: var(--spacing-md);
-    }
-
-    .item {
-      background: var(--bg-tertiary);
-      border-radius: var(--border-radius-medium);
-      padding: var(--spacing-sm);
-
-      .label {
-        color: var(--text-secondary);
-        font-size: var(--font-size-xs);
-        margin-bottom: 2px;
-      }
-
-      .value {
-        font-weight: var(--font-weight-medium);
-      }
-    }
-
-    .announcement .label,
-    .leader .label {
-      color: var(--text-secondary);
+    
+    .action-btn {
       font-size: var(--font-size-sm);
-      margin-bottom: 4px;
-    }
-
-    .announcement .text {
-      white-space: pre-wrap;
-    }
-
-    .leader .leader-info {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-    }
-
-    .members-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .member-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px;
-      border-radius: 8px;
-      background: var(--bg-tertiary);
-    }
-
-    .member-row .left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .member-row .right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-secondary);
-    }
-
-    .member-row .name {
-      font-weight: var(--font-weight-medium);
-    }
-
-    .member-row .power {
-      font-feature-settings: 'tnum' 1;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .hint {
-      margin-top: 8px;
-      color: var(--text-tertiary);
-      font-size: var(--font-size-xs);
-    }
-
-    .empty-club {
-      text-align: center;
-    }
-
-    .empty-club .actions {
-      margin-top: var(--spacing-sm);
-    }
-  
-
-  /* 卡片基础样式，保持与 GameStatus 一致 */
-  .status-card {
-    background: var(--bg-primary);
-    border-radius: var(--border-radius-xl);
-    padding: var(--spacing-lg);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all var(--transition-normal);
-    min-height: 200px;
-    min-width: 800px;
-
-    &:hover {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-      transform: translateY(-2px);
-    }
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--spacing-md);
-  }
-
-  .card-content {
-    .time-display {
-      font-size: 1rem;
-      /* text-2xl */
-      font-weight: 600;
-      /* font-bold */
-      color: var(--text-primary);
-      text-align: center;
-      margin-bottom: var(--spacing-md);
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
-      letter-spacing: 0.1em;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-      background: var(--bg-tertiary);
-      padding: 0.75rem 1rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border-light);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-      transition: all 0.2s ease-in-out;
-
+      padding: 6px 12px;
+      border-radius: var(--border-radius-sm);
+      transition: all var(--transition-fast);
+      
       &:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+        box-shadow: var(--shadow-medium);
+      }
+      
+      &.refresh-btn {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-medium);
+      }
+      
+      &.export-btn {
+        background: var(--primary-color);
+        color: white;
+        
+        &:hover {
+          background: var(--primary-color-hover);
+        }
+      }
+      
+      &.sort-btn {
+        background: var(--info-color-light);
+        color: var(--info-color);
+        border: 1px solid var(--info-color);
+        
+        &:hover {
+          background: var(--info-color-hover);
+          color: white;
+        }
       }
     }
   }
+}
 
-  .status-icon {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-    border-radius: 8px;
-    margin-right: var(--spacing-md);
-  }
-
-  .status-info {
-    flex: 1;
-
-    h3 {
-      margin: 0;
-      font-size: var(--font-size-lg);
+// 公告区域
+.announcement-section {
+  background: linear-gradient(135deg, var(--primary-color-light) 0%, var(--primary-color) 100%);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  
+  .announcement-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    .announcement-text {
+      color: white;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      text-align: center;
+      line-height: 1.5;
+      max-width: 800px;
     }
+  }
+}
 
-    p {
-      margin: 0;
-      color: var(--text-secondary);
+// 联盟分类标签栏
+.alliance-tabs-section {
+  display: flex;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: var(--spacing-xs);
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  
+  .alliance-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: white;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid transparent;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+    
+    &.active {
+      background: white;
+      color: var(--primary-color);
+      box-shadow: var(--shadow-medium);
+      transform: translateY(-2px);
+    }
+    
+    &.all {
+      background: rgba(255, 255, 255, 0.2);
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      &.active {
+        background: white;
+        color: var(--primary-color);
+      }
+    }
+    
+    .tab-text {
       font-size: var(--font-size-sm);
     }
-  }
-
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-
-    &.active {
-      background: rgba(24, 160, 88, 0.12);
-      color: var(--success-color);
+    
+    .tab-count {
+      font-size: var(--font-size-xs);
+      background: rgba(255, 255, 255, 0.3);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: var(--font-weight-bold);
+      
+      .alliance-tab.active & {
+        background: var(--primary-color);
+        color: white;
+      }
     }
   }
+}
 
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
+// 表格内容区
+.table-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  height: calc(100% - 200px);
+  
+  // 加载状态
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    background: var(--bg-primary);
+    height: 100%;
+    
+    :deep(.n-spin) {
+      font-size: var(--font-size-lg);
+      
+      .n-spin-description {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+    }
+  }
+  
+  // 空状态
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    background: var(--bg-primary);
+    height: 100%;
+    
+    :deep(.n-empty) {
+      font-size: var(--font-size-sm);
+      
+      .n-empty-description {
+        color: var(--text-secondary);
+      }
+    }
+  }
+  
+  // 表格容器
+  .table-container {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-primary);
+    height: 100%;
+    
+    // 滚动条样式
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius-sm);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-medium);
+      border-radius: var(--border-radius-sm);
+      
+      &:hover {
+        background: var(--border-dark);
+      }
+    }
+    
+    // 表格标题行
+    .table-header {
+      display: flex;
+      background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+      border-bottom: 2px solid var(--border-medium);
+      font-weight: var(--font-weight-bold);
+      color: var(--text-primary);
+      font-size: var(--font-size-sm);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      
+      // 确保所有标题头居中对齐
+      .table-cell {
+        justify-content: center;
+      }
+    }
+    
+    // 表格数据行
+    .table-row {
+      display: flex;
+      align-items: center;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-bottom: 1px solid var(--border-light);
+      transition: all var(--transition-fast);
+      background: var(--bg-primary);
+      
+      &:hover {
+        background: var(--bg-secondary);
+        transform: translateX(2px);
+        box-shadow: inset 3px 0 0 var(--primary-color);
+      }
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      // 联盟样式类
+      &.alliance-large {
+        .alliance-tag {
+          background: var(--primary-color);
+        }
+      }
+      
+      &.alliance-dream {
+        .alliance-tag {
+          background: var(--success-color);
+        }
+      }
+      
+      &.alliance-unknown {
+        .alliance-tag {
+          background: var(--warning-color);
+        }
+      }
+      
+      &.alliance-other {
+        .alliance-tag {
+          background: var(--text-secondary);
+        }
+      }
+    }
+    
+    // 表格单元格
+    .table-cell {
+      display: flex;
+      align-items: center;
+      padding: 0 var(--spacing-xs);
+      font-size: var(--font-size-sm);
+      color: var(--text-primary);
+      
+      // 单元格宽度分配
+      &.rank {
+        width: 60px;
+        min-width: 60px;
+        justify-content: center;
+        font-weight: var(--font-weight-bold);
+        color: var(--text-primary);
+        
+        .rank-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+        }
+        
+        .rank-medal {
+          position: relative;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: var(--font-size-sm);
+          color: white;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          
+          &::before {
+            content: attr(data-rank);
+          }
+          
+          &.gold {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            
+            &::before {
+              content: '1';
+            }
+          }
+          
+          &.silver {
+            background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%);
+            
+            &::before {
+              content: '2';
+            }
+          }
+          
+          &.bronze {
+            background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%);
+            
+            &::before {
+              content: '3';
+            }
+          }
+        }
+        
+        .rank-number {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-bold);
+          color: var(--text-primary);
+        }
+      }
+      
+      &.alliance {
+        width: 80px;
+        min-width: 80px;
+      
+        .alliance-tag {
+          display: inline-block;
+          padding: 3px 8px;
+          border-radius: var(--border-radius-full);
+          font-size: var(--font-size-xs);
+          font-weight: var(--font-weight-bold);
+          color: white;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+          transition: all var(--transition-fast);
+          
+          &:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-medium);
+          }
+        }
+      }
+      
+      &.avatar {
+        width: 50px;
+        min-width: 50px;
+        justify-content: center;
+      
+        .member-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 2px solid var(--border-light);
+          transition: all var(--transition-fast);
+          
+          &:hover {
+            transform: scale(1.2);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--primary-color);
+          }
+        }
+        
+        .member-avatar-placeholder {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: var(--font-size-md);
+          font-weight: var(--font-weight-bold);
+          border: 2px solid var(--border-light);
+        }
+      }
+      
+      &.name {
+        width: 120px;
+        min-width: 120px;
+        font-weight: var(--font-weight-bold);
+        color: var(--text-primary);
+        font-size: var(--font-size-base);
+      }
+      
+      &.score {
+        width: 80px;
+        min-width: 80px;
+        justify-content: center;
+        color: var(--warning-color);
+        font-weight: var(--font-weight-bold);
+        font-size: var(--font-size-base);
+        text-align: center;
+      }
+      
+      &.red-quench {
+        width: 80px;
+        min-width: 80px;
+        justify-content: center;
+        font-weight: var(--font-weight-bold);
+        text-align: center;
+        
+        &::before {
+          content: '';
+          display: inline-block;
+          width: 12px;
+          height: 12px;
+          background: var(--error-color);
+          border-radius: 50%;
+          margin-right: 4px;
+          vertical-align: middle;
+        }
+      }
+      
+      &.first-3 {
+        width: 350px;
+        min-width: 350px;
+        
+        .hero-avatars {
+          display: flex;
+          gap: var(--spacing-xs);
+          align-items: center;
+          justify-content: flex-start;
+          width: 100%;
+          flex-wrap: nowrap;
+          padding: var(--spacing-xs) 0;
+          overflow: hidden;
+        }
+        
+        .hero-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: calc(var(--spacing-xs) / 2);
+          padding: calc(var(--spacing-xs) / 2);
+          background: var(--bg-secondary);
+          border-radius: var(--border-radius-sm);
+          border: 1px solid var(--border-light);
+          transition: all var(--transition-fast);
+          min-width: 100px;
+          flex: 1;
+          max-width: 110px;
+          
+          &:hover {
+            background: var(--bg-primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--primary-color);
+          }
+        }
+        
+        .hero-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 2px solid var(--border-light);
+          transition: all var(--transition-fast);
+          
+          &:hover {
+            transform: scale(1.1);
+            border-color: var(--primary-color);
+          }
+        }
+        
+        .hero-avatar-placeholder {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-bold);
+          border: 2px solid var(--border-light);
+        }
+        
+        .hero-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          width: 100%;
+        }
+        
+        .hero-name {
+          font-size: var(--font-size-xs);
+          font-weight: var(--font-weight-medium);
+          color: var(--text-primary);
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+        }
+        
+        .hero-stats {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-xs);
+          font-size: var(--font-size-xs);
+        }
+        
+        .hero-power {
+          color: var(--text-primary);
+          font-weight: var(--font-weight-medium);
+        }
+        
+        .hero-redquench {
+          font-weight: var(--font-weight-bold);
+          padding: 1px 6px;
+          border-radius: var(--border-radius-full);
+          
+          &.redquench-high {
+            color: var(--error-color);
+            background: rgba(var(--error-color-rgb), 0.1);
+          }
+          
+          &.redquench-medium {
+            color: var(--warning-color);
+            background: rgba(var(--warning-color-rgb), 0.1);
+          }
+          
+          &.redquench-low {
+            color: var(--success-color);
+            background: rgba(var(--success-color-rgb), 0.1);
+          }
+        }
+      }
+      
+      &.power {
+        width: 100px;
+        min-width: 100px;
+        justify-content: center;
+        font-weight: var(--font-weight-bold);
+        color: var(--primary-color);
+        font-size: var(--font-size-base);
+        text-align: center;
+      }
+      
+      &.level {
+        width: 70px;
+        min-width: 70px;
+        justify-content: center;
+        
+        &::before {
+          content: 'Lv.';
+          font-size: var(--font-size-xs);
+          color: var(--text-secondary);
+          margin-right: 2px;
+        }
+        
+        span {
+          display: inline-block;
+          padding: 2px 8px;
+          background: linear-gradient(135deg, var(--primary-color-light) 0%, var(--primary-color) 100%);
+          color: white;
+          border-radius: var(--border-radius-full);
+          font-weight: var(--font-weight-bold);
+          font-size: var(--font-size-sm);
+        }
+      }
+      
+      &.server {
+        width: 90px;
+        min-width: 90px;
+        justify-content: center;
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        text-align: center;
+      }
+      
+      &.announcement {
+        flex: 1;
+        min-width: 150px;
+        color: var(--text-secondary);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        font-size: var(--font-size-xs);
+        line-height: 1.4;
+        min-height: 24px;
+        word-break: break-all;
+      }
+    }
+  }
+}
+
+// 按钮样式调整
+:deep(.n-button) {
+  font-size: var(--font-size-sm);
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// 输入框样式调整
+:deep(.n-input-wrapper) {
+  font-size: var(--font-size-sm);
+}
+
+// 响应式设计
+@media (max-width: 1200px) {
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    
+    .stats-section {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+  
+  .function-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    
+    .function-right {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+  }
+  
+  .alliance-tabs-section {
+    overflow-x: auto;
+    justify-content: flex-start;
+    
+    .alliance-tab {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+  }
+  
+  .table-container {
+    font-size: var(--font-size-xs);
+    
+    .table-header {
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    .table-row {
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    .table-cell {
+      padding: 0 var(--spacing-xs);
+      font-size: var(--font-size-xs);
+      
+      &.rank {
+        width: 50px;
+        min-width: 50px;
+      }
+      
+      &.alliance {
+        width: 100px;
+        min-width: 100px;
+      }
+      
+      &.avatar {
+        width: 50px;
+        min-width: 50px;
+        
+        .member-avatar, .member-avatar-placeholder {
+          width: 32px;
+          height: 32px;
+        }
+      }
+      
+      &.name {
+        width: 120px;
+        min-width: 120px;
+      }
+      
+      &.score, &.red-quench {
+        width: 80px;
+        min-width: 80px;
+      }
+      
+      &.first-3 {
+        width: 350px;
+        min-width: 350px;
+        
+        .hero-card {
+          min-width: 80px;
+          
+          .hero-avatar,
+          .hero-avatar-placeholder {
+            width: 40px;
+            height: 40px;
+          }
+          
+          .hero-name {
+            font-size: var(--font-size-xs);
+          }
+          
+          .hero-stats {
+            font-size: var(--font-size-xs);
+          }
+        }
+      }
+      
+      &.power {
+        width: 100px;
+        min-width: 100px;
+      }
+      
+      &.level, &.server {
+        width: 70px;
+        min-width: 70px;
+      }
+      
+      &.announcement {
+        min-width: 150px;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .club-warrank-container {
+    padding: var(--spacing-xs);
+  }
+  
+  .header-section {
+    padding: var(--spacing-md);
+  }
+  
+  .function-section {
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+  
+  .alliance-tabs-section {
+    padding: var(--spacing-xs) var(--spacing-xs);
+  }
+  
+  :deep(.n-date-picker) {
+    width: 180px !important;
   }
 }
 </style>

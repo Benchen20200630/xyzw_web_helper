@@ -505,9 +505,7 @@ onMounted(() => {
 }
 
 .battle-records-content {
-  min-height: 400px;
-  max-height: 400px;
-  overflow-y: auto;
+  min-height: 200px;
 }
 
 .loading-state,
@@ -515,7 +513,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 200px;
 }
 
 .records-list {
@@ -679,8 +677,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .battle-item {

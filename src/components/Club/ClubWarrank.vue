@@ -57,36 +57,42 @@
         </div>
       </div>
 
-      <!-- 公告区域 -->
-      <div v-if="battleRecords1 && battleRecords1.legionRankList" class="announcement-section">
-        <div class="announcement-content">
-          <span class="announcement-text">盐场匹配信息实时更新中，请关注最新排名变化</span>
-        </div>
-      </div>
-
-      <!-- 联盟分类标签栏 -->
-      <div v-if="battleRecords1 && battleRecords1.legionRankList" class="alliance-tabs-section">
-        <div class="alliance-tab" :class="{ active: activeAlliance === '大联盟' }" @click="setActiveAlliance('大联盟')">
-          <span class="tab-text">大联盟</span>
-          <span class="tab-count">{{ getActiveAllianceCount('大联盟') }}</span>
-        </div>
-        <div class="alliance-tab" :class="{ active: activeAlliance === '梦盟' }" @click="setActiveAlliance('梦盟')">
-          <span class="tab-text">梦盟</span>
-          <span class="tab-count">{{ getActiveAllianceCount('梦盟') }}</span>
-        </div>
-        <div class="alliance-tab" :class="{ active: activeAlliance === '未知联盟' }" @click="setActiveAlliance('未知联盟')">
-          <span class="tab-text">未知联盟</span>
-          <span class="tab-count">{{ getActiveAllianceCount('未知联盟') }}</span>
-        </div>
-
-        <div class="alliance-tab all" :class="{ active: activeAlliance === 'all' }" @click="setActiveAlliance('all')">
-          <span class="tab-text">全部</span>
-          <span class="tab-count">{{ battleRecords1.legionRankList.length }}</span>
-        </div>
-      </div>
-
       <!-- 表格内容区 -->
-      <div class="table-content">
+      <div ref="exportDom" class="table-content">
+        <!-- 公告区域 -->
+        <div v-if="battleRecords1 && battleRecords1.legionRankList" class="announcement-section">
+          <div class="announcement-content">
+            <span class="announcement-text">盐场匹配信息实时更新中，请关注最新排名变化</span>
+          </div>
+        </div>
+        
+        <!-- 联盟分类标签栏 -->
+        <div v-if="battleRecords1 && battleRecords1.legionRankList" class="alliance-tabs-section">
+          <div class="alliance-tab" :class="{ active: activeAlliance === '大联盟' }" @click="setActiveAlliance('大联盟')">
+            <span class="tab-text">大联盟</span>
+            <span class="tab-count">{{ getActiveAllianceCount('大联盟') }}</span>
+          </div>
+          <div class="alliance-tab" :class="{ active: activeAlliance === '梦盟' }" @click="setActiveAlliance('梦盟')">
+            <span class="tab-text">梦盟</span>
+            <span class="tab-count">{{ getActiveAllianceCount('梦盟') }}</span>
+          </div>
+          <div class="alliance-tab" :class="{ active: activeAlliance === '新正义' }" @click="setActiveAlliance('新正义')">
+            <span class="tab-text">新正义</span>
+            <span class="tab-count">{{ getActiveAllianceCount('新正义') }}</span>
+          </div>
+          <div class="alliance-tab" :class="{ active: activeAlliance === '龙盟' }" @click="setActiveAlliance('龙盟')">
+            <span class="tab-text">龙盟</span>
+            <span class="tab-count">{{ getActiveAllianceCount('龙盟') }}</span>
+          </div>
+          <div class="alliance-tab" :class="{ active: activeAlliance === '未知联盟' }" @click="setActiveAlliance('未知联盟')">
+            <span class="tab-text">未知联盟</span>
+            <span class="tab-count">{{ getActiveAllianceCount('未知联盟') }}</span>
+          </div>
+          <div class="alliance-tab all" :class="{ active: activeAlliance === 'all' }" @click="setActiveAlliance('all')">
+            <span class="tab-text">全部</span>
+            <span class="tab-count">{{ battleRecords1.legionRankList.length }}</span>
+          </div>
+        </div>
         <!-- 加载状态 -->
         <div v-if="loading1" class="loading-state">
           <n-spin size="large">
@@ -97,10 +103,10 @@
         </div>
 
         <!-- 匹配列表 -->
-        <div v-else-if="battleRecords1 && battleRecords1.legionRankList" ref="exportDom" class="table-container">
+        <div v-else-if="battleRecords1 && battleRecords1.legionRankList" class="table-container">
           <!-- 表格标题行 -->
           <div class="table-header">
-            <div class="table-cell rank">排名</div>
+            <div class="table-cell rank">红粹排名</div>
             <div class="table-cell alliance">联盟</div>
             <div class="table-cell avatar">头像</div>
             <div class="table-cell name">名称</div>
@@ -119,10 +125,10 @@
                :class="getAllianceClass(allianceincludes(member.announcement))">
             <div class="table-cell rank">
               <div class="rank-container">
-                <span v-if="index === 0" class="rank-medal gold"></span>
-                <span v-else-if="index === 1" class="rank-medal silver"></span>
-                <span v-else-if="index === 2" class="rank-medal bronze"></span>
-                <span v-else class="rank-number">{{ index + 1 }}</span>
+                <span v-if="redQuenchRankings[member.id] === 1" class="rank-medal gold"></span>
+                <span v-else-if="redQuenchRankings[member.id] === 2" class="rank-medal silver"></span>
+                <span v-else-if="redQuenchRankings[member.id] === 3" class="rank-medal bronze"></span>
+                <span v-else class="rank-number">{{ redQuenchRankings[member.id] }}</span>
               </div>
             </div>
             <div class="table-cell alliance">
@@ -139,8 +145,14 @@
             <div class="table-cell first-3">
               <div class="hero-avatars">
                 <div v-for="(hero, index) in member.topHeroes" :key="index" class="hero-card">
-                  <img v-if="hero.headImg" :src="hero.headImg" :alt="hero.name" class="hero-avatar">
-                  <div v-else class="hero-avatar-placeholder">{{ hero.name?.charAt(0) || '?' }}</div>
+                  <div class="hero-avatar-container" @click="handleHeroClick(hero)">
+                    <img v-if="hero.headImg" :src="hero.headImg" :alt="hero.name" class="hero-avatar">
+                    <div v-else class="hero-avatar-placeholder">{{ hero.name?.charAt(0) || '?' }}</div>
+                    <div class="hero-holy-beast" title="四圣数">
+                      <span class="holy-beast-icon">🐉</span>
+                      <span class="holy-beast-count">{{ hero.holyBeast }}</span>
+                    </div>
+                  </div>
                   <div class="hero-info">
                     <div class="hero-name">{{ hero.name || '未知' }}</div>
                     <div class="hero-stats">
@@ -170,12 +182,337 @@
         </div>
       </div>
     </div>
+    
+    <!-- 玩家信息模态框 -->
+    <n-modal
+      v-model:show="showPlayerInfoModal"
+      preset="card"
+      title="对手信息"
+      :style="{ width: '800px' }"
+      :bordered="false"
+      :segmented="{ content: 'soft', footer: 'soft' }"
+      :show-close="false"
+    >
+      <template #header-extra>
+        <span v-if="playerInfo" class="player-id">ID: {{ playerInfo.id }}</span>
+      </template>
+      
+      <div v-if="playerInfo" class="player-info-content">
+        <div class="player-info-main">
+          <n-avatar round :size="60" :src="playerInfo.headImg" class="player-avatar" />
+          <div class="player-info-detail">
+            <h3>{{ playerInfo.name }}</h3>
+            <p>区服: {{ playerInfo.serverName || '未知' }} | 战力: {{ formatPower(playerInfo.power) }}</p>
+            <p>俱乐部: {{ playerInfo.legionName || '无' }} | 红淬: {{ playerInfo.redQuench || 0 }} | 四圣数: {{ playerInfo.holyBeast || 0 }}</p>
+            <p>总红数: {{ playerInfo.totalRedCount || 0 }} | 总开孔数: {{ playerInfo.totalHoleCount || 0 }}</p>
+          </div>
+        </div>
+        
+        <div class="action-section">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+            <div class="fight-count-container">
+              <label for="fightCount" class="fight-count-label">切磋次数:</label>
+              <n-input
+                id="fightCount"
+                v-model:value="fightCount"
+                type="number"
+                placeholder="请输入切磋次数"
+                min="1"
+                max="100"
+                :step="1"
+                class="fight-count-input"
+                size="small"
+                @input="validateFightCount"
+              />
+              <div class="fight-count-hint">范围: 1-100</div>
+            </div>
+            <n-button 
+              type="tertiary" 
+              @click="showPlayerInfoModal = false" 
+              size="small"
+              style="margin-right: 8px;"
+            >
+              关闭
+            </n-button>
+          </div>
+          <n-button type="primary" @click="handleDuel" :disabled="!isFightCountValid">
+            切磋
+          </n-button>
+        </div>
+        
+        <!-- 切磋进度和结果 -->
+        <div v-if="fightProgress.visible" class="fight-progress">
+          <div class="progress-info">
+            <div class="progress-title">切磋进行中</div>
+            <div class="progress-stats">
+              <span>总次数: {{ fightProgress.totalCount }}</span>
+              <span>已完成: {{ fightProgress.completedCount }}</span>
+              <span>剩余: {{ fightProgress.remainingCount }}</span>
+              <span>胜: {{ fightProgress.winCount }}</span>
+              <span>负: {{ fightProgress.lossCount }}</span>
+            </div>
+          </div>
+          <n-progress
+            type="line"
+            :percentage="fightProgress.percentage"
+            :show-indicator="false"
+            :stroke-width="8"
+            status="processing"
+          />
+        </div>
+        
+        <!-- 最终结果统计 -->
+        <div v-if="fightResult.visible" class="fight-result">
+          <!-- 结果标题和统计信息 -->
+          <div class="result-header">
+            <h4 class="result-title">切磋结果</h4>
+            <div class="result-summary">
+              <div class="summary-item">
+                <span class="summary-label">总次数：</span>
+                <span class="summary-value">{{ fightResult.totalCount }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">胜：</span>
+                <span class="summary-value win">{{ fightResult.winCount }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">负：</span>
+                <span class="summary-value loss">{{ fightResult.lossCount }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">胜率：</span>
+                <span class="summary-value">{{ ((fightResult.winCount / fightResult.totalCount) * 100).toFixed(2) }}%</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">我方掉将率：</span>
+                <span class="summary-value">{{ ((dieStats.ourDieHeroGameCount / fightResult.totalCount) * 100).toFixed(2) }}%</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">敌方掉将率：</span>
+                <span class="summary-value">{{ ((dieStats.enemyDieHeroGameCount / fightResult.totalCount) * 100).toFixed(2) }}%</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 战斗结果列表 -->
+          <div class="result-list">
+            <div 
+              v-for="(battle, index) in fightResult.resultCount" 
+              :key="index" 
+              :class="['battle-result-item', battle.isWin ? 'win' : 'loss']"
+            >
+              <div class="battle-header">
+                <span class="battle-index">第 {{ index + 1 }} 场</span>
+                <n-tag :type="battle.isWin ? 'success' : 'error'" size="small">
+                  {{ battle.isWin ? '胜利' : '失败' }}
+                </n-tag>
+              </div>
+              
+              <div class="battle-details">
+                <div class="battle-side left-side">
+                  <n-avatar round :size="32" :src="battle.leftheadImg" class="side-avatar" />
+                  <div class="side-info">
+                    <span class="side-name">{{ battle.leftName || '未知' }}</span>
+                    <span class="side-power">战力: {{ battle.leftpower }}</span>
+                    <span class="side-die">掉将: {{ battle.leftDieHero }} 个</span>
+                  </div>
+                </div>
+                
+                <div class="battle-vs">VS</div>
+                
+                <div class="battle-side right-side">
+                  <n-avatar round :size="32" :src="battle.rightheadImg" class="side-avatar" />
+                  <div class="side-info">
+                    <span class="side-name">{{ battle.rightName || '未知' }}</span>
+                    <span class="side-power">战力: {{ battle.rightpower }}</span>
+                    <span class="side-die">掉将: {{ battle.rightDieHero }} 个</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="result-actions">
+            <n-button type="primary" @click="resetFightResult">重新切磋</n-button>
+            <n-button @click="fightResult.visible = false">关闭结果</n-button>
+          </div>
+        </div>
+        
+        <div class="player-heroes">
+          <h4>武将阵容</h4>
+          <!-- 添加调试信息 -->
+          <div v-if="playerInfo.heroList" class="debug-info" style="font-size: 12px; color: #999; margin-bottom: 10px;">
+            武将数量: {{ playerInfo.heroList.length }}
+          </div>
+          <div class="hero-list" v-if="playerInfo.heroList && playerInfo.heroList.length > 0">
+            <div v-for="(hero, index) in playerInfo.heroList" :key="hero.heroId || index" class="hero-item" @click="selectHeroInfo(hero)">
+              <n-avatar round :size="40" :src="hero.heroAvate" style="cursor: pointer;" />
+              <div class="hero-info">
+                <span class="hero-name">{{ hero.heroName }}</span>
+                <div class="hero-stats">
+                  <span>战力: {{ formatPower(hero.power || 0) }}</span>
+                  <span>星级: {{ hero.star || 0 }}</span>
+                  <span>红数: {{ hero.red || 0 }}</span>
+                  <span>开孔: {{ hero.hole || 0 }}</span>
+                  <span :class="hero.HolyBeast ? 'opened' : 'closed'">
+                    {{ hero.HolyBeast ? '已开四圣' : '未开四圣' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-heroes">
+            <p>未查询到武将信息</p>
+            <!-- 添加调试信息 -->
+            <div v-if="playerInfo.heroList" style="font-size: 12px; color: #999; margin-top: 10px;">
+              武将列表为空
+            </div>
+            <div v-else style="font-size: 12px; color: #999; margin-top: 10px;">
+              武将列表未定义
+            </div>
+          </div>
+        </div>
+      </div>
+      
+
+    </n-modal>
+    
+    <!-- 武将详情模态框 -->
+    <n-modal
+      v-model:show="showHeroModal"
+      class="hero-detail-modal"
+      preset="card"
+      title="武将信息"
+      size="large"
+      :bordered="false"
+      :segmented="{ content: 'soft', footer: 'soft' }"
+      :style="{ width: '600px' }"
+      :show-close="true"
+    >
+      <template #header-extra>
+        <span class="hero-id">武将ID: {{ heroModealTemp?.heroId }}</span>
+      </template>
+      
+      <div v-if="heroModealTemp" class="hero-modal-content">
+        <div class="hero-modal-header">
+          <div class="hero-modal-avatar">
+            <img v-if="heroModealTemp.heroAvate" :src="heroModealTemp.heroAvate" :alt="heroModealTemp.heroName" />
+            <div v-else class="hero-placeholder">{{ heroModealTemp.heroName?.substring(0, 2) || '?' }}</div>
+          </div>
+          <div class="hero-modal-basic">
+            <h3 class="hero-modal-name">{{ heroModealTemp.heroName }}</h3>
+            <div class="hero-modal-stats">
+              <span class="stat-item">{{ formatPower(heroModealTemp.power) }}</span>
+              <span class="stat-item">等级: {{ heroModealTemp.level }}</span>
+              <span class="stat-item">星级: {{ heroModealTemp.star }}</span>
+              <n-tag :type="heroModealTemp.HolyBeast ? 'success' : 'warning'">
+                {{ heroModealTemp.HolyBeast ? '已激活' : '未激活' }}
+              </n-tag>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hero-modal-details">
+          <n-descriptions label-placement="left" column="3" bordered>
+            <n-descriptions-item label="战力">
+              {{ formatPower(heroModealTemp.power) }}
+            </n-descriptions-item>
+            <n-descriptions-item label="等级">
+              {{ heroModealTemp.level }}
+            </n-descriptions-item>
+            <n-descriptions-item label="星级">
+              {{ heroModealTemp.star }}
+            </n-descriptions-item>
+            <n-descriptions-item label="开孔数">
+              {{ heroModealTemp.hole }}
+            </n-descriptions-item>
+            <n-descriptions-item label="红孔数">
+              {{ heroModealTemp.red }}
+            </n-descriptions-item>
+            <n-descriptions-item label="四圣状态">
+              {{ heroModealTemp.HolyBeast ? '已激活' : '未激活' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="鱼灵">
+              {{ heroModealTemp?.PearlInfo?.FishInfo?.name != undefined ? heroModealTemp.PearlInfo?.FishInfo?.name : '无' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="鱼灵洗练">
+              <div v-if="heroModealTemp?.PearlInfo?.slotMap?.length > 0">
+                <div 
+                  v-for="item in heroModealTemp.PearlInfo.slotMap" 
+                  :key="item.id"
+                  class="ModalEquipment"
+                  :style="'background-color:' + item.value"
+                ></div>
+              </div>
+              <div v-else>无</div>
+            </n-descriptions-item>
+            <n-descriptions-item label="鱼珠技能">
+              {{ heroModealTemp?.PearlInfo?.PearlSkill?.name != undefined ? heroModealTemp.PearlInfo?.PearlSkill?.name : '无' }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </div>
+        
+        <div class="hero-modal-equipment">
+          <h4 class="section-title">装备详情</h4>
+          <div class="equipment-grid">
+            <div class="equipment-item">
+              <span class="equipment-label">武器:</span>
+              <div class="equipment-slots">
+                <div 
+                  v-for="(item, idx) in Object.values(Object.values(heroModealTemp.equipment)[0]?.quenches || {})" 
+                  :key="idx" 
+                  class="equipment-slot"
+                  :class="{ 'red-slot': item.colorId === 6 }"
+                ></div>
+              </div>
+            </div>
+            <div class="equipment-item">
+              <span class="equipment-label">衣服:</span>
+              <div class="equipment-slots">
+                <div 
+                  v-for="(item, idx) in Object.values(Object.values(heroModealTemp.equipment)[1]?.quenches || {})" 
+                  :key="idx" 
+                  class="equipment-slot"
+                  :class="{ 'red-slot': item.colorId === 6 }"
+                ></div>
+              </div>
+            </div>
+            <div class="equipment-item">
+              <span class="equipment-label">头盔:</span>
+              <div class="equipment-slots">
+                <div 
+                  v-for="(item, idx) in Object.values(Object.values(heroModealTemp.equipment)[2]?.quenches || {})" 
+                  :key="idx" 
+                  class="equipment-slot"
+                  :class="{ 'red-slot': item.colorId === 6 }"
+                ></div>
+              </div>
+            </div>
+            <div class="equipment-item">
+              <span class="equipment-label">坐骑:</span>
+              <div class="equipment-slots">
+                <div 
+                  v-for="(item, idx) in Object.values(Object.values(heroModealTemp.equipment)[3]?.quenches || {})" 
+                  :key="idx" 
+                  class="equipment-slot"
+                  :class="{ 'red-slot': item.colorId === 6 }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <template #footer>
+        <n-button @click="showHeroModal = false">关闭</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useMessage, NDatePicker, NCheckboxGroup, NCheckbox } from 'naive-ui'
+import { ref, computed, onMounted, reactive } from 'vue'
+import { useMessage, NDatePicker, NCheckboxGroup, NCheckbox, NModal, NAvatar } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from 'html2canvas';
 import {
@@ -196,6 +533,7 @@ import {
   copyToClipboard
 } from '@/utils/clubBattleUtils'
 import { gettoday, formatWarrankRecordsForExport, allianceincludes } from '@/utils/clubWarrankUtils'
+import { HERO_DICT, HeroFillInfo } from '@/utils/HeroList'
 
 const props = defineProps({
   visible: {
@@ -208,7 +546,7 @@ const props = defineProps({
   }
 })
 
-const exportmethod = ref([]);
+const exportmethod = ref(['2']);
 const exportDom = ref(null);
 const emit = defineEmits(['update:visible'])
 
@@ -229,6 +567,490 @@ const inputDate1 = ref(getLastSaturday())
 // 新增联盟筛选功能
 const activeAlliance = ref('all')
 
+// 新增查询对手相关状态
+const queryLoading = ref(false)
+const queryTargetId = ref('')
+// 玩家信息模态框状态
+const showPlayerInfoModal = ref(false)
+const playerInfo = ref(null)
+
+// 新增切磋次数相关状态
+const fightCount = ref(1)
+const isFightCountValid = ref(true)
+
+// 切磋进度状态
+const fightProgress = reactive({
+  visible: false,
+  totalCount: 0,
+  completedCount: 0,
+  remainingCount: 0,
+  winCount: 0,
+  lossCount: 0,
+  percentage: 0
+})
+
+// 最终结果状态
+const fightResult = reactive({
+  visible: false,
+  totalCount: 0,
+  winCount: 0,
+  lossCount: 0,
+  winRate: 0,
+  ourDieRate: 0,
+  enemyDieRate: 0,
+  resultCount: [] // 存储每场战斗的详细结果
+})
+
+// 切磋历史记录
+const fightHistory = ref([])
+
+// 掉将统计
+const dieStats = reactive({
+  ourDieHeroGameCount: 0,
+  enemyDieHeroGameCount: 0
+})
+
+// 武将详情模态框状态
+const showHeroModal = ref(false)
+// 选中的武将信息
+const heroModealTemp = ref(null)
+
+// 选择武将信息，显示详情模态框
+const selectHeroInfo = (heroInfo) => {
+  showHeroModal.value = true
+  heroModealTemp.value = heroInfo
+}
+
+// 获取装备信息红数和孔数
+const getEquipment = (equipment) => {
+  let redCount = 0;
+  let holeCount = 0;
+  //遍历4件装备
+  Object.values(equipment).forEach(equ => {
+    //遍历每件装备的属性
+    Object.values(equ.quenches).forEach(item => {
+      holeCount++;
+      if (item.colorId == 6) {
+        redCount++;
+      }
+    })
+  });
+  return { redCount, holeCount }
+}
+
+// 提取英雄信息
+const getHeroInfo = (heroObj) => {
+  //统计总红数
+  let redCount = 0;
+  let holeCount = 0;
+  let heroList = [];
+  
+  try {
+    // 检查英雄数据结构，确保可以遍历
+    let heroesToProcess = [];
+    
+    if (Array.isArray(heroObj)) {
+      // 如果是数组，直接使用
+      heroesToProcess = heroObj;
+    } else if (typeof heroObj === 'object' && heroObj !== null) {
+      // 如果是对象，转换为数组
+      heroesToProcess = Object.values(heroObj);
+    } else {
+      console.error('英雄数据格式错误:', typeof heroObj);
+      return { redCount, holeCount, heroList };
+    }
+    
+    console.log('待处理的英雄数量:', heroesToProcess.length);
+    
+    heroesToProcess.forEach((hero, index) => {
+      console.log(`处理第 ${index + 1} 个英雄:`, hero);
+      
+      // 跳过无效英雄数据
+      if (!hero) return;
+      
+      let heroInfo = HERO_DICT[hero.heroId] || {};
+      let equipmentInfo = hero.equipment ? getEquipment(hero.equipment) : { redCount: 0, holeCount: 0 };
+      
+      // 检查英雄基本信息
+      const heroId = hero.heroId || `unknown_${index}`;
+      const heroName = hero.heroName || heroInfo.name || `未知武将_${index}`;
+      
+      let tempObj = {
+        heroId: heroId, //英雄ID
+        artifactId: hero.artifactId || '', //英雄装备ID，用于匹配鱼灵信息
+        power: hero.power || 0, //英雄战力
+        star: hero.star || 0, //英雄星级
+        equipment: hero.equipment, //英雄具体孔数和红数
+        heroName: heroName, //英雄姓名
+        heroAvate: hero.heroAvate || heroInfo.avatar || '',
+        level: hero.level || 0, //英雄等级
+        hole: equipmentInfo.holeCount, //英雄开孔数量
+        red: equipmentInfo.redCount, //英雄红数
+        HolyBeast: hero.hB?.active === true,   //激活四圣
+        // 添加英雄详情信息
+        skillList: hero.skillList || [],
+        attributeList: hero.attributeList || []
+      };
+      
+      // 只添加有效的英雄
+      if (heroId && heroName) {
+        redCount += tempObj.red;
+        holeCount += tempObj.hole;
+        heroList.push(tempObj);
+        console.log(`添加英雄: ${tempObj.heroName}, 战力: ${tempObj.power}, 红数: ${tempObj.red}, 开孔数: ${tempObj.hole}`);
+      }
+    });
+    
+    console.log('处理完成的英雄列表:', heroList);
+    
+  } catch (error) {
+    console.error('处理英雄信息时发生错误:', error);
+    heroList = [];
+  }
+  
+  return { redCount, holeCount, heroList };
+}
+
+// 新增查询对手信息功能
+const fetchTargetInfo = async (roleId) => {
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择游戏角色')
+    return
+  }
+
+  const tokenId = tokenStore.selectedToken.id
+
+  // 检查WebSocket连接
+  const wsStatus = tokenStore.getWebSocketStatus(tokenId)
+  if (wsStatus !== 'connected') {
+    message.error('WebSocket未连接，无法查询战绩')
+    return
+  }
+
+  // 重置之前的切磋结果
+  resetFightResult()
+
+  queryLoading.value = true
+  queryTargetId.value = roleId
+
+  try {
+    const result = await tokenStore.sendMessageWithPromise(tokenId, 'rank_getroleinfo',
+      {
+        bottleType: 0,
+        includeBottleTeam: false,
+        isSearch: false,
+        roleId: roleId,
+        includeHero: true,
+        includeHeroDetail: true,
+        includePearl: true
+      }, 5000)
+    
+    // 调试信息
+    console.log('rank_getroleinfo API返回结果:', result)
+    
+    if (!result.roleInfo) {
+      message.warning('未查询到对手信息')
+      console.log('未查询到roleInfo')
+      return
+    }
+    
+    // 构建玩家信息对象
+    console.log('构建玩家信息 - result.roleInfo:', result.roleInfo)
+    console.log('构建玩家信息 - result.roleInfo.heroes:', result.roleInfo.heroes)
+    console.log('构建玩家信息 - result.legionInfo:', result.legionInfo)
+    
+    // 检查英雄数据类型和结构
+    console.log('英雄数据类型:', typeof result.roleInfo.heroes)
+    if (result.roleInfo.heroes) {
+      console.log('英雄数据是否为数组:', Array.isArray(result.roleInfo.heroes))
+      console.log('英雄数据是否为对象:', typeof result.roleInfo.heroes === 'object')
+      console.log('英雄数据键名:', Object.keys(result.roleInfo.heroes))
+    }
+    
+    // 处理鱼灵信息
+    const fishInfo = HeroFillInfo(result.roleInfo);
+    console.log('处理后的鱼灵信息:', fishInfo)
+    
+    // 获取英雄信息
+    let heroAndholdAndRed = { redCount: 0, holeCount: 0, heroList: [] };
+    if (result.roleInfo.heroes) {
+      try {
+        heroAndholdAndRed = getHeroInfo(result.roleInfo.heroes);
+        console.log('处理后的英雄信息:', heroAndholdAndRed)
+      } catch (error) {
+        console.error('处理英雄信息失败:', error)
+        heroAndholdAndRed = { redCount: 0, holeCount: 0, heroList: [] };
+      }
+    }
+    
+    // 将鱼灵信息添加到英雄列表中
+    heroAndholdAndRed.heroList.forEach(hero => {
+      hero.PearlInfo = fishInfo[hero.artifactId] || {};
+    });
+    
+    // 调试英雄列表
+    console.log('最终英雄列表:', heroAndholdAndRed.heroList)
+    console.log('英雄列表长度:', heroAndholdAndRed.heroList.length)
+    
+    // 计算总红数和总开孔数
+    const totalRedCount = heroAndholdAndRed.redCount;
+    const totalHoleCount = heroAndholdAndRed.holeCount;
+    
+    // 从角色信息中获取红淬数据
+    const roleRedQuench = result.roleInfo.red || 0;
+    const roleMaxRed = result.roleInfo.maxRed || 0;
+    
+    // 从俱乐部信息中获取红淬数据（如果有）
+    const legionRedQuench = result.legionInfo?.statistics?.['battle:red:quench'] || roleRedQuench;
+    const legionMaxRed = result.legionInfo?.statistics?.['red:quench'] || roleMaxRed;
+    const legionMaxPower = result.legionInfo?.statistics?.['max:power'] || result.roleInfo.maxPower || 0;
+    
+    const playerData = {
+      id: roleId,
+      name: result.roleInfo.name,
+      headImg: result.roleInfo.headImg,
+      power: result.roleInfo.power,
+      level: result.roleInfo.level,
+      serverName: result.roleInfo.serverName,
+      legionName: result.legionInfo?.name || '无',
+      // 显示角色的红淬数
+      redQuench: roleRedQuench,
+      // 四圣数统计
+      holyBeast: heroAndholdAndRed.heroList.filter(hero => hero.HolyBeast).length,
+      // 俱乐部历史最高战力
+      maxPower: formatPower(legionMaxPower),
+      // 当前红鼓和最大红鼓
+      currentRedDrum: roleRedQuench,
+      maxRedDrum: roleMaxRed,
+      // 总红数和总开孔数
+      totalRedCount: totalRedCount,
+      totalHoleCount: totalHoleCount,
+      // 俱乐部红淬数据
+      legionRedQuench: legionRedQuench,
+      legionMaxRed: legionMaxRed,
+      // 英雄列表
+      heroList: heroAndholdAndRed.heroList
+    }
+    
+    console.log('构建完成的玩家数据:', playerData)
+    
+    // 更新状态并显示模态框
+    playerInfo.value = playerData
+    console.log('设置playerInfo后的值:', playerInfo.value)
+    
+    showPlayerInfoModal.value = true
+    console.log('设置showPlayerInfoModal后的值:', showPlayerInfoModal.value)
+    
+    message.success('查询成功')
+  } catch (error) {
+    message.error(`查询失败: ${error.message}`)
+    console.error('查询失败详细信息:', error)
+  } finally {
+    queryLoading.value = false
+  }
+}
+
+// 车头头像点击处理
+const handleHeroClick = (hero) => {
+  if (hero.id && !queryLoading.value) {
+    message.info(`正在查询车头信息: ${hero.name}`)
+    fetchTargetInfo(hero.id)
+  } else if (!hero.id) {
+    message.error('车头ID不存在，无法查询信息')
+    console.error('车头ID不存在', hero)
+  }
+}
+
+// 验证切磋次数
+const validateFightCount = (value) => {
+  const num = parseInt(value)
+  isFightCountValid.value = !isNaN(num) && num >= 1 && num <= 100
+}
+
+// 重置切磋结果
+const resetFightResult = () => {
+  fightResult.visible = false
+  fightProgress.visible = false
+  fightHistory.value = []
+  dieStats.ourDieHeroGameCount = 0
+  dieStats.enemyDieHeroGameCount = 0
+  fightCount.value = 1
+  validateFightCount(1)
+}
+
+// 更新切磋进度
+const updateFightProgress = (completedCount, winCount, lossCount) => {
+  fightProgress.completedCount = completedCount
+  fightProgress.winCount = winCount
+  fightProgress.lossCount = lossCount
+  fightProgress.remainingCount = fightProgress.totalCount - completedCount
+  fightProgress.percentage = Math.round((completedCount / fightProgress.totalCount) * 100)
+}
+
+// 计算最终结果
+const calculateFinalResult = (winCount, lossCount, resultCount) => {
+  fightResult.totalCount = fightProgress.totalCount
+  fightResult.winCount = winCount
+  fightResult.lossCount = lossCount
+  fightResult.winRate = Math.round((winCount / fightProgress.totalCount) * 100)
+  fightResult.ourDieRate = Math.round((dieStats.ourDieHeroGameCount / fightProgress.totalCount) * 100)
+  fightResult.enemyDieRate = Math.round((dieStats.enemyDieHeroGameCount / fightProgress.totalCount) * 100)
+  fightResult.resultCount = resultCount // 存储每场战斗的详细结果
+  fightResult.visible = true
+  fightProgress.visible = false
+}
+
+// 切磋功能处理 - 支持连续切磋
+const handleDuel = async () => {
+  if (!playerInfo.value) return
+  
+  // 验证切磋次数
+  validateFightCount(fightCount.value)
+  if (!isFightCountValid.value) {
+    message.error('请输入有效的切磋次数 (1-100)')
+    return
+  }
+  
+  const totalCount = parseInt(fightCount.value)
+  message.info(`开始连续切磋: ${playerInfo.value.name}，共${totalCount}次`)
+  
+  if (!tokenStore.selectedToken) {
+    message.warning('请先选择游戏角色')
+    return
+  }
+  
+  const tokenId = tokenStore.selectedToken.id
+  
+  // 检查WebSocket连接
+  const wsStatus = tokenStore.getWebSocketStatus(tokenId)
+  if (wsStatus !== 'connected') {
+    message.error('WebSocket未连接，无法发起切磋')
+    return
+  }
+  
+  queryLoading.value = true
+  
+  // 初始化切磋进度
+  fightProgress.visible = true
+  fightProgress.totalCount = totalCount
+  fightProgress.completedCount = 0
+  fightProgress.remainingCount = totalCount
+  fightProgress.winCount = 0
+  fightProgress.lossCount = 0
+  fightProgress.percentage = 0
+  
+  // 重置掉将统计
+  dieStats.ourDieHeroGameCount = 0
+  dieStats.enemyDieHeroGameCount = 0
+  
+  // 重置历史记录
+  fightHistory.value = []
+  
+  try {
+    let winCount = 0
+    let lossCount = 0
+    let resultCount = [] // 存储每场战斗的详细结果
+    
+    // 重置掉将统计
+    dieStats.ourDieHeroGameCount = 0
+    dieStats.enemyDieHeroGameCount = 0
+    
+    // 执行连续切磋
+    for (let i = 0; i < totalCount; i++) {
+      message.info(`正在进行第 ${i + 1}/${totalCount} 场切磋`)
+      
+      // 调用实际的切磋API
+      const result = await tokenStore.sendMessageWithPromise(tokenId, 'fight_startpvp', {
+        targetId: playerInfo.value.id
+      }, 10000)
+      
+      console.log(`第 ${i + 1} 场切磋结果:`, result)
+      
+      if (result && result.battleData) {
+        // 处理掉将情况
+        let leftCount = 0;
+        let rightCount = 0;
+        
+        // 检查我方掉将情况
+        if (result.battleData.result?.sponsor?.teamInfo) {
+          result.battleData.result.sponsor.teamInfo.forEach(item => {
+            if (item.hp == 0) {
+              leftCount++;
+            }
+          });
+        }
+        
+        // 检查敌方掉将情况
+        if (result.battleData.result?.accept?.teamInfo) {
+          result.battleData.result.accept.teamInfo.forEach(item => {
+            if (item.hp == 0) {
+              rightCount++;
+            }
+          });
+        }
+        
+        // 构建战斗结果对象
+        const battleResult = {
+          isWin: result.battleData.result?.isWin || false,
+          leftName: result.battleData.leftTeam?.name || '未知',
+          leftheadImg: result.battleData.leftTeam?.headImg || '',
+          leftpower: formatPower(result.battleData.leftTeam?.power || 0),
+          leftDieHero: leftCount,
+          rightName: result.battleData.rightTeam?.name || '未知',
+          rightheadImg: result.battleData.rightTeam?.headImg || '',
+          rightpower: formatPower(result.battleData.rightTeam?.power || 0),
+          rightDieHero: rightCount
+        };
+        
+        // 保存到结果数组
+        resultCount.push(battleResult)
+        
+        // 更新掉将统计
+        if (leftCount > 0) {
+          dieStats.ourDieHeroGameCount++
+        }
+        if (rightCount > 0) {
+          dieStats.enemyDieHeroGameCount++
+        }
+        
+        // 更新胜负计数
+        if (battleResult.isWin) {
+          winCount++
+        } else {
+          lossCount++
+        }
+        
+        // 更新切磋进度
+        updateFightProgress(i + 1, winCount, lossCount)
+        
+        // 短暂延迟，避免请求过于频繁
+        if (i < totalCount - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+      } else {
+        // 单场切磋失败，继续下一场
+        message.warning(`第 ${i + 1} 场切磋失败: ${result?.message || '未返回战斗数据'}`)
+        lossCount++
+        updateFightProgress(i + 1, winCount, lossCount)
+      }
+    }
+    
+    // 所有切磋完成，计算最终结果
+    calculateFinalResult(winCount, lossCount, resultCount)
+    
+    message.success(`连续切磋完成，共${totalCount}场`)
+    
+  } catch (error) {
+    console.error('连续切磋失败:', error)
+    message.error(`连续切磋失败: ${error.message || '网络错误'}`)
+    fightProgress.visible = false
+  } finally {
+    queryLoading.value = false
+    // 不关闭模态框，让用户可以继续查看或再次切磋
+  }
+}
+
 // 联盟筛选计算属性
 const filteredLegionList = computed(() => {
   if (!battleRecords1.value?.legionRankList) {
@@ -247,6 +1069,23 @@ const filteredLegionList = computed(() => {
     return memberAlliance === activeAlliance.value
   })
 })
+
+// 计算所有俱乐部的红淬排名
+const redQuenchRankings = computed(() => {
+  if (!battleRecords1.value?.legionRankList) return {};
+  
+  // 按红淬数量降序排序所有俱乐部，获取真实排名
+  const sortedByRedQuench = [...battleRecords1.value.legionRankList]
+    .sort((a, b) => (b.redQuench || 0) - (a.redQuench || 0));
+  
+  // 创建俱乐部ID到红淬排名的映射（1-based）
+  const rankMap = {};
+  sortedByRedQuench.forEach((club, index) => {
+    rankMap[club.id] = index + 1;
+  });
+  
+  return rankMap;
+});
 
 // 设置当前选中联盟
 const setActiveAlliance = (alliance) => {
@@ -301,6 +1140,10 @@ const getAllianceClass = (alliance) => {
       return 'alliance-large';
     case '梦盟':
       return 'alliance-dream';
+    case '新正义':
+      return 'alliance-xin-justice';
+    case '龙盟':
+      return 'alliance-dragon';
     case '未知联盟':
       return 'alliance-unknown';
     default:
@@ -469,9 +1312,64 @@ const fetchBattleRecords1 = async () => {
         }
       });
       const processedClubs = await Promise.all(detailPromises);
+      
+      // 1. 为每个俱乐部添加联盟信息
+      const clubsWithAlliance = processedClubs.map(club => ({
+        ...club,
+        alliance: allianceincludes(club.announcement)
+      }));
+      
+      // 2. 统计每个联盟的俱乐部数量
+      const allianceStats = {};
+      clubsWithAlliance.forEach(club => {
+        const alliance = club.alliance;
+        allianceStats[alliance] = (allianceStats[alliance] || 0) + 1;
+      });
+      
+      // 3. 找出联盟数量最多的联盟
+      let maxAlliance = '';
+      let maxCount = 0;
+      for (const [alliance, count] of Object.entries(allianceStats)) {
+        if (count > maxCount) {
+          maxCount = count;
+          maxAlliance = alliance;
+        }
+      }
+      
+      // 4. 按照联盟分组，并优先显示数量最多的联盟
+      // 先将所有俱乐部按联盟分组
+      const allianceGroups = {};
+      clubsWithAlliance.forEach(club => {
+        const alliance = club.alliance;
+        if (!allianceGroups[alliance]) {
+          allianceGroups[alliance] = [];
+        }
+        allianceGroups[alliance].push(club);
+      });
+      
+      // 5. 在每个联盟内部按照红粹数从高到低排序
+      for (const alliance in allianceGroups) {
+        allianceGroups[alliance].sort((a, b) => (b.redQuench || 0) - (a.redQuench || 0));
+      }
+      
+      // 6. 构建最终排序后的列表：先显示最大联盟，然后按联盟名称排序
+      const sortedLegionList = [];
+      
+      // 先添加最大联盟的俱乐部
+      if (maxAlliance && allianceGroups[maxAlliance]) {
+        sortedLegionList.push(...allianceGroups[maxAlliance]);
+        delete allianceGroups[maxAlliance];
+      }
+      
+      // 然后添加其他联盟的俱乐部，按联盟名称排序
+      const otherAlliances = Object.keys(allianceGroups).sort();
+      for (const alliance of otherAlliances) {
+        sortedLegionList.push(...allianceGroups[alliance]);
+      }
+      
       battleRecords1.value = {
         ...result,
-        legionRankList: processedClubs
+        legionRankList: sortedLegionList
       };
       message.success('盐场匹配数据加载成功');
     } catch (error) {
@@ -595,9 +1493,64 @@ const fetchBattleRecords1 = async () => {
         }
       });
       const processedClubs = await Promise.all(detailPromises);
+      
+      // 1. 为每个俱乐部添加联盟信息
+      const clubsWithAlliance = processedClubs.map(club => ({
+        ...club,
+        alliance: allianceincludes(club.announcement)
+      }));
+      
+      // 2. 统计每个联盟的俱乐部数量
+      const allianceStats = {};
+      clubsWithAlliance.forEach(club => {
+        const alliance = club.alliance;
+        allianceStats[alliance] = (allianceStats[alliance] || 0) + 1;
+      });
+      
+      // 3. 找出联盟数量最多的联盟
+      let maxAlliance = '';
+      let maxCount = 0;
+      for (const [alliance, count] of Object.entries(allianceStats)) {
+        if (count > maxCount) {
+          maxCount = count;
+          maxAlliance = alliance;
+        }
+      }
+      
+      // 4. 按照联盟分组，并优先显示数量最多的联盟
+      // 先将所有俱乐部按联盟分组
+      const allianceGroups = {};
+      clubsWithAlliance.forEach(club => {
+        const alliance = club.alliance;
+        if (!allianceGroups[alliance]) {
+          allianceGroups[alliance] = [];
+        }
+        allianceGroups[alliance].push(club);
+      });
+      
+      // 5. 在每个联盟内部按照红粹数从高到低排序
+      for (const alliance in allianceGroups) {
+        allianceGroups[alliance].sort((a, b) => (b.redQuench || 0) - (a.redQuench || 0));
+      }
+      
+      // 6. 构建最终排序后的列表：先显示最大联盟，然后按联盟名称排序
+      const sortedLegionList = [];
+      
+      // 先添加最大联盟的俱乐部
+      if (maxAlliance && allianceGroups[maxAlliance]) {
+        sortedLegionList.push(...allianceGroups[maxAlliance]);
+        delete allianceGroups[maxAlliance];
+      }
+      
+      // 然后添加其他联盟的俱乐部，按联盟名称排序
+      const otherAlliances = Object.keys(allianceGroups).sort();
+      for (const alliance of otherAlliances) {
+        sortedLegionList.push(...allianceGroups[alliance]);
+      }
+      
       battleRecords1.value = {
         ...result,
-        legionRankList: processedClubs
+        legionRankList: sortedLegionList
       };
       message.success('盐场匹配数据加载成功');
     } catch (error) {
@@ -656,12 +1609,28 @@ const exportToImage = async () => {
   }
 
   try {
+    // 保存原始样式
+    const originalHeight = exportDom.value.style.height;
+    const originalOverflow = exportDom.value.style.overflow;
+    
+    // 临时调整表格容器高度，确保所有内容可见
+    exportDom.value.style.height = "auto";
+    exportDom.value.style.overflow = "visible";
+    
+    // 等待DOM更新
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // 5. 用html2canvas渲染DOM为Canvas
     const canvas = await html2canvas(exportDom.value, {
       scale: 2, // 放大2倍，解决图片模糊问题
       useCORS: true, // 允许跨域图片（若DOM内有远程图片，需开启）
       backgroundColor: "#ffffff", // 避免透明背景（默认透明）
       logging: false, // 关闭控制台日志
+      height: exportDom.value.scrollHeight, // 确保捕获完整高度
+      width: exportDom.value.scrollWidth, // 确保捕获完整宽度
+      windowWidth: exportDom.value.scrollWidth, // 设置窗口宽度
+      windowHeight: exportDom.value.scrollHeight, // 设置窗口高度
+      allowTaint: true, // 允许跨域图片污染画布
     })
 
     // 6. Canvas转图片链接（支持PNG/JPG）
@@ -671,7 +1640,6 @@ const exportToImage = async () => {
     // 7. 创建下载链接，触发浏览器下载
     const link = document.createElement("a")
     link.href = imgUrl
-    console.log()
     link.download = queryDate.value.replace("/", "年").replace("/", "月") + "日盐场匹配信息.png"
     document.body.appendChild(link)
     link.click()
@@ -679,6 +1647,10 @@ const exportToImage = async () => {
   } catch (err) {
     console.error("DOM转图片失败：", err)
     alert("导出图片失败，请重试")
+  } finally {
+    // 恢复原始样式
+    exportDom.value.style.height = originalHeight;
+    exportDom.value.style.overflow = originalOverflow;
   }
 }
 
@@ -699,6 +1671,578 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+// 模态框样式
+.player-info-content {
+  padding: 20px;
+}
+
+.player-info-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.player-avatar {
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.player-info-detail h3 {
+  margin: 0 0 8px 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.player-info-detail p {
+  margin: 0 0 4px 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.action-section {
+  margin: 15px 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.fight-count-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.fight-count-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.fight-count-input {
+  width: 100px;
+}
+
+.fight-count-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.fight-count-error {
+  font-size: var(--font-size-xs);
+  color: var(--error-color);
+  margin-left: 4px;
+}
+
+.fight-progress {
+  margin: 15px 0;
+  padding: 15px;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.progress-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.progress-stats {
+  display: flex;
+  gap: 15px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.fight-result {
+  margin: 15px 0;
+  padding: 15px;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.fight-result h4 {
+  margin: 0 0 12px 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
+
+.result-label {
+  color: var(--text-secondary);
+}
+
+.result-value {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.result-value.win {
+  color: var(--success-color);
+}
+
+.result-value.loss {
+  color: var(--error-color);
+}
+
+.result-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-light);
+}
+
+/* 武将详情模态框样式 */
+.hero-detail-modal {
+  .hero-modal-content {
+    padding: 20px 0;
+  }
+  
+  .hero-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .hero-modal-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid var(--border-light);
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .hero-placeholder {
+      font-size: 36px;
+      font-weight: var(--font-weight-bold);
+      color: var(--text-secondary);
+    }
+  }
+  
+  .hero-modal-basic {
+    flex: 1;
+  }
+  
+  .hero-modal-name {
+    margin: 0 0 10px 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+  }
+  
+  .hero-modal-stats {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    
+    .stat-item {
+      padding: 4px 8px;
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--border-light);
+    }
+  }
+  
+  .hero-modal-details {
+    margin-bottom: 20px;
+    
+    :deep(.n-descriptions) {
+      font-size: var(--font-size-sm);
+      
+      .n-descriptions-item-label {
+        font-weight: var(--font-weight-medium);
+        color: var(--text-primary);
+      }
+      
+      .n-descriptions-item-content {
+        color: var(--text-secondary);
+      }
+    }
+  }
+  
+  .hero-modal-equipment {
+    margin-top: 20px;
+  }
+  
+  .section-title {
+    margin: 0 0 15px 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+  }
+  
+  .equipment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .equipment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .equipment-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    width: 60px;
+  }
+  
+  .equipment-slots {
+    display: flex;
+    gap: 6px;
+  }
+  
+  .equipment-slot {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-secondary);
+  }
+  
+  .equipment-slot.red-slot {
+    background: var(--error-color);
+    border-color: var(--error-color);
+  }
+  
+  /* 鱼灵洗练颜色块 */
+  .ModalEquipment {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 4px;
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .hero-detail-modal {
+    :deep(.n-modal-content) {
+      padding: 0 !important;
+    }
+    
+    .hero-modal-header {
+      flex-direction: column;
+      text-align: center;
+    }
+    
+    .equipment-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+/* 切磋结果显示样式 */
+.fight-result {
+  margin: 15px 0;
+  padding: 15px;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.result-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.result-summary {
+  display: flex;
+  gap: 15px;
+  font-size: var(--font-size-sm);
+  flex-wrap: wrap;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.summary-label {
+  color: var(--text-secondary);
+}
+
+.summary-value {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.summary-value.win {
+  color: var(--success-color);
+}
+
+.summary-value.loss {
+  color: var(--error-color);
+}
+
+.result-list {
+  margin-bottom: 15px;
+}
+
+.battle-result-item {
+  margin-bottom: 10px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--border-light);
+  transition: all var(--transition-fast);
+}
+
+.battle-result-item.win {
+  border-left-color: var(--success-color);
+  background: rgba(var(--success-color-rgb), 0.03);
+}
+
+.battle-result-item.loss {
+  border-left-color: var(--error-color);
+  background: rgba(var(--error-color-rgb), 0.03);
+}
+
+.battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.battle-index {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.battle-details {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.battle-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.side-avatar {
+  flex-shrink: 0;
+}
+
+.side-info {
+  flex: 1;
+  font-size: var(--font-size-sm);
+}
+
+.side-name {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.side-power {
+  display: block;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.side-die {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.battle-vs {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-secondary);
+  margin: 0 10px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .result-summary {
+    gap: 10px;
+  }
+  
+  .battle-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .battle-side {
+    width: 100%;
+  }
+  
+  .battle-vs {
+    align-self: center;
+    margin: 5px 0;
+    transform: rotate(90deg);
+  }
+}
+
+.player-heroes {
+  margin-top: 20px;
+}
+
+.player-heroes h4 {
+  margin: 0 0 12px 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+}
+
+.hero-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.hero-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-secondary);
+  padding: 12px 16px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-fast);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary-color);
+  }
+}
+
+.hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.hero-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.hero-stats span {
+  padding: 2px 6px;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-full);
+  border: 1px solid var(--border-light);
+}
+
+.hero-stats span.opened {
+  background: rgba(var(--success-color-rgb), 0.1);
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.hero-stats span.closed {
+  background: rgba(var(--warning-color-rgb), 0.1);
+  color: var(--warning-color);
+  border-color: var(--warning-color);
+}
+
+.empty-heroes {
+  background: var(--bg-secondary);
+  padding: 30px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-light);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.player-id {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+// 主容器样式
 // 主容器样式
 .club-warrank-container {
   width: 100%;
@@ -1087,6 +2631,18 @@ onMounted(() => {
         }
       }
       
+      &.alliance-xin-justice {
+        .alliance-tag {
+          background: var(--info-color);
+        }
+      }
+      
+      &.alliance-dragon {
+        .alliance-tag {
+          background: var(--error-color);
+        }
+      }
+      
       &.alliance-unknown {
         .alliance-tag {
           background: var(--warning-color);
@@ -1110,11 +2666,12 @@ onMounted(() => {
       
       // 单元格宽度分配
       &.rank {
-        width: 60px;
-        min-width: 60px;
+        width: 90px;
+        min-width: 90px;
         justify-content: center;
         font-weight: var(--font-weight-bold);
         color: var(--text-primary);
+        padding: 4px 8px;
         
         .rank-container {
           position: relative;
@@ -1123,20 +2680,22 @@ onMounted(() => {
           justify-content: center;
           width: 100%;
           height: 100%;
+          padding: 4px 0;
         }
         
         .rank-medal {
           position: relative;
-          width: 28px;
-          height: 28px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-base);
           color: white;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          margin: 0 6px;
           
           &::before {
             content: attr(data-rank);
@@ -1168,9 +2727,10 @@ onMounted(() => {
         }
         
         .rank-number {
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-base);
           font-weight: var(--font-weight-bold);
           color: var(--text-primary);
+          margin: 0 6px;
         }
       }
       
@@ -1269,7 +2829,7 @@ onMounted(() => {
       
       &.first-3 {
         width: 350px;
-        min-width: 350px;
+        min-width: 405px;
         
         .hero-avatars {
           display: flex;
@@ -1292,9 +2852,10 @@ onMounted(() => {
           border-radius: var(--border-radius-sm);
           border: 1px solid var(--border-light);
           transition: all var(--transition-fast);
-          min-width: 100px;
+          min-width: 120px;
           flex: 1;
-          max-width: 110px;
+          max-width: 130px;
+          cursor: pointer;
           
           &:hover {
             background: var(--bg-primary);
@@ -1302,19 +2863,46 @@ onMounted(() => {
             box-shadow: var(--shadow-medium);
             border-color: var(--primary-color);
           }
+          
+          &:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-sm);
+          }
+        }
+        
+        /* 覆盖全局hero-stats span样式，确保战力和红数正常显示 */
+        .hero-stats span {
+          padding: 0;
+          background: none;
+          border: none;
+          border-radius: 0;
+        }
+        
+        .hero-avatar-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          cursor: pointer;
         }
         
         .hero-avatar {
-          width: 40px;
-          height: 40px;
+          width: 50px;
+          height: 50px;
           border-radius: 50%;
           object-fit: cover;
           border: 2px solid var(--border-light);
           transition: all var(--transition-fast);
+          cursor: pointer;
           
           &:hover {
             transform: scale(1.1);
             border-color: var(--primary-color);
+          }
+          
+          &:active {
+            transform: scale(0.95);
           }
         }
         
@@ -1330,6 +2918,43 @@ onMounted(() => {
           font-size: var(--font-size-sm);
           font-weight: var(--font-weight-bold);
           border: 2px solid var(--border-light);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          
+          &:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          }
+          
+          &:active {
+            transform: scale(0.95);
+          }
+        }
+        
+        .hero-holy-beast {
+          position: absolute;
+          right: -5px;
+          bottom: -5px;
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+          color: white;
+          padding: 2px 6px;
+          border-radius: var(--border-radius-full);
+          font-size: var(--font-size-xs);
+          font-weight: var(--font-weight-bold);
+          box-shadow: var(--shadow-sm);
+          border: 2px solid var(--bg-primary);
+          z-index: 10;
+          
+          .holy-beast-icon {
+            font-size: var(--font-size-sm);
+          }
+          
+          .holy-beast-count {
+            font-size: var(--font-size-xs);
+          }
         }
         
         .hero-info {
@@ -1353,9 +2978,16 @@ onMounted(() => {
         
         .hero-stats {
           display: flex;
+          flex-direction: row;
           align-items: center;
+          justify-content: center;
           gap: var(--spacing-xs);
           font-size: var(--font-size-xs);
+        }
+        
+        .hero-power,
+        .hero-redquench {
+          display: inline-block;
         }
         
         .hero-power {
@@ -1419,8 +3051,8 @@ onMounted(() => {
       }
       
       &.server {
-        width: 90px;
-        min-width: 90px;
+        width: 80px;
+        min-width: 80px;
         justify-content: center;
         color: var(--text-secondary);
         font-size: var(--font-size-sm);

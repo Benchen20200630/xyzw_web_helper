@@ -533,7 +533,13 @@ const openTaskModal = () => {
 // Edit existing task
 const editTask = (task) => {
   editingTask.value = task
-  Object.assign(taskForm, { ...task })
+  const taskData = { ...task }
+  if (task.runType === 'daily' && task.runTime && typeof task.runTime === 'string') {
+    const [hours, minutes] = task.runTime.split(':').map(Number)
+    const now = new Date()
+    taskData.runTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+  }
+  Object.assign(taskForm, taskData)
   showTaskModal.value = true
 }
 

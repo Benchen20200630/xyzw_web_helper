@@ -239,6 +239,46 @@
             </n-button>
           </n-space>
 
+          <!-- 任务预告区域 -->
+          <div class="task-preview" style="
+            margin: 16px 0;
+            padding: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: #fafafa;
+          ">
+            <h4 style="margin: 0 0 12px 0; color: #333;">即将执行的任务</h4>
+            <div v-if="shortestCountdownTask" style="
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12px;
+              background-color: white;
+              border-radius: 6px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            ">
+              <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">{{ shortestCountdownTask.task.name }}</div>
+              <div 
+                style="
+                  font-size: 24px;
+                  font-weight: bold;
+                  color: #1677ff;
+                "
+                :style="{ color: shortestCountdownTask.countdown.isNearExecution ? '#ff4d4f' : '#1677ff' }"
+              >
+                {{ shortestCountdownTask.countdown.formatted }}
+              </div>
+            </div>
+            <div v-else style="
+              text-align: center;
+              padding: 24px;
+              color: #6b7280;
+              font-style: italic;
+            ">
+              暂无定时任务
+            </div>
+          </div>
+
           <!-- 简单的任务统计 -->
           <div class="tasks-count" v-if="scheduledTasks.length > 0">
             <p>已保存 {{ scheduledTasks.length }} 个定时任务</p>
@@ -452,6 +492,17 @@
             }}</span>
           </div>
           <div style="margin-bottom: 4px">
+            <span style="color: #6b7280">下次执行：</span>
+            <span
+              :style="{
+                fontWeight: 'bold',
+                color: taskCountdowns[task.id]?.isNearExecution ? '#ff4d4f' : '#1677ff'
+              }"
+            >
+              {{ taskCountdowns[task.id]?.formatted || '计算中...' }}
+            </span>
+          </div>
+          <div style="margin-bottom: 4px">
             <span style="color: #6b7280">选中账号：</span>
             <span>{{ task.selectedTokens.length }} 个</span>
           </div>
@@ -578,7 +629,7 @@
 
 <script setup>
 // Import required dependencies
-import { ref, computed, nextTick, reactive, watch, onMounted } from "vue";
+import { ref, computed, nextTick, reactive, watch, onMounted, onBeforeUnmount } from "vue";
 import { useTokenStore } from "@/stores/tokenStore";
 import { DailyTaskRunner } from "@/utils/dailyTaskRunner";
 import { preloadQuestions } from "@/utils/studyQuestionsFromJSON.js";
@@ -768,7 +819,7 @@ const openTaskModal = () => {
   Object.assign(taskForm, {
     name: "",
     runType: "daily",
-    runTime: null,
+    runTime: undefined,
     cronExpression: "",
     selectedTokens: [],
     selectedTasks: [],
@@ -784,6 +835,70 @@ const editTask = (task) => {
   showTaskModal.value = true;
 };
 
+// Validate cron expression
+const validateCronExpression = (expression) => {
+  if (!expression) return { valid: false, message: "Cron表达式不能为空" };
+  
+  const cronParts = expression.split(" ").filter(Boolean);
+  if (cronParts.length !== 5) {
+    return { valid: false, message: "Cron表达式必须包含5个字段：分 时 日 月 周" };
+  }
+  
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = cronParts;
+  
+  // 定义通用的cron字段验证函数
+  const validateCronField = (field, min, max, fieldName) => {
+    // 支持：* / */5 / 0/1 / 1-5 / 1,3,5 / 1-10/2
+    const cronFieldRegex = new RegExp(`^(?:\\*|\\*/\\d+|[0-9]+/\\d+|(?:[0-9]+-?)*[0-9]+(?:,[0-9]+-?)*[0-9]+(?:/\\d+)?)$`);
+    
+    if (!cronFieldRegex.test(field)) {
+      return { valid: false, message: `${fieldName}字段格式错误` };
+    }
+    
+    // 如果是简单数字，验证范围
+    if (/^\d+$/.test(field)) {
+      const num = parseInt(field);
+      if (num < min || num > max) {
+        return { valid: false, message: `${fieldName}字段必须在${min}-${max}之间` };
+      }
+    }
+    
+    return { valid: true };
+  };
+  
+  // Validate minute (0-59)
+  const minuteValidation = validateCronField(minute, 0, 59, "分钟");
+  if (!minuteValidation.valid) {
+    return minuteValidation;
+  }
+  
+  // Validate hour (0-23)
+  const hourValidation = validateCronField(hour, 0, 23, "小时");
+  if (!hourValidation.valid) {
+    return hourValidation;
+  }
+  
+  // Validate dayOfMonth (1-31)
+  const dayOfMonthValidation = validateCronField(dayOfMonth, 1, 31, "日期");
+  if (!dayOfMonthValidation.valid) {
+    return dayOfMonthValidation;
+  }
+  
+  // Validate month (1-12)
+  const monthValidation = validateCronField(month, 1, 12, "月份");
+  if (!monthValidation.valid) {
+    return monthValidation;
+  }
+  
+  // Validate dayOfWeek (0-7, where 0 and 7 both represent Sunday)
+  const dayOfWeekValidation = validateCronField(dayOfWeek, 0, 7, "星期");
+  if (!dayOfWeekValidation.valid) {
+    return dayOfWeekValidation;
+  }
+  
+  return { valid: true, message: "Cron表达式格式正确" };
+};
+
 // Save task (create or update)
 const saveTask = () => {
   if (!taskForm.name) {
@@ -796,9 +911,18 @@ const saveTask = () => {
     return;
   }
 
-  if (taskForm.runType === "cron" && !taskForm.cronExpression) {
-    message.warning("请输入Cron表达式");
-    return;
+  if (taskForm.runType === "cron") {
+    if (!taskForm.cronExpression) {
+      message.warning("请输入Cron表达式");
+      return;
+    }
+    
+    // Validate cron expression
+    const validation = validateCronExpression(taskForm.cronExpression);
+    if (!validation.valid) {
+      message.warning(validation.message);
+      return;
+    }
   }
 
   if (taskForm.selectedTokens.length === 0) {
@@ -833,6 +957,8 @@ const saveTask = () => {
     enabled: taskForm.enabled,
   };
 
+  let isNew = !editingTask.value;
+  
   if (editingTask.value) {
     // Update existing task
     const index = scheduledTasks.value.findIndex(
@@ -852,15 +978,27 @@ const saveTask = () => {
     scheduledTasks.value.length,
   );
   console.log("Scheduled tasks:", scheduledTasks.value);
+  
+  // Add log entry for task save
+  addTaskSaveLog(taskData, isNew);
+  
   showTaskModal.value = false;
   message.success("定时任务已保存");
 };
 
 // Delete task
 const deleteTask = (taskId) => {
-  scheduledTasks.value = scheduledTasks.value.filter((t) => t.id !== taskId);
-  saveScheduledTasks();
-  message.success("定时任务已删除");
+  const task = scheduledTasks.value.find((t) => t.id === taskId);
+  if (task) {
+    scheduledTasks.value = scheduledTasks.value.filter((t) => t.id !== taskId);
+    saveScheduledTasks();
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `=== 定时任务 ${task.name} 已删除 ===`,
+      type: "info",
+    });
+    message.success("定时任务已删除");
+  }
 };
 
 // Toggle task enabled state
@@ -870,7 +1008,46 @@ const toggleTaskEnabled = (taskId, enabled) => {
     task.enabled = enabled;
     saveScheduledTasks();
     message.success(`定时任务已${enabled ? "启用" : "禁用"}`);
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `=== 定时任务 ${task.name} 已${enabled ? "启用" : "禁用"} ===`,
+      type: "info",
+    });
   }
+};
+
+// Add log entry for task save
+const addTaskSaveLog = (task, isNew) => {
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `=== ${isNew ? "新增" : "修改"}定时任务: ${task.name} ===`,
+    type: "info",
+  });
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `运行类型: ${task.runType === "daily" ? "每天固定时间" : "Cron表达式"}`,
+    type: "info",
+  });
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `运行时间: ${task.runType === "daily" ? task.runTime : task.cronExpression}`,
+    type: "info",
+  });
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `选中账号: ${task.selectedTokens.length} 个`,
+    type: "info",
+  });
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `选中任务: ${task.selectedTasks.length} 个`,
+    type: "info",
+  });
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `状态: ${task.enabled ? "启用" : "禁用"}`,
+    type: "info",
+  });
 };
 
 // Reset run type related fields
@@ -878,7 +1055,7 @@ const resetRunType = () => {
   if (taskForm.runType === "daily") {
     taskForm.cronExpression = "";
   } else {
-    taskForm.runTime = null;
+    taskForm.runTime = undefined;
   }
 };
 
@@ -903,6 +1080,219 @@ const deselectAllTasks = () => {
 };
 
 // ======================
+// Scheduled Tasks Countdown
+// ======================
+
+// Calculate next execution time for a task
+// 解析cron字段，返回可能的值数组
+const parseCronField = (field, min, max) => {
+  const values = new Set();
+  
+  // 处理星号
+  if (field === '*') {
+    for (let i = min; i <= max; i++) {
+      values.add(i);
+    }
+    return Array.from(values);
+  }
+  
+  // 处理步长，如 */5 或 0/1
+  if (field.includes('/')) {
+    const [range, step] = field.split('/');
+    const stepNum = parseInt(step);
+    
+    let start = min;
+    let end = max;
+    
+    // 处理范围部分
+    if (range !== '*') {
+      if (range.includes('-')) {
+        const [rangeStart, rangeEnd] = range.split('-').map(Number);
+        start = rangeStart;
+        end = rangeEnd;
+      } else {
+        start = parseInt(range);
+        end = max;
+      }
+    }
+    
+    // 生成步长值
+    for (let i = start; i <= end; i += stepNum) {
+      values.add(i);
+    }
+    return Array.from(values);
+  }
+  
+  // 处理范围，如 1-5
+  if (field.includes('-')) {
+    const [start, end] = field.split('-').map(Number);
+    for (let i = start; i <= end; i++) {
+      values.add(i);
+    }
+    return Array.from(values);
+  }
+  
+  // 处理列表，如 1,3,5
+  if (field.includes(',')) {
+    const parts = field.split(',');
+    for (const part of parts) {
+      values.add(parseInt(part));
+    }
+    return Array.from(values);
+  }
+  
+  // 处理单个数字
+  return [parseInt(field)];
+};
+
+const calculateNextExecutionTime = (task) => {
+  const now = new Date();
+  
+  if (task.runType === 'daily') {
+    // For daily tasks, parse the runTime and calculate next execution
+    const [hours, minutes] = task.runTime.split(':').map(Number);
+    const nextRun = new Date(now);
+    nextRun.setHours(hours, minutes, 0, 0);
+    
+    // If today's time has passed, schedule for tomorrow
+    if (nextRun <= now) {
+      nextRun.setDate(nextRun.getDate() + 1);
+    }
+    
+    return nextRun;
+  } else if (task.runType === 'cron') {
+    // For cron tasks, parse the cron expression
+    const cronParts = task.cronExpression.split(' ').filter(Boolean);
+    if (cronParts.length < 5) return null;
+    
+    const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = cronParts;
+    
+    // 解析各个字段的可能值
+    const possibleMinutes = parseCronField(minuteField, 0, 59);
+    const possibleHours = parseCronField(hourField, 0, 23);
+    const possibleDaysOfMonth = parseCronField(dayOfMonthField, 1, 31);
+    const possibleMonths = parseCronField(monthField, 1, 12);
+    const possibleDaysOfWeek = parseCronField(dayOfWeekField, 0, 7);
+    
+    // 从当前时间开始，寻找下一个匹配的时间
+    let nextRun = new Date(now);
+    nextRun.setSeconds(0, 0);
+    nextRun.setMinutes(nextRun.getMinutes() + 1); // 从下一分钟开始检查
+    
+    // 最多检查未来一年
+    const maxCheckTime = new Date(now);
+    maxCheckTime.setFullYear(maxCheckTime.getFullYear() + 1);
+    
+    while (nextRun <= maxCheckTime) {
+      const minutes = nextRun.getMinutes();
+      const hours = nextRun.getHours();
+      const dayOfMonth = nextRun.getDate();
+      const month = nextRun.getMonth() + 1; // JavaScript月份是0-based
+      const dayOfWeek = nextRun.getDay(); // 0是周日
+      
+      // 检查所有字段是否匹配
+      if (possibleMinutes.includes(minutes) &&
+          possibleHours.includes(hours) &&
+          possibleDaysOfMonth.includes(dayOfMonth) &&
+          possibleMonths.includes(month) &&
+          possibleDaysOfWeek.includes(dayOfWeek)) {
+        return nextRun;
+      }
+      
+      // 检查下一分钟
+      nextRun.setMinutes(nextRun.getMinutes() + 1);
+    }
+    
+    return null;
+  }
+  
+  return null;
+};
+
+// Format time difference as "X天X小时X分X秒"
+const formatTimeDifference = (ms) => {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  const remainingHours = hours % 24;
+  const remainingMinutes = minutes % 60;
+  const remainingSeconds = seconds % 60;
+  
+  let result = '';
+  if (days > 0) result += `${days}天`;
+  if (remainingHours > 0 || days > 0) result += `${remainingHours}小时`;
+  if (remainingMinutes > 0 || remainingHours > 0 || days > 0) result += `${remainingMinutes}分`;
+  result += `${remainingSeconds}秒`;
+  
+  return result;
+};
+
+// Task countdowns ref
+const taskCountdowns = ref({});
+const nextExecutionTimes = ref({});
+
+// Update countdowns for all tasks
+const updateCountdowns = () => {
+  const now = Date.now();
+  
+  scheduledTasks.value.forEach(task => {
+    if (!nextExecutionTimes.value[task.id] || nextExecutionTimes.value[task.id] <= now) {
+      // Calculate next execution time if not set or passed
+      nextExecutionTimes.value[task.id] = calculateNextExecutionTime(task);
+    }
+    
+    if (nextExecutionTimes.value[task.id]) {
+      const timeDiff = nextExecutionTimes.value[task.id] - now;
+      taskCountdowns.value[task.id] = {
+        remainingTime: Math.max(0, timeDiff),
+        formatted: formatTimeDifference(Math.max(0, timeDiff)),
+        isNearExecution: timeDiff < 5 * 60 * 1000 // Less than 5 minutes
+      };
+    }
+  });
+};
+
+// 计算最短倒计时任务
+const shortestCountdownTask = computed(() => {
+  if (scheduledTasks.value.length === 0) return null;
+  
+  let shortestTask = null;
+  let shortestTime = Infinity;
+  
+  // 遍历所有任务，找到倒计时最短的任务
+  scheduledTasks.value.forEach(task => {
+    const countdown = taskCountdowns.value[task.id];
+    if (countdown && countdown.remainingTime < shortestTime) {
+      shortestTime = countdown.remainingTime;
+      shortestTask = {
+        task,
+        countdown
+      };
+    }
+  });
+  
+  return shortestTask;
+});
+
+// Start countdown interval
+let countdownInterval = null;
+
+const startCountdown = () => {
+  // Clear any existing interval
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+  }
+  
+  // Update countdowns immediately
+  updateCountdowns();
+  
+  // Update countdowns every second
+  countdownInterval = setInterval(updateCountdowns, 1000);
+};
+
+// ======================
 // Scheduled Tasks Scheduler
 // ======================
 
@@ -915,8 +1305,23 @@ watch(
   (newVal) => {
     console.log("scheduledTasks changed:", newVal.length);
     console.log("New value:", newVal);
+    // Reset countdowns when tasks change
+    nextExecutionTimes.value = {};
+    taskCountdowns.value = {};
+    updateCountdowns();
   },
   { deep: true },
+);
+
+// 修复TimePicker的"Invalid time value"错误：确保runTime的初始值不是null
+watch(
+  () => showTaskModal.value,
+  (isVisible) => {
+    if (isVisible && !taskForm.runTime) {
+      // 当模态框显示且runTime为null时，将其设置为undefined
+      taskForm.runTime = undefined;
+    }
+  }
 );
 
 // Debug: Log initial state when component mounts
@@ -926,50 +1331,382 @@ onMounted(() => {
     scheduledTasks.value,
   );
   console.log("Initial scheduledTasks length:", scheduledTasks.value.length);
+  // Start the task scheduler after all functions are initialized
+  scheduleTaskExecution();
+  // Start countdown timer
+  startCountdown();
 });
 
-// Task scheduler
+// Cleanup countdown interval on unmount
+onBeforeUnmount(() => {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+});
+
+// Task scheduler - ensure it runs properly
 const scheduleTaskExecution = () => {
-  // Check every minute
-  setInterval(() => {
-    if (isRunning.value) return; // Don't run if already executing tasks
+  // Log the start of the scheduler
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: "=== 定时任务调度服务已启动 ===",
+    type: "info",
+  });
+  
+  // Store interval ID for cleanup
+  let intervalId = null;
+  let lastTaskExecution = null;
+  
+  // Health check for the scheduler
+  const healthCheck = () => {
+    console.log(`[${new Date().toISOString()}] Task scheduler health check - running: ${intervalId !== null}`);
+    // If interval is not running, restart it
+    if (!intervalId) {
+      console.error(`[${new Date().toISOString()}] Task scheduler interval is not running, restarting...`);
+      startScheduler();
+    }
+    
+    // Add a safety mechanism to prevent isRunning from being stuck
+    if (isRunning.value) {
+      const now = Date.now();
+      const tenMinutesAgo = now - 10 * 60 * 1000; // 10 minutes ago
+      if (lastTaskExecution && lastTaskExecution < tenMinutesAgo) {
+        console.error(`[${new Date().toISOString()}] isRunning has been true for more than 10 minutes, resetting to false`);
+        isRunning.value = false;
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: "=== 检测到任务执行超时，已重置isRunning状态 ===",
+          type: "warning",
+        });
+      }
+    }
+  };
+  
+  // Start the scheduler
+  const startScheduler = () => {
+    // Clear any existing interval first
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+    
+    // Check every 10 seconds instead of 60 seconds for more timely task execution
+    intervalId = setInterval(() => {
+      try {
+        const now = new Date();
+        const currentTime = now.toLocaleTimeString("zh-CN", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
 
-    const now = new Date();
-    const currentTime = now.toLocaleTimeString("zh-CN", {
-      hour12: false,
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    scheduledTasks.value.forEach((task) => {
-      if (!task.enabled) return;
-
-      let shouldRun = false;
-
-      if (task.runType === "daily") {
-        // Check if current time matches the scheduled time
-        shouldRun = currentTime === task.runTime;
-      } else if (task.runType === "cron") {
-        // Simple cron expression parsing (minute hour * * *)
-        try {
-          const [minute, hour, , ,] = task.cronExpression
-            .split(" ")
-            .map(Number);
-          shouldRun = now.getMinutes() === minute && now.getHours() === hour;
-        } catch (error) {
-          console.error("Invalid cron expression:", task.cronExpression, error);
+        // Log the current check time for debugging
+        console.log(`[${new Date().toISOString()}] Checking scheduled tasks...`);
+        
+        // Add detailed log about scheduler status (commented out for cleaner logs)
+        // addLog({
+        //   time: currentTime,
+        //   message: `=== 定时任务调度服务检查中，isRunning: ${isRunning.value}，任务数量: ${scheduledTasks.value.length} ===`,
+        //   type: "info",
+        // });
+        
+        // Don't skip all tasks if isRunning is true, just skip individual task execution if already running
+        const tasksToRun = scheduledTasks.value.filter(task => task.enabled);
+        
+        if (tasksToRun.length === 0) {
+          console.log(`[${new Date().toISOString()}] No enabled tasks to check`);
           return;
         }
-      }
+        
+        tasksToRun.forEach((task) => {
+          let shouldRun = false;
+          let reason = '';
 
-      if (shouldRun) {
-        executeScheduledTask(task);
+          if (task.runType === "daily") {
+            // Check if current time matches the scheduled time
+            const taskTime = task.runTime;
+            const nowTime = now.toLocaleTimeString("zh-CN", {
+              hour12: false,
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            shouldRun = nowTime === taskTime;
+            reason = `currentTime=${nowTime}, taskTime=${taskTime}, match=${shouldRun}`;
+          } else if (task.runType === "cron") {
+            // Improved cron expression parsing
+            try {
+              const cronParts = task.cronExpression.split(" ").filter(Boolean);
+              
+              if (cronParts.length < 5) {
+                console.error(`[${new Date().toISOString()}] Invalid cron expression: ${task.cronExpression}, must have at least 5 parts`);
+                addLog({
+                  time: currentTime,
+                  message: `=== 定时任务 ${task.name} 的Cron表达式无效: ${task.cronExpression}，必须包含至少5个字段 ===`,
+                  type: "error",
+                });
+                return;
+              }
+              
+              const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = cronParts;
+              
+              // 使用之前定义的parseCronField函数解析cron字段
+              const possibleMinutes = parseCronField(minuteField, 0, 59);
+              const possibleHours = parseCronField(hourField, 0, 23);
+              const possibleDaysOfMonth = parseCronField(dayOfMonthField, 1, 31);
+              const possibleMonths = parseCronField(monthField, 1, 12);
+              const possibleDaysOfWeek = parseCronField(dayOfWeekField, 0, 7);
+              
+              // 检查当前时间是否匹配cron表达式
+              const matchesMinute = possibleMinutes.includes(now.getMinutes());
+              const matchesHour = possibleHours.includes(now.getHours());
+              const matchesDayOfMonth = possibleDaysOfMonth.includes(now.getDate());
+              const matchesMonth = possibleMonths.includes(now.getMonth() + 1); // months are 0-based in JS
+              const matchesDayOfWeek = possibleDaysOfWeek.includes(now.getDay()); // 0是周日
+              
+              shouldRun = matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek;
+              reason = `minute=${matchesMinute}, hour=${matchesHour}, dayOfMonth=${matchesDayOfMonth}, month=${matchesMonth}, dayOfWeek=${matchesDayOfWeek}`;
+            } catch (error) {
+              console.error(`[${new Date().toISOString()}] Error parsing cron expression ${task.cronExpression}:`, error);
+              addLog({
+                time: currentTime,
+                message: `=== 解析定时任务 ${task.name} 的Cron表达式失败: ${error.message} ===`,
+                type: "error",
+              });
+              return;
+            }
+          }
+          
+          // Add detailed log about task check result (commented out for cleaner logs)
+          console.log(`[${new Date().toISOString()}] Task ${task.name}: shouldRun=${shouldRun}, reason=${reason}`);
+          // addLog({
+          //   time: currentTime,
+          //   message: `=== 检查任务 ${task.name}: 应该执行=${shouldRun}，原因=${reason} ===`,
+          //   type: shouldRun ? "success" : "info",
+          // });
+
+          if (shouldRun) {
+            // Check if the task was already executed in the last minute to avoid duplicate execution
+            const taskExecutionKey = `${task.id}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}`;
+            const lastExecutionKey = localStorage.getItem(`lastTaskExecution_${task.id}`);
+            
+            if (lastExecutionKey !== taskExecutionKey) {
+              // Update last execution time
+              localStorage.setItem(`lastTaskExecution_${task.id}`, taskExecutionKey);
+              
+              // Execute the task
+              console.log(`[${new Date().toISOString()}] Executing task ${task.name}`);
+              lastTaskExecution = Date.now();
+              executeScheduledTask(task);
+            } else {
+              console.log(`[${new Date().toISOString()}] Task ${task.name} already executed in this minute, skipping`);
+              addLog({
+                time: currentTime,
+                message: `=== 任务 ${task.name} 本分钟内已执行，跳过 ===`,
+                type: "info",
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in task scheduler:`, error);
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 定时任务调度服务发生错误: ${error.message} ===`,
+          type: "error",
+        });
       }
+    }, 10000); // Check every 10 seconds
+    
+    console.log(`[${new Date().toISOString()}] Task scheduler started with interval ID: ${intervalId}`);
+  };
+  
+  // Start the scheduler
+  startScheduler();
+  
+  // Health check every 5 minutes instead of 1 hour for more frequent safety checks
+  setInterval(healthCheck, 5 * 60 * 1000);
+  
+  // Initial health check
+  healthCheck();
+  
+  // Cleanup on component unmount
+  onBeforeUnmount(() => {
+    console.log(`[${new Date().toISOString()}] Cleaning up task scheduler...`);
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: "=== 定时任务调度服务已停止 ===",
+      type: "info",
     });
-  }, 60000); // Check every minute
+  });
 };
 
-// Execute a scheduled task
+// Verify task dependencies with retry and fault tolerance
+const verifyTaskDependencies = async (task) => {
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `=== 开始验证定时任务 ${task.name} 的依赖 ===`,
+    type: "info",
+  });
+  
+  // Verify localStorage is available
+  try {
+    localStorage.setItem("test", "test");
+    localStorage.removeItem("test");
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: "✅ localStorage可用",
+      type: "info",
+    });
+  } catch (error) {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `❌ localStorage不可用: ${error.message}`,
+      type: "error",
+    });
+    return false;
+  }
+  
+  // Verify token store is available
+  if (!tokenStore || !tokenStore.gameTokens) {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: "❌ Token存储不可用",
+      type: "error",
+    });
+    return false;
+  }
+  
+  // Verify task functions exist
+  for (const taskName of task.selectedTasks) {
+    const taskFunction = eval(taskName);
+    if (typeof taskFunction !== "function") {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `❌ 任务函数不存在: ${taskName}`,
+        type: "error",
+      });
+      return false;
+    }
+  }
+  
+  // WebSocket connection check with retry and manual connect mechanism
+  const checkWebSocketWithRetry = async (tokenId, maxRetries = 3, retryDelay = 1000) => {
+    for (let i = 0; i < maxRetries; i++) {
+      // 检查当前连接状态
+      const status = tokenStore.getWebSocketStatus(tokenId);
+      if (status === "connected") {
+        return true;
+      }
+      
+      // 尝试手动触发WebSocket连接
+      if (i < maxRetries) {
+        const tokenName = tokenStore.gameTokens.find(t => t.id === tokenId)?.name || tokenId;
+        
+        try {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `⏳ 账号 ${tokenName} WebSocket未连接，尝试手动连接... (${i+1}/${maxRetries})`,
+            type: "warning",
+          });
+          
+          // 获取token的完整信息
+          const token = tokenStore.gameTokens.find(t => t.id === tokenId);
+          if (token && token.token) {
+            // 尝试使用createWebSocketConnection方法手动连接
+            if (typeof tokenStore.createWebSocketConnection === 'function') {
+              tokenStore.createWebSocketConnection(tokenId, token.token);
+            } 
+            // 如果createWebSocketConnection方法不存在，尝试使用selectToken方法
+            else if (typeof tokenStore.selectToken === 'function') {
+              tokenStore.selectToken(tokenId, true); // forceReconnect为true
+            }
+            
+            // 等待一段时间让连接建立
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+            // 如果token信息不完整，跳过连接尝试
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `⚠️  账号 ${tokenName} 缺少token信息，无法尝试手动连接`,
+              type: "warning",
+            });
+            break;
+          }
+        } catch (error) {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `❌ 账号 ${tokenName} 尝试手动连接失败: ${error.message}`,
+            type: "error",
+          });
+          // 继续下一次重试
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+    }
+    
+    // 最后再次检查连接状态
+    return tokenStore.getWebSocketStatus(tokenId) === "connected";
+  };
+  
+  // Check WebSocket connections with retry
+  const connectedTokens = [];
+  const disconnectedTokens = [];
+  
+  for (const tokenId of task.selectedTokens) {
+    const tokenName = tokenStore.gameTokens.find(t => t.id === tokenId)?.name || tokenId;
+    const isConnected = await checkWebSocketWithRetry(tokenId);
+    
+    if (isConnected) {
+      connectedTokens.push({ id: tokenId, name: tokenName });
+    } else {
+      disconnectedTokens.push({ id: tokenId, name: tokenName });
+    }
+  }
+  
+  // Log connection status
+  if (connectedTokens.length > 0) {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `✅ 已连接账号: ${connectedTokens.map(t => t.name).join(", ")}`,
+      type: "info",
+    });
+  }
+  
+  if (disconnectedTokens.length > 0) {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `⚠️  未连接账号: ${disconnectedTokens.map(t => t.name).join(", ")}`,
+      type: "warning",
+    });
+  }
+  
+  // If no tokens are connected, return false
+  if (connectedTokens.length === 0) {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `=== 定时任务 ${task.name} 没有可用的连接账号，取消执行 ===`,
+      type: "error",
+    });
+    return false;
+  }
+  
+  // Store connected tokens for execution
+  task.connectedTokens = connectedTokens.map(t => t.id);
+  
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `=== 定时任务 ${task.name} 的依赖验证通过，将执行 ${connectedTokens.length} 个账号 ===`,
+    type: "success",
+  });
+  return true;
+};
+
+// Execute a scheduled task with dependency verification
 const executeScheduledTask = async (task) => {
   addLog({
     time: new Date().toLocaleTimeString(),
@@ -978,8 +1715,19 @@ const executeScheduledTask = async (task) => {
   });
 
   try {
-    // Set selected tokens from the task
-    selectedTokens.value = [...task.selectedTokens];
+    // Verify dependencies before executing task
+    const dependenciesValid = await verifyTaskDependencies(task);
+    if (!dependenciesValid) {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== 定时任务 ${task.name} 依赖验证失败，取消执行 ===`,
+        type: "error",
+      });
+      return;
+    }
+    
+    // Set selected tokens from the task - use selectedTokens if connectedTokens is not available
+    selectedTokens.value = [...(task.connectedTokens || task.selectedTokens)];
 
     // Execute each selected task
     for (const taskName of task.selectedTasks) {
@@ -1012,14 +1760,12 @@ const executeScheduledTask = async (task) => {
   } catch (error) {
     addLog({
       time: new Date().toLocaleTimeString(),
-      message: `定时任务执行失败: ${error.message}`,
+      message: `=== 定时任务执行失败: ${error.message} ===`,
       type: "error",
     });
+    console.error(`[${new Date().toISOString()}] Error executing scheduled task ${task.name}:`, error);
   }
 };
-
-// Start the task scheduler
-scheduleTaskExecution();
 
 const boxTypeOptions = [
   { label: "木质宝箱", value: 2001 },
@@ -1239,7 +1985,8 @@ const resetBottles = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -1321,7 +2068,8 @@ const claimHangUpRewards = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -1407,7 +2155,8 @@ const batchbaoku13 = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1478,7 +2227,8 @@ const batchbaoku45 = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1540,7 +2290,8 @@ const batchmengjing = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1609,7 +2360,8 @@ const batchlingguanzi = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1662,7 +2414,8 @@ const batchclubsign = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1715,7 +2468,8 @@ const batcharenafight = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1805,7 +2559,8 @@ const batchAddHangUpTime = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -1953,7 +2708,8 @@ const climbTower = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -2095,7 +2851,8 @@ const batchStudy = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -2233,7 +2990,8 @@ const batchTopUpFish = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -2456,7 +3214,8 @@ const batchTopUpArena = async () => {
   if (selectedTokens.value.length === 0) return;
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
   // Reset status
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -2790,7 +3549,8 @@ const batchSmartSendCar = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -3021,7 +3781,8 @@ const batchClaimCars = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -3126,7 +3887,8 @@ const startBatch = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   // Reset status
   selectedTokens.value.forEach((id) => {
@@ -3218,7 +3980,8 @@ const batchClaimBoxPointReward = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
@@ -3285,7 +4048,8 @@ const batchOpenBox = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   const boxType = helperSettings.boxType;
   const totalCount = helperSettings.count;
@@ -3393,7 +4157,8 @@ const batchFish = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   const fishType = helperSettings.fishType;
   const totalCount = helperSettings.count;
@@ -3492,7 +4257,8 @@ const batchRecruit = async () => {
 
   isRunning.value = true;
   shouldStop.value = false;
-  logs.value = [];
+  // 不再重置logs数组，保留之前的日志
+  // logs.value = [];
 
   const totalCount = helperSettings.count;
   const batches = Math.floor(totalCount / 10);
@@ -3600,13 +4366,276 @@ const stopBatch = () => {
   height: 100vh;
   box-sizing: border-box;
   overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  animation: gradientShift 8s ease infinite;
+  background-size: 200% 200%;
+}
+
+/* Smooth gradient animation */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Global transition effects */
+.n-button,
+.n-checkbox,
+.n-select,
+.n-switch,
+.n-card,
+.token-item,
+.log-item,
+.switch-row {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Smooth hover effects for interactive elements */
+.n-button:hover,
+.n-button:focus,
+.n-checkbox:hover,
+.n-select:hover,
+.n-switch:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* Enhanced checkbox styles */
+:deep(.n-checkbox) {
+  font-weight: 500 !important;
+  color: #495057 !important;
+}
+
+:deep(.n-checkbox__box) {
+  border-radius: 4px !important;
+  border: 2px solid #e9ecef !important;
+  background: white !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.n-checkbox__input:checked + .n-checkbox__box) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-color: #667eea !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* Enhanced select styles */
+:deep(.n-select) {
+  border-radius: 8px !important;
+  border: 2px solid #e9ecef !important;
+  background: white !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.n-select:hover),
+:deep(.n-select:focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+}
+
+:deep(.n-select__menu) {
+  border-radius: 8px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+  border: none !important;
+}
+
+:deep(.n-select-option--selected) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+}
+
+:deep(.n-select-option--selected:hover) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
+}
+
+/* Enhanced switch styles */
+:deep(.n-switch) {
+  border-radius: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.n-switch__rail) {
+  background: #e9ecef !important;
+  border-radius: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.n-switch__rail--active) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+:deep(.n-switch__button) {
+  background: white !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.n-switch__button--active) {
+  transform: translateX(18px) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Enhanced progress bar styles */
+:deep(.n-progress--line) {
+  margin: 8px 0 !important;
+}
+
+:deep(.n-progress__indicator) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 4px !important;
+}
+
+:deep(.n-progress__indicator--processing) {
+  animation: progressPulse 2s ease-in-out infinite !important;
+}
+
+@keyframes progressPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .main-layout {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   height: 100%;
   overflow: hidden;
+}
+
+/* Enhanced button styles */
+:deep(.n-button) {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  overflow: hidden;
+  background-size: 200% 100% !important;
+  background-position: 0% 50% !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Primary button enhancements */
+:deep(.n-button--primary) {
+  background: linear-gradient(90deg, #4a6cf7 0%, #1e3a8a 100%) !important;
+  color: white !important;
+}
+
+:deep(.n-button--primary:hover),
+:deep(.n-button--primary:focus) {
+  background: linear-gradient(90deg, #1e3a8a 0%, #4a6cf7 100%) !important;
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 8px 20px rgba(74, 108, 247, 0.4) !important;
+  background-position: 100% 50% !important;
+}
+
+/* Error button enhancements */
+:deep(.n-button--error) {
+  background: linear-gradient(90deg, #ef4444 0%, #991b1b 100%) !important;
+  color: white !important;
+}
+
+:deep(.n-button--error:hover),
+:deep(.n-button--error:focus) {
+  background: linear-gradient(90deg, #991b1b 0%, #ef4444 100%) !important;
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4) !important;
+  background-position: 100% 50% !important;
+}
+
+/* Default button enhancements */
+:deep(.n-button--default) {
+  background: linear-gradient(90deg, #6b7280 0%, #374151 100%) !important;
+  color: white !important;
+}
+
+:deep(.n-button--default:hover),
+:deep(.n-button--default:focus) {
+  background: linear-gradient(90deg, #374151 0%, #6b7280 100%) !important;
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4) !important;
+  background-position: 100% 50% !important;
+}
+
+/* Small button enhancements */
+:deep(.n-button--small) {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+
+/* Button active state for click feedback */
+:deep(.n-button:active) {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Disabled button styles */
+:deep(.n-button:disabled) {
+  background: linear-gradient(90deg, #e5e7eb 0%, #d1d5db 100%) !important;
+  color: #9ca3af !important;
+  transform: none !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+}
+
+/* Token list card button container */
+.token-list-card :deep(.n-space) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px !important;
+  margin-bottom: 20px !important;
+}
+
+/* Task button specific enhancements */
+.token-list-card :deep(.n-button) {
+  min-width: 100px;
+  text-align: center;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Responsive button adjustments */
+@media (max-width: 768px) {
+  .token-list-card :deep(.n-button) {
+    min-width: 80px;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  :deep(.n-button) {
+    background-size: 200% 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .token-list-card :deep(.n-space) {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  .token-list-card :deep(.n-button) {
+    min-width: auto;
+    flex: 1;
+  }
+}
+
+/* Button group container */
+:deep(.n-space) {
+  gap: 10px !important;
 }
 
 .left-column {
@@ -3614,21 +4643,52 @@ const stopBatch = () => {
   overflow-y: auto;
   min-width: 0;
   padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #667eea #f5f5f5;
+}
+
+.left-column::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-column::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 3px;
+}
+
+.left-column::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 3px;
+}
+
+.left-column::-webkit-scrollbar-thumb:hover {
+  background: #5a6fd8;
 }
 
 .right-column {
-  width: 400px;
+  width: 420px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  height: 700px;
+  height: calc(100vh - 40px);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .token-item {
@@ -3640,6 +4700,16 @@ const stopBatch = () => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: white;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.log-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
 }
 
 .log-card :deep(.n-card__content) {
@@ -3647,49 +4717,106 @@ const stopBatch = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 0 !important;
+}
+
+.log-card :deep(.n-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  border-radius: 12px 12px 0 0;
+  padding: 16px 20px !important;
+}
+
+.log-card :deep(.n-card__title) {
+  color: white !important;
+  font-weight: 600 !important;
 }
 
 .log-header-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .log-container {
   flex: 1;
   overflow-y: auto;
-  background: #f5f5f5;
-  padding: 10px;
-  border-radius: 4px;
-  margin-top: 10px;
-  font-family: monospace;
+  background: #f8f9fa;
+  padding: 16px 20px;
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   min-height: 200px;
+  scrollbar-width: thin;
+  scrollbar-color: #667eea #e9ecef;
+}
+
+.log-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-container::-webkit-scrollbar-track {
+  background: #e9ecef;
+  border-radius: 3px;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 3px;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+  background: #5a6fd8;
 }
 
 .log-item {
-  margin-bottom: 4px;
-  font-size: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: white;
+  border-left: 3px solid transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.log-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .log-item.error {
-  color: #d03050;
+  color: #dc3545;
+  border-left-color: #dc3545;
+  background: #fff5f5;
 }
 
 .log-item.success {
-  color: #18a058;
+  color: #28a745;
+  border-left-color: #28a745;
+  background: #f0fff4;
 }
 
 .log-item.warning {
-  color: #f0a020;
+  color: #ffc107;
+  border-left-color: #ffc107;
+  background: #fff8e1;
 }
 
 .log-item.info {
-  color: #333;
+  color: #495057;
+  border-left-color: #667eea;
+  background: #f8f9ff;
 }
 
 .time {
-  color: #999;
-  margin-right: 8px;
+  color: #6c757d;
+  margin-right: 12px;
+  font-weight: 500;
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 .token-row {
@@ -3699,45 +4826,209 @@ const stopBatch = () => {
   padding-right: 8px;
 }
 
+/* Token List Card Styles */
+.token-list-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: white;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 24px;
+}
+
+.token-list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+}
+
+.token-list-card :deep(.n-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  border-radius: 12px 12px 0 0;
+  padding: 16px 20px !important;
+}
+
+.token-list-card :deep(.n-card__title) {
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+.token-list-card :deep(.n-card__content) {
+  padding: 20px !important;
+}
+
+/* Button Container Styles */
+.token-list-card :deep(.n-space) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px !important;
+}
+
+/* Token Item Styles */
+.token-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+  background: white;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.token-item:hover {
+  background-color: #f8f9ff;
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateX(4px);
+}
+
+/* Token status indicators */
+.token-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: auto;
+  transition: all 0.3s ease;
+}
+
+.token-status.running {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  color: #495057;
+  box-shadow: 0 2px 6px rgba(168, 237, 234, 0.3);
+}
+
+.token-status.completed {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  color: #28a745;
+  box-shadow: 0 2px 6px rgba(168, 237, 234, 0.3);
+}
+
+.token-status.failed {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(245, 87, 108, 0.3);
+}
+
+.token-status.waiting {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  color: #495057;
+  box-shadow: 0 2px 6px rgba(252, 182, 159, 0.3);
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Enhanced progress bar animation */
+:deep(.n-progress__indicator--processing) {
+  animation: 
+    progressPulse 2s ease-in-out infinite,
+    progressSlide 1s linear infinite;
+}
+
+@keyframes progressSlide {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Add background size for progress bar */
+:deep(.n-progress__indicator) {
+  background-size: 200% 200% !important;
+}
+
+/* Modal enhancements */
+:deep(.n-modal) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+:deep(.n-modal__content) {
+  border-radius: 12px !important;
+}
+
+:deep(.n-modal__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border-radius: 12px 12px 0 0 !important;
+}
+
+:deep(.n-modal__title) {
+  color: white !important;
+  font-weight: 600 !important;
+}
+
 /* Settings Modal Styles */
 .settings-grid {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .setting-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .setting-label {
   font-size: 14px;
-  color: #666;
+  font-weight: 500;
+  color: #495057;
 }
 
 .setting-switches {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .switch-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.switch-row:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+  transform: translateX(4px);
 }
 
 .switch-row:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .switch-label {
   font-size: 14px;
-  color: #666;
+  font-weight: 500;
+  color: #495057;
 }
 
 /* Responsive Design */
@@ -3751,12 +5042,14 @@ const stopBatch = () => {
   .batch-daily-tasks {
     height: auto;
     overflow: visible;
+    padding: 16px;
   }
 
   .main-layout {
     flex-direction: column;
     height: auto;
     overflow: visible;
+    gap: 16px;
   }
 
   .left-column {
@@ -3771,8 +5064,8 @@ const stopBatch = () => {
   }
 
   .log-container {
-    height: 300px;
-    min-height: 300px;
+    height: 400px;
+    min-height: 400px;
   }
 }
 
@@ -3782,12 +5075,14 @@ const stopBatch = () => {
     height: 100vh;
     overflow-y: auto;
     overflow-x: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   .main-layout {
     height: auto;
     overflow: visible;
     flex-direction: column;
+    gap: 16px;
   }
 
   .left-column {
@@ -3805,13 +5100,20 @@ const stopBatch = () => {
 
   .page-header {
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
+    padding: 16px;
   }
 
   .page-header .actions {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .page-header h2 {
+    font-size: 20px;
+    text-align: center;
   }
 
   .log-card {
@@ -3832,8 +5134,66 @@ const stopBatch = () => {
 
   .log-header-controls {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .right-column {
+    height: auto;
+  }
+
+  .token-list-card {
+    margin-bottom: 16px;
+  }
+
+  .token-list-card :deep(.n-card__content) {
+    padding: 16px !important;
+  }
+
+  .token-list-card :deep(.n-space) {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .batch-daily-tasks {
+    padding: 8px;
+  }
+
+  .page-header {
+    padding: 12px;
+  }
+
+  .page-header h2 {
+    font-size: 18px;
+  }
+
+  .page-header .actions {
+    flex-direction: column;
+  }
+
+  .token-list-card :deep(.n-card__content) {
+    padding: 12px !important;
+  }
+
+  .token-list-card :deep(.n-space) {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .log-container {
+    height: 250px;
+    min-height: 250px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .log-header-controls {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
   }
 }
 </style>

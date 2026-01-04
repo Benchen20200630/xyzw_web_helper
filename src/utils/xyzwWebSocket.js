@@ -179,6 +179,8 @@ export function registerDefaultCommands(reg) {
     .register("evotower_getinfo")
     .register("evotower_fight")
     .register("evotower_getlegionjoinmembers")
+    .register("evotower_readyfight")
+    .register("evotower_claimreward")
 
     // 瓶子机器人
     .register("bottlehelper_claim")

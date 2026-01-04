@@ -178,6 +178,7 @@ export function registerDefaultCommands(reg) {
     // 怪异咸将塔
     .register("evotower_getinfo")
     .register("evotower_fight")
+    .register("evotower_getlegionjoinmembers")
 
     // 瓶子机器人
     .register("bottlehelper_claim")
@@ -906,6 +907,7 @@ export class XyzwWebSocketClient {
       fight_starttowerresp: "fight_starttower",
       evotowerinforesp: "evotower_getinfo",
       evotower_fightresp: "evotower_fight",
+      evotower_getlegionjoinmembersresp: 'evotower_getlegionjoinmembers',
       item_openpackresp: "item_openpack",
       // 咸王宝库
       matchteam_getroleteaminforesp: "matchteam_getroleteaminfo",

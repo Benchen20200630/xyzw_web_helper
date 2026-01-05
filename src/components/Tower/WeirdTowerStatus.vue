@@ -177,9 +177,8 @@ const startTowerClimb = async () => {
       const floor = (towerId % 10) + 1;
       if (
         fightResult &&
-        fightResult._rawData &&
-        fightResult._rawData.winList &&
-        fightResult._rawData.winList[0] === true &&
+        fightResult.winList &&
+        fightResult.winList[0] === true &&
         floor === 1
       ) {
         // 领取通关奖励

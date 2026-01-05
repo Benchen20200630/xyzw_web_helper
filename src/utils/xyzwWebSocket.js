@@ -245,6 +245,7 @@ export function registerDefaultCommands(reg) {
     .register("car_claim", { carId: 0 })
     .register("car_send", { carId: 0, helperId: 0, text: "" })
     .register("car_getmemberhelpingcnt")
+    .register("car_getmemberrank")
 
     // 咸王宝库
     .register("matchteam_getroleteaminfo")
@@ -930,6 +931,7 @@ export class XyzwWebSocketClient {
       car_claimresp: "car_claim",
       car_sendresp: "car_send",
       car_getmemberhelpingcntresp: "car_getmemberhelpingcnt",
+      car_getmemberrankresp: "car_getmemberrank",
       role_gettargetteamresp: "role_gettargetteam",
       activity_warorderclaimresp: "activity_recyclewarorderrewardclaim",
       arena_getarearankresp: "arena_getarearank",

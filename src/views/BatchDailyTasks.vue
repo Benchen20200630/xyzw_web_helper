@@ -88,6 +88,9 @@
               ">
               一键竞技场补齐
             </n-button>
+            <n-button size="small" @click="batchClaimFreeEnergy" :disabled="isRunning || selectedTokens.length === 0 || !isWeirdTowerActivityOpen">
+              一键领取怪异塔免费道具
+            </n-button>
           </n-space>
           <n-space vertical>
             <n-checkbox :checked="isAllSelected" :indeterminate="isIndeterminate" @update:checked="handleSelectAll">
@@ -452,6 +455,29 @@ const isarenaActivityOpen = computed(() => {
   const hour = new Date().getHours();
   return hour >= 6 && hour < 22;
 });
+const getCurrentActivityWeek = computed(() => {
+  const now = new Date();
+  const start = new Date('2025-12-12T12:00:00'); // 起始时间：黑市周开始
+  const weekDuration = 7 * 24 * 60 * 60 * 1000; // 一周毫秒数
+  const cycleDuration = 3 * weekDuration; // 三周期毫秒数
+  
+  const elapsed = now - start;
+  if (elapsed < 0) return null; // 活动开始前
+  
+  const cyclePosition = elapsed % cycleDuration;
+  
+  if (cyclePosition < weekDuration) {
+    return '黑市周';
+  } else if (cyclePosition < 2 * weekDuration) {
+    return '招募周';
+  } else {
+    return '宝箱周';
+  }
+});
+
+const isWeirdTowerActivityOpen = computed(() => {
+  return getCurrentActivityWeek.value === '黑市周';
+});
 
 const selectedTokens = ref([]);
 const tokenStatus = ref({}); // { tokenId: 'waiting' | 'running' | 'completed' | 'failed' }
@@ -530,6 +556,7 @@ const availableTasks = [
   { label: "一键竞技场战斗3次", value: "batcharenafight" },
   { label: "一键钓鱼补齐", value: "batchTopUpFish" },
   { label: "一键竞技场补齐", value: "batchTopUpArena" },
+  { label: "一键领取怪异塔免费道具", value: "batchClaimFreeEnergy" },
 ];
 
 // Task table columns configuration for the tasks list modal
@@ -4150,6 +4177,84 @@ const batchRecruit = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量招募结束");
+};
+
+const batchClaimFreeEnergy = async () => {
+  if (selectedTokens.value.length === 0) return;
+  isRunning.value = true;
+  shouldStop.value = false;
+  
+  // Reset status
+  selectedTokens.value.forEach((id) => {
+    tokenStatus.value[id] = "waiting";
+  });
+  
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break;
+    currentRunningTokenId.value = tokenId;
+    tokenStatus.value[tokenId] = "running";
+    currentProgress.value = 0;
+    
+    const token = tokens.value.find((t) => t.id === tokenId);
+    try {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== 开始领取怪异塔免费道具: ${token.name} ===`,
+        type: "info",
+      });
+      
+      await ensureConnection(tokenId);
+      
+      // 获取免费道具数量
+      const freeEnergyResult = await tokenStore.sendMessageWithPromise(
+        tokenId,
+        'mergebox_getinfo',
+        {
+          actType: 1
+        },
+        5000
+      );
+      
+      if (freeEnergyResult && freeEnergyResult.mergeBox.freeEnergy > 0) {
+        // 领取免费道具
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          'mergebox_claimfreeenergy',
+          {
+            actType: 1
+          },
+          5000
+        );
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== ${token.name} 成功领取免费道具${freeEnergyResult.mergeBox.freeEnergy}个`,
+          type: "success"
+        });
+      } else {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `===  ${token.name} 暂无免费道具可领取`,
+          type: "success"
+        });
+      }
+      
+      tokenStatus.value[tokenId] = "completed";
+    } catch (error) {
+      console.error(error);
+      tokenStatus.value[tokenId] = "failed";
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== ${token.name} 领取免费道具失败: ${error.message || "未知错误"}`,
+        type: "error",
+      });
+    }
+    currentProgress.value = 100;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  
+  isRunning.value = false;
+  currentRunningTokenId.value = null;
+  message.success("批量领取怪异塔免费道具结束");
 };
 
 const stopBatch = () => {

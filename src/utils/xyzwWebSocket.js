@@ -181,6 +181,8 @@ export function registerDefaultCommands(reg) {
     .register("evotower_getlegionjoinmembers")
     .register("evotower_readyfight")
     .register("evotower_claimreward")
+    .register("mergebox_getinfo")
+    .register("mergebox_claimfreeenergy")
 
     // 瓶子机器人
     .register("bottlehelper_claim")
@@ -911,6 +913,8 @@ export class XyzwWebSocketClient {
       evotowerinforesp: "evotower_getinfo",
       evotower_fightresp: "evotower_fight",
       evotower_getlegionjoinmembersresp: 'evotower_getlegionjoinmembers',
+      mergebox_getinforesp: 'mergebox_getinfo',
+      mergebox_claimfreeenergyresp: 'mergebox_claimfreeenergy',
       item_openpackresp: "item_openpack",
       // 咸王宝库
       matchteam_getroleteaminforesp: "matchteam_getroleteaminfo",

@@ -450,7 +450,7 @@ const isbaokuActivityOpen = computed(() => {
 });
 const isarenaActivityOpen = computed(() => {
   const hour = new Date().getHours();
-  return hour >= 8 && hour < 22;
+  return hour >= 6 && hour < 22;
 });
 
 const selectedTokens = ref([]);

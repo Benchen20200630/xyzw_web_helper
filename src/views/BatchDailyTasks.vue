@@ -450,7 +450,7 @@ const isbaokuActivityOpen = computed(() => {
 });
 const isarenaActivityOpen = computed(() => {
   const hour = new Date().getHours();
-  return hour > 8 && hour < 22;
+  return hour >= 6 && hour < 22;
 });
 
 const selectedTokens = ref([]);
@@ -510,6 +510,7 @@ const taskForm = reactive({
 
 // Available tasks for scheduling - Maps task function names to display labels
 const availableTasks = [
+  { label: "日常任务", value: "startBatch" },
   { label: "领取挂机", value: "claimHangUpRewards" },
   { label: "一键加钟", value: "batchAddHangUpTime" },
   { label: "重置罐子", value: "resetBottles" },
@@ -527,6 +528,8 @@ const availableTasks = [
   { label: "一键梦境", value: "batchmengjing" },
   { label: "一键俱乐部签到", value: "batchclubsign" },
   { label: "一键竞技场战斗3次", value: "batcharenafight" },
+  { label: "一键钓鱼补齐", value: "batchTopUpFish" },
+  { label: "一键竞技场补齐", value: "batchTopUpArena" },
 ];
 
 // Task table columns configuration for the tasks list modal

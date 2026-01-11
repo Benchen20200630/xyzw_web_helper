@@ -237,6 +237,9 @@ export function registerDefaultCommands(reg) {
     // 活动/任务
     .register("activity_get")
     .register("activity_recyclewarorderrewardclaim")
+    .register("legion_getpayloadtask")
+    .register("legion_getpayloadkillrecord")
+    .register("legion_getpayloadbf")
 
     // 珍宝阁相关
     .register("collection_claimfreereward")
@@ -249,6 +252,7 @@ export function registerDefaultCommands(reg) {
     .register("car_send", { carId: 0, helperId: 0, text: "" })
     .register("car_getmemberhelpingcnt")
     .register("car_getmemberrank")
+    .register("car_research")
 
     // 咸王宝库
     .register("matchteam_getroleteaminfo")

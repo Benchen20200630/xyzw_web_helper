@@ -6,7 +6,7 @@
     <template #title>
       <h3>蟠桃园信息</h3>
     </template>
-    <template #badge v-if="!club">
+    <template v-if="!club" #badge >
       <span v-if="!club">{{"暂无俱乐部" }}</span>
     </template>
     <template #default>

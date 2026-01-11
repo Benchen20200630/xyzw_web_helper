@@ -60,7 +60,7 @@
                 <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
-                <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt/member.loseCnt || 1) || 0.00).toFixed(2) }}</span>
+                <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt && member.loseCnt ? member.winCnt/member.loseCnt : 0.00)).toFixed(2) }}</span>
                 <span class="stat-inline Sscore">复活丹 {{ Math.max(member.loseCnt - 6, 0) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">
@@ -178,7 +178,7 @@
                 <span class="stat-inline win">击杀 {{ member.winCnt || 0 }}</span>
                 <span class="stat-inline loss">死亡 {{ member.loseCnt || 0 }}</span>
                 <span class="stat-inline siege">攻城 {{ member.buildingCnt || 0 }}</span>
-                <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt/member.loseCnt || 1) || 0.00).toFixed(2) }}</span>
+                <span class="stat-inline KD">K/D {{ parseFloat((member.winCnt && member.loseCnt ? member.winCnt/member.loseCnt : 0.00)).toFixed(2) }}</span>
                 <span class="stat-inline Sscore">复活丹 {{ Math.max(member.loseCnt - 6, 0) || 0 }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleId)">

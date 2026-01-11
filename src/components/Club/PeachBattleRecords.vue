@@ -57,7 +57,7 @@
                 <span class="stat-inline loss">连杀 {{ member.mCKCnt || 0 }}</span>
                 <span class="stat-inline siege">抢船 {{ member.carCnt || 0 }}</span>
                 <span class="stat-inline Sscore">复活 {{ member.reviveCnt || 0 }}</span>
-                <span class="stat-inline KD">K/D {{ parseFloat((member.killCnt/member.reviveCnt || 1) || 0.00).toFixed(2) }}</span>
+                <span class="stat-inline KD">K/D {{ parseFloat((member.killCnt && member.reviveCnt ? member.killCnt/member.reviveCnt : 0.00)).toFixed(2) }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleInfo.roleId)">
                 <template #icon>
@@ -138,7 +138,7 @@
                 <span class="stat-inline loss">连杀 {{ member.mCKCnt || 0 }}</span>
                 <span class="stat-inline siege">抢船 {{ member.carCnt || 0 }}</span>
                 <span class="stat-inline Sscore">复活 {{ member.reviveCnt || 0 }}</span>
-                <span class="stat-inline KD">K/D {{ parseFloat((member.killCnt/member.reviveCnt || 1) || 0.00).toFixed(2) }}</span>
+                <span class="stat-inline KD">K/D {{ parseFloat((member.killCnt && member.reviveCnt ? member.killCnt/member.reviveCnt : 0.00)).toFixed(2) }}</span>
               </div>
               <n-button text size="small" class="details-button" @click="toggleMemberDetails(member.roleInfo.roleId)">
                 <template #icon>

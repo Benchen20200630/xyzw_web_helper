@@ -34,8 +34,8 @@ export function formatWarrankRecordsForExport(legionRankList, queryDate) {
       .sort((a, b) => (a.rank || 0) - (b.rank || 0))
       .map((member, index) => [
         member.rank,
-	      member.id,
-	      member.ServerId,
+	    member.id,
+	    member.ServerId,
         member.Clubname,
         formatPower(member.power),
         member.redQuench,

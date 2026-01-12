@@ -19,7 +19,7 @@
       <div v-else>
         <div class="toolbar">
           <n-space size="small">
-            <n-button size="small" @click="refreshClub">查询</n-button>
+            <n-button size="small" @click="refreshClub">刷新</n-button>
           </n-space>
         </div>
 
@@ -83,6 +83,7 @@ import { ref, computed, onMounted } from "vue";
 import { useTokenStore } from "@/stores/tokenStore";
 import { useMessage } from "naive-ui";
 import { Refresh, Copy } from "@vicons/ionicons5";
+import { gettoday } from '@/utils/clubWarrankUtils'
 import PeachBattleRecords from "./PeachBattleRecords.vue";
 import PeachOpponentBattleRecords from "./PeachOpponentBattleRecords.vue";
 const tokenStore = useTokenStore();
@@ -103,54 +104,103 @@ const formatPower = (power) => {
   return power.toString()
 }
 
+const formatDateToShort = (dateStr) => {
+  if (!dateStr) return ''
+  const parts = dateStr.split('/')
+  if (parts.length !== 3) return dateStr
+  const [year, month, day] = parts
+  return year.slice(2) + month + day
+}
+
+// 获取最近的周日日期
+// 如果今天是周日，返回今天的日期；否则返回上周日的日期
+const getLastSunday = () => {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=周日, 1=周一, ..., 6=周六
+  
+  let daysToSubtract = 0;
+  if (dayOfWeek === 0) {
+    // 今天是周日，返回今天
+    daysToSubtract = 0;
+  } else {
+    // 周一到周六，计算距离上周日的天数
+    daysToSubtract = dayOfWeek;
+  }
+
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() - daysToSubtract);
+
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const targetDay = String(targetDate.getDate()).padStart(2, "0");
+
+  return `${targetYear}/${targetMonth}/${targetDay}`;
+};
+
 const refreshClub = async () => {
   if (!tokenStore.selectedToken) {
-    message.warning('请先选择游戏角色')
-    return
+    message.warning('请先选择游戏角色');
+    return;
   }
 
-  const tokenId = tokenStore.selectedToken.id
+  const tokenId = tokenStore.selectedToken.id;
 
   // 检查WebSocket连接
-  const wsStatus = tokenStore.getWebSocketStatus(tokenId)
+  const wsStatus = tokenStore.getWebSocketStatus(tokenId);
   if (wsStatus !== 'connected') {
-    message.error('WebSocket未连接，无法查询战绩')
-    return
+    message.error('WebSocket未连接，无法查询战绩');
+    return;
   }
-  loading.value = true;
-  try {
-    // 1. 查询蟠桃园任务信息
-    const payloadTaskRes = await tokenStore.sendMessageWithPromise(
-      tokenId,
-      "legion_getpayloadbf",
-      {},
-      10000
-    );
-    
-    if (!payloadTaskRes) {
-      message.error("获取对战信息失败");
-      return;
-    }
-    let firstLegionId = payloadTaskRes.legions[0].id;
-    if(club.value.id === firstLegionId) {
-      firstLegionId = payloadTaskRes.legions[1].id;
-    }
-    
-    
-    if (!firstLegionId) {
-      message.error("未获取到对战俱乐部ID");
-      return;
-    }
-    
-    // 2. 获取俱乐部的详细信息
-    const firstLegionInfo= await tokenStore.sendMessageWithPromise(
+    loading.value = true;
+    try {
+      // 1. 查询蟠桃园对战俱乐部ID
+      let firstLegionId;
+      if (getLastSunday() === gettoday()) {
+        const payloadTaskRes = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "legion_getpayloadbf",
+          {},
+          10000
+        );
+        if (!payloadTaskRes) {
+          message.error("未获取到对战俱乐部");
+          return;
+        }
+        firstLegionId = payloadTaskRes.legions[0].id;
+        if(club.value.id === firstLegionId) {
+          firstLegionId = payloadTaskRes.legions[1].id;
+        }
+        if (!firstLegionId) {
+          message.error("未获取到对战俱乐部ID");
+          return;
+        }
+      } else {
+        const payloadTaskRes = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "legion_getpayloadrecord",
+          {},
+          10000
+        );
+        if (!payloadTaskRes) {
+          message.error("未获取到对战俱乐部");
+          return;
+        }
+        firstLegionId = payloadTaskRes.enemyLegionMap[formatDateToShort(getLastSunday())].id;
+        if (!firstLegionId) {
+          message.error("未获取到对战俱乐部ID");
+          return;
+        }
+      }
+      
+      // 2. 获取俱乐部的详细信息
+      const firstLegionInfo = await tokenStore.sendMessageWithPromise(
         tokenId,
         "legion_getinfobyid",
         { legionId: firstLegionId },
         10000
       );
-    // 3. 整理对战信息
-    battleInfo.value = {
+      // 3. 整理对战信息
+      battleInfo.value = {
         id: firstLegionId,
         level: firstLegionInfo?.legionData?.level || 0,
         power: firstLegionInfo?.legionData?.power || 0,
@@ -159,15 +209,15 @@ const refreshClub = async () => {
         logo: firstLegionInfo?.legionData?.logo || '',
         quenchNum: firstLegionInfo?.legionData?.quenchNum || 0,
         announcement: firstLegionInfo?.legionData?.announcement || ''
-    };
-    message.success("查询对战信息成功");
-  } catch (error) {
-    console.error("查询对战信息失败:", error);
-    message.error(`查询失败: ${error.message}`);
-  } finally {
-    loading.value = false;
-  }
-};
+      };
+      message.success("查询对战信息成功");
+    } catch (error) {
+      console.error("查询对战信息失败:", error);
+      message.error(`查询失败: ${error.message}`);
+    } finally {
+      loading.value = false;
+    }
+  };
 
 // 页面加载时自动执行查询
 onMounted(() => {

@@ -240,6 +240,7 @@ export function registerDefaultCommands(reg) {
     .register("legion_getpayloadtask")
     .register("legion_getpayloadkillrecord")
     .register("legion_getpayloadbf")
+    .register("legion_getpayloadrecord")
 
     // 珍宝阁相关
     .register("collection_claimfreereward")

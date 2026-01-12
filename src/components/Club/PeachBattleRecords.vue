@@ -216,7 +216,7 @@ const showModal = computed({
 const loading = ref(false)
 const battleRecords = ref(null)
 const expandedMembers = ref(new Set())
-const queryDate = ref('')
+const queryDate = ref('');
 
 
 const legionMatch = ref({
@@ -299,7 +299,7 @@ const handleImageError = (event) => {
 }
 
 const disabledDate = current => {
-  return (current.getDay() != 6 && current.getDay() != 0) || current > Date.now()
+  return (current.getDay() != 0) || current > Date.now()
 }
 
 //日期选择时调用查询战绩方法
@@ -318,39 +318,40 @@ const fetchBattleRecordsByDate = (val)=>{
       message.warning('请先选择游戏角色')
       return
     }
-
     const tokenId = tokenStore.selectedToken.id
-    
-
     // 检查WebSocket连接
     const wsStatus = tokenStore.getWebSocketStatus(tokenId)
     if (wsStatus !== 'connected') {
       message.error('WebSocket未连接，无法查询战绩')
       return
     }
-
     loading.value = true
-
     try {
-
       const payloadTaskRes = await tokenStore.sendMessageWithPromise(
       tokenId,
-      "legion_getpayloadbf",
+      "legion_getpayloadtask",
       {},
       10000
       );
-      let firstLegionId = payloadTaskRes.legions[0].id;
-      if(club.value.id !== firstLegionId) {
-        firstLegionId = payloadTaskRes.legions[1].id;
+      if (!payloadTaskRes) {
+        message.error("未获取到对战俱乐部");
+        return;
       }
-
+      const firstLegionId = payloadTaskRes.firstLegionId
+      if (!firstLegionId) {
+        message.error("未获取到对战俱乐部ID");
+        return;
+      }
       const result = await tokenStore.sendMessageWithPromise(
         tokenId,
         'legion_getpayloadkillrecord',
         { date: formatDateToShort(queryDate.value) },
         10000
-      )
-
+      );
+      if (!result) {
+        message.error("未获取到对战俱乐部战绩");
+        return;
+      }
       if (result && result.recordsMap && result.recordsMap[Number(firstLegionId)]) {
         // 按击杀数从高到低排序
         const sortedRoleDetailsList = [...result.recordsMap[Number(firstLegionId)]].sort((a, b) => {  

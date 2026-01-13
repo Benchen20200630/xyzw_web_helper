@@ -600,20 +600,6 @@ git push origin feature/new-feature
 
 ---
 
-## 📞 联系方式
-
-- **项目主页**：[GitHub Repository](https://github.com/w1249178256/xyzw_web_helper)
-- **问题反馈**：[GitHub Issues](https://github.com/w1249178256/xyzw_web_helper/issues)
-- **联系邮箱**：[发邮件给我](mailto:stevefeng59@gmail.com)
-- **TG群组**：[欢迎加入](https://t.me/+SEDhXWN_OpNiMGI1)
-
----
-
-## 👏 赞赏
-<img src="https://github.com/w1249178256/xyzw_web_helper/blob/main/public/IMG_8007.JPG" width="200" height="200">
-
-<div align="center">
-
 **⭐ 如果这个项目对你有帮助，请给它一个星标！**
 
 Made with ❤️ by FF Team

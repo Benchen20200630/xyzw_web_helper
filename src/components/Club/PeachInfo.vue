@@ -92,6 +92,7 @@ const info = computed(() => tokenStore.gameData?.legionInfo || null);
 const club = computed(() => info.value?.info || null);
 const loading = ref(false);
 const battleInfo = ref(null);
+const activeTab = ref('overview');
 // 格式化战力
 const formatPower = (power) => {
   if (!power) return '0'

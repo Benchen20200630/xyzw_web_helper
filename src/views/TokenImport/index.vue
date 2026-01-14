@@ -14,7 +14,7 @@
       </div>
 
       <!-- Token导入区域 -->
-      <a-modal v-model:visible="showImportForm" width="40rem" :footer="false" :default-visible="!tokenStore.hasTokens">
+      <a-modal class="token-import-modal" v-model:visible="showImportForm" width="40rem" :footer="false" :default-visible="!tokenStore.hasTokens">
         <template #title>
           <h2>
             <n-icon>
@@ -1568,5 +1568,13 @@ onMounted(async () => {
 
 .storage-upgrade {
   margin-top: var(--spacing-xs);
+}
+
+:global([data-theme="dark"] .token-import-modal .arco-modal){
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+[data-theme="dark"] .token-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) ;
 }
 </style>

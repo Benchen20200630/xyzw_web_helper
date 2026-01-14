@@ -45,7 +45,7 @@ export interface EVM {
 }
 
 $emit.on("$any", (cmd: string, data: Session) => {
-  console.log(`收到未处理事件: ${cmd} TokenID: ${data.tokenId}`, data);
+  gameLogger.debug(`收到未处理事件: ${cmd} TokenID: ${data.tokenId}`, data);
 });
 
 StudyPlugin({
@@ -61,7 +61,7 @@ onSome(["_sys/ack"], (data: Session) => {});
 onSome(
   ["system_newchatmessagenotify", "system_newchatmessagenotifyresp"],
   (data: Session) => {
-    gameLogger.info(`收到新聊天消息事件: ${data.tokenId}`, data);
+    gameLogger.debug(`收到新聊天消息事件: ${data.tokenId}`, data);
     const { body, gameData } = data;
     if (!body || !body.chatMessage) {
       gameLogger.debug("聊天消息响应为空或格式不正确");
@@ -103,7 +103,7 @@ onSome(
 onSome(["activity_getresp", "activity_get"], (data: Session) => {
   gameLogger.verbose(`收到活动信息事件: ${data.tokenId}`, data);
   const { body } = data;
-  console.log("🚀 ~ body:", body);
+  gameLogger.debug("活动信息body:", body);
   if (!body) {
     gameLogger.debug("活动信息响应为空");
     return;
@@ -117,7 +117,7 @@ onSome(["activity_getresp", "activity_get"], (data: Session) => {
 onSome(["bosstower_getinforesp", "bosstower_getinfo"], (data: Session) => {
   gameLogger.verbose(`收到咸王宝库信息事件: ${data.tokenId}`, data);
   const { body } = data;
-  console.log("🚀 ~ body:", body);
+  gameLogger.debug("咸王宝库body:", body);
   if (!body) {
     gameLogger.debug("咸王宝库响应为空");
     return;
@@ -130,7 +130,7 @@ onSome(["bosstower_getinforesp", "bosstower_getinfo"], (data: Session) => {
 onSome(['evotowerinforesp', 'evotower_getinforesp', 'evotower_getinfo'], (data: Session) => {
   gameLogger.verbose(`收到怪异塔信息事件: ${data.tokenId}`, data);
   const { body } = data;
-  console.log("🚀 ~ body:", body)
+  gameLogger.debug("怪异塔body:", body);
   if (!body) {
     gameLogger.debug('怪异塔响应为空');
     return;

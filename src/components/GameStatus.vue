@@ -19,6 +19,7 @@
       <n-tab-pane name="activity" tab="活动" />
       <n-tab-pane v-if="ENABLE_TOOLS_TAB" name="tools" tab="工具" />
       <n-tab-pane name="warrank" tab="盐场" />
+      <n-tab-pane name="monthBattle" tab="本月盐场战绩" />
       <n-tab-pane name="peach" tab="蟠桃园" />
       <n-tab-pane name="toprank" tab="巅峰榜" />
       <n-tab-pane name="topclubrank" tab="俱乐部榜" />
@@ -163,6 +164,11 @@
       <ClubWarrank />
     </div>
 
+    <!-- 俱乐部盐场月度战绩 -->
+    <div class="warrank-full-container" v-if="activeSection === 'monthBattle'">
+      <ClubMonthBattleRecords />
+    </div>
+
     <!-- 巅峰榜（提取组件） -->
     <TopRankList v-if="activeSection === 'toprank'" />
 
@@ -197,6 +203,7 @@ import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";
 import ClubWarrank from "./Club/ClubWarrank.vue";
+import ClubMonthBattleRecords from "./Club/ClubMonthBattleRecords.vue";
 import TopRankList from "./cards/TopRankListPageCard.vue";
 import TopClubList from "./cards/TopClubListPageCard.vue";
 import GoldClubList from "./cards/GoldRankListPageCard.vue";

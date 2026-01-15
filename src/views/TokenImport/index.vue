@@ -149,13 +149,13 @@
               <div class="storage-info">
                 <div class="storage-item">
                   <span class="storage-label">存储类型：</span>
-                  <n-tag size="small" :type="token.importMethod === 'url' ? 'success' : 'warning'">
-                    {{ token.importMethod === "url" ? "长期有效" : "临时存储" }}
+                  <n-tag size="small" :type="(token.importMethod === 'url' || token.importMethod === 'bin' || token.upgradedToPermanent) ? 'success' : 'warning'">
+                    {{ (token.importMethod === "url" || token.importMethod === "bin" || token.upgradedToPermanent) ? "长期有效" : "临时存储" }}
                   </n-tag>
                 </div>
 
                 <!-- 升级选项（仅对临时存储的token显示） -->
-                <div v-if="token.importMethod !== 'url'" class="storage-upgrade">
+                <div v-if="!(token.importMethod === 'url' || token.importMethod === 'bin' || token.upgradedToPermanent)" class="storage-upgrade">
                   <n-button size="tiny" type="success" ghost @click.stop="upgradeTokenToPermanent(token)">
                     <template #icon>
                       <n-icon>

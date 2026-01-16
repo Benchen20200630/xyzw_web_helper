@@ -106,6 +106,9 @@
               :disabled="isRunning || selectedTokens.length === 0">
               免费领取珍宝阁
             </n-button>
+            <n-button size="small" @click="batchLegacyClaim" :disabled="isRunning || selectedTokens.length === 0">
+              批量功法残卷领取
+            </n-button>
           </n-space>
           <n-space vertical>
             <n-checkbox :checked="isAllSelected" :indeterminate="isIndeterminate" @update:checked="handleSelectAll">
@@ -599,6 +602,7 @@ const availableTasks = [
   { label: "一键购买四圣碎片", value: "legion_storebuygoods" },
   { label: "一键黑市采购", value: "store_purchase" },
   { label: "免费领取珍宝阁", value: "collection_claimfreereward" },
+  { label: "批量领取功法残卷", value: "batchLegacyClaim" },
 ];
 
 const CarresearchItem = [
@@ -5055,6 +5059,82 @@ const batchClaimFreeEnergy = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量领取怪异塔免费道具结束");
+};
+
+const batchLegacyClaim = async () => {
+  if (selectedTokens.value.length === 0) return;
+  isRunning.value = true;
+  shouldStop.value = false;
+  
+  // Reset status
+  selectedTokens.value.forEach((id) => {
+    tokenStatus.value[id] = "waiting";
+  });
+  
+  for (const tokenId of selectedTokens.value) {
+    if (shouldStop.value) break;
+    currentRunningTokenId.value = tokenId;
+    tokenStatus.value[tokenId] = "running";
+    currentProgress.value = 0;
+    
+    const token = tokens.value.find((t) => t.id === tokenId);
+    const intervaltime = 2 * 60 * 60 * 1000 + 30 * 60 * 1000;
+    try {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== 开始领取功法残卷: ${token.name} ===`,
+        type: "info",
+      });
+      await ensureConnection(tokenId);
+
+      const legacyinfo = await tokenStore.sendMessageWithPromise(
+        tokenId,
+        'legacy_getinfo',
+        {
+        },
+        5000
+      );
+      const hangUpBeginTime = legacyinfo.roleLegacy.hangUpBeginTime;
+      const now = Date.now();
+      const timeDiff = now - hangUpBeginTime;
+
+      if (timeDiff < intervaltime) {
+        const remainingTime = Math.ceil((intervaltime - timeDiff) / 1000 / 60);
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== ${token.name} 领取功法残卷失败,还需${remainingTime}分钟`,
+          type: "error",
+        });
+      } else {
+        const LegacyClaimHangUpResp = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "legacy_claimhangup",
+          {},
+          5000
+        );
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== ${token.name} 成功领取功法残卷${LegacyClaimHangUpResp.reward[0].value}，共有${LegacyClaimHangUpResp.role.items[37007].quantity}个`,
+          type: "success"
+        });
+      }
+      tokenStatus.value[tokenId] = "completed";
+    } catch (error) {
+      console.error(error);
+      tokenStatus.value[tokenId] = "failed";
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== ${token.name} 领取功法残卷失败: ${error.message || "未知错误"}`,
+        type: "error",
+      });
+    }
+    currentProgress.value = 100;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  
+  isRunning.value = false;
+  currentRunningTokenId.value = null;
+  message.success("批量领取功法残卷结束");
 };
 
 const stopBatch = () => {

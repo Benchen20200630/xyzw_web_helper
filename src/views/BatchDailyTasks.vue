@@ -6,12 +6,20 @@
         <!-- Header -->
         <div class="page-header">
           <h2>批量日常任务</h2>
-          <div class="actions">
-            <n-button type="primary" @click="startBatch" :disabled="isRunning || selectedTokens.length === 0">
+          <div class="actions" style="display: flex; align-items: center;">
+            <n-button type="primary" @click="startBatch" :disabled="isRunning || selectedTokens.length === 0" size="medium">
               {{ isRunning ? "执行中..." : "开始执行" }}
             </n-button>
-            <n-button @click="stopBatch" :disabled="!isRunning" type="error" style="margin-left: 12px">
+            <n-button @click="stopBatch" :disabled="!isRunning" type="error" style="margin-left: 12px" size="medium">
               停止
+            </n-button>
+            <n-button @click="openBatchSettings" type="default" style="margin-left: 12px" size="medium">
+              <template #icon>
+                <n-icon>
+                  <Settings />
+                </n-icon>
+              </template>
+              设置
             </n-button>
           </div>
         </div>
@@ -458,6 +466,42 @@
         </div>
       </div>
     </n-modal>
+
+    <!-- Batch Settings Modal -->
+    <n-modal v-model:show="showBatchSettingsModal" preset="card" title="定时任务设置"
+      style="width: 90%; max-width: 400px">
+      <div class="settings-content">
+        <div style="margin-bottom: 20px; color: #6b7280; font-size: 14px">
+          设置定时任务执行批量使用操作时的数量设置
+        </div>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-label">定时批量开箱数量（10的倍数）</label>
+            <n-input-number v-model:value="batchSettings.boxCount" :min="10" :max="10000" :step="10" size="small" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">定时批量钓鱼数量（10的倍数）</label>
+            <n-input-number v-model:value="batchSettings.fishCount" :min="10" :max="10000" :step="10" size="small" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">定时批量招募数量（10的倍数）</label>
+            <n-input-number v-model:value="batchSettings.recruitCount" :min="10" :max="10000" :step="10" size="small" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">默认宝箱类型</label>
+            <n-select v-model:value="batchSettings.defaultBoxType" :options="boxTypeOptions" size="small" />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">默认鱼竿类型</label>
+            <n-select v-model:value="batchSettings.defaultFishType" :options="fishTypeOptions" size="small" />
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showBatchSettingsModal = false" style="margin-right: 12px">取消</n-button>
+          <n-button type="primary" @click="saveBatchSettings">保存设置</n-button>
+        </div>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -552,6 +596,50 @@ const helperModalTitle = computed(() => {
   const titles = { box: "批量开宝箱", fish: "批量钓鱼", recruit: "批量招募" };
   return titles[helperType.value] || "批量助手";
 });
+
+// Batch Settings State
+const showBatchSettingsModal = ref(false);
+const batchSettings = reactive({
+  boxCount: 100,
+  fishCount: 100,
+  recruitCount: 100,
+  defaultBoxType: 2001,
+  defaultFishType: 1,
+});
+
+// Load batch settings from localStorage
+const loadBatchSettings = () => {
+  try {
+    const saved = localStorage.getItem("batchSettings");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      Object.assign(batchSettings, parsed);
+    }
+  } catch (error) {
+    console.error("Failed to load batch settings:", error);
+  }
+};
+
+// Save batch settings to localStorage
+const saveBatchSettings = () => {
+  try {
+    localStorage.setItem("batchSettings", JSON.stringify(batchSettings));
+    message.success("定时批量任务设置已保存");
+    showBatchSettingsModal.value = false;
+  } catch (error) {
+    console.error("Failed to save batch settings:", error);
+    message.error("保存设置失败");
+  }
+};
+
+// Open batch settings modal
+const openBatchSettings = () => {
+  loadBatchSettings();
+  showBatchSettingsModal.value = true;
+};
+
+// Load settings on component mount
+loadBatchSettings();
 
 // ======================
 // Scheduled Tasks Feature
@@ -2333,7 +2421,12 @@ const executeScheduledTask = async (task) => {
       // Call the task function dynamically
       const taskFunction = eval(taskName);
       if (typeof taskFunction === "function") {
-        await taskFunction();
+        // For batch operations, pass isScheduledTask = true
+        if (['batchOpenBox', 'batchFish', 'batchRecruit'].includes(taskName)) {
+          await taskFunction(true);
+        } else {
+          await taskFunction();
+        }
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
@@ -4676,7 +4769,7 @@ const batchClaimBoxPointReward = async () => {
   message.success("批量领取宝箱积分结束");
 };
 
-const batchOpenBox = async () => {
+const batchOpenBox = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
 
   isRunning.value = true;
@@ -4684,8 +4777,8 @@ const batchOpenBox = async () => {
   // 不再重置logs数组，保留之前的日志
   // logs.value = [];
 
-  const boxType = helperSettings.boxType;
-  const totalCount = helperSettings.count;
+  const boxType = isScheduledTask ? batchSettings.defaultBoxType : helperSettings.boxType;
+  const totalCount = isScheduledTask ? batchSettings.boxCount : helperSettings.count;
   const batches = Math.floor(totalCount / 10);
   const remainder = totalCount % 10;
   const boxNames = {
@@ -4785,7 +4878,7 @@ const batchOpenBox = async () => {
   message.success("批量开箱结束");
 };
 
-const batchFish = async () => {
+const batchFish = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
 
   isRunning.value = true;
@@ -4793,8 +4886,8 @@ const batchFish = async () => {
   // 不再重置logs数组，保留之前的日志
   // logs.value = [];
 
-  const fishType = helperSettings.fishType;
-  const totalCount = helperSettings.count;
+  const fishType = isScheduledTask ? batchSettings.defaultFishType : helperSettings.fishType;
+  const totalCount = isScheduledTask ? batchSettings.fishCount : helperSettings.count;
   const batches = Math.floor(totalCount / 10);
   const remainder = totalCount % 10;
   const fishNames = { 1: "普通鱼竿", 2: "黄金鱼竿" };
@@ -4885,7 +4978,7 @@ const batchFish = async () => {
   message.success("批量钓鱼结束");
 };
 
-const batchRecruit = async () => {
+const batchRecruit = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
 
   isRunning.value = true;
@@ -4893,7 +4986,7 @@ const batchRecruit = async () => {
   // 不再重置logs数组，保留之前的日志
   // logs.value = [];
 
-  const totalCount = helperSettings.count;
+  const totalCount = isScheduledTask ? batchSettings.recruitCount : helperSettings.count;
   const batches = Math.floor(totalCount / 10);
   const remainder = totalCount % 10;
 

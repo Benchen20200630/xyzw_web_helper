@@ -186,19 +186,24 @@
               <div class="god-ranking-content">
                 <div class="god-ranking-header">
                   <div class="god-rank-number">排名</div>
+                  <div class="header-avatar"></div>
                   <div class="header-player">玩家</div>
-                  <div class="header-id">ID</div>
                   <div class="header-stat">击杀</div>
+                  <div class="header-stat">连杀</div>
+                  <div class="header-stat">抢船</div>
                   <div class="header-stat">复活</div>
                   <div class="header-stat">K/D</div>
                 </div>
                 <div v-for="(player, index) in battleRecords.ownClub.godRank" :key="index" class="god-ranking-item">
                   <div class="god-rank-number">{{ index + 1 }}</div>
-                  <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
-                  <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
-                  <span class="player-name">{{ player.roleInfo.name }}</span>
-                  <span class="player-id">{{ player.roleInfo.roleId }}</span>
+                  <div class="player-avatar-cell">
+                    <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
+                    <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
+                  </div>
+                  <span class="header-player">{{ player.roleInfo.name }}</span>
                   <span class="player-stat">{{ player.killCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.mCKCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.carCnt || 0 }}</span>
                   <span class="player-stat">{{ player.reviveCnt || 0 }}</span>
                   <span class="player-stat">{{ player.kd || 0 }}</span>
                 </div>
@@ -209,19 +214,24 @@
               <div class="god-ranking-content">
                 <div class="god-ranking-header">
                   <div class="god-rank-number">排名</div>
+                  <div class="header-avatar"></div>
                   <div class="header-player">玩家</div>
-                  <div class="header-id">ID</div>
                   <div class="header-stat">击杀</div>
+                  <div class="header-stat">连杀</div>
+                  <div class="header-stat">抢船</div>
                   <div class="header-stat">复活</div>
                   <div class="header-stat">K/D</div>
                 </div>
                 <div v-for="(player, index) in battleRecords.opponentClub.godRank" :key="index" class="god-ranking-item">
                   <div class="god-rank-number">{{ index + 1 }}</div>
-                  <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
-                  <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
-                  <span class="player-name">{{ player.roleInfo.name }}</span>
-                  <span class="player-id">{{ player.roleInfo.roleId }}</span>
+                  <div class="player-avatar-cell">
+                    <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
+                    <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
+                  </div>
+                  <span class="header-player">{{ player.roleInfo.name }}</span>
                   <span class="player-stat">{{ player.killCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.mCKCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.carCnt || 0 }}</span>
                   <span class="player-stat">{{ player.reviveCnt || 0 }}</span>
                   <span class="player-stat">{{ player.kd || 0 }}</span>
                 </div>
@@ -427,19 +437,24 @@
               <div class="god-ranking-content">
                 <div class="god-ranking-header">
                   <div class="god-rank-number">排名</div>
+                  <div class="header-avatar"></div>
                   <div class="header-player">玩家</div>
-                  <div class="header-id">ID</div>
                   <div class="header-stat">击杀</div>
+                  <div class="header-stat">连杀</div>
+                  <div class="header-stat">抢船</div>
                   <div class="header-stat">复活</div>
                   <div class="header-stat">K/D</div>
                 </div>
                 <div v-for="(player, index) in battleRecords.ownClub.godRank" :key="index" class="god-ranking-item">
                   <div class="god-rank-number">{{ index + 1 }}</div>
-                  <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
-                  <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
-                  <span class="player-name">{{ player.roleInfo.name }}</span>
-                  <span class="player-id">{{ player.roleInfo.roleId }}</span>
+                  <div class="player-avatar-cell">
+                    <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
+                    <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
+                  </div>
+                  <span class="header-player">{{ player.roleInfo.name }}</span>
                   <span class="player-stat">{{ player.killCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.mCKCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.carCnt || 0 }}</span>
                   <span class="player-stat">{{ player.reviveCnt || 0 }}</span>
                   <span class="player-stat">{{ player.kd || 0 }}</span>
                 </div>
@@ -450,19 +465,24 @@
               <div class="god-ranking-content">
                 <div class="god-ranking-header">
                   <div class="god-rank-number">排名</div>
+                  <div class="header-avatar"></div>
                   <div class="header-player">玩家</div>
-                  <div class="header-id">ID</div>
                   <div class="header-stat">击杀</div>
+                  <div class="header-stat">连杀</div>
+                  <div class="header-stat">抢船</div>
                   <div class="header-stat">复活</div>
                   <div class="header-stat">K/D</div>
                 </div>
                 <div v-for="(player, index) in battleRecords.opponentClub.godRank" :key="index" class="god-ranking-item">
                   <div class="god-rank-number">{{ index + 1 }}</div>
-                  <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
-                  <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
-                  <span class="player-name">{{ player.roleInfo.name }}</span>
-                  <span class="player-id">{{ player.roleInfo.roleId }}</span>
+                  <div class="player-avatar-cell">
+                    <img v-if="player.roleInfo.headImg" :src="player.roleInfo.headImg" :alt="player.roleInfo.name" class="player-avatar" @error="handleImageError">
+                    <div v-else class="player-avatar-placeholder">{{ player.roleInfo.name?.charAt(0) || '?' }}</div>
+                  </div>
+                  <span class="header-player">{{ player.roleInfo.name }}</span>
                   <span class="player-stat">{{ player.killCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.mCKCnt || 0 }}</span>
+                  <span class="player-stat">{{ player.carCnt || 0 }}</span>
                   <span class="player-stat">{{ player.reviveCnt || 0 }}</span>
                   <span class="player-stat">{{ player.kd || 0 }}</span>
                 </div>
@@ -1159,17 +1179,17 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.rank-number:nth-child(1) {
+.ranking-item:nth-of-type(2) .rank-number {
   background: #FFD700;
   color: #000;
 }
 
-.rank-number:nth-child(2) {
+.ranking-item:nth-of-type(3) .rank-number {
   background: #C0C0C0;
   color: #000;
 }
 
-.rank-number:nth-child(3) {
+.ranking-item:nth-of-type(4) .rank-number {
   background: #CD7F32;
   color: #000;
 }
@@ -1247,8 +1267,7 @@ onMounted(() => {
 .god-ranking-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
   background: var(--bg-primary);
   border-radius: var(--border-radius-sm);
@@ -1259,28 +1278,41 @@ onMounted(() => {
   border: 1px solid var(--border-light);
 }
 
+.header-avatar {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.player-avatar-cell {
+  width: 32px;
+  flex-shrink: 0;
+}
+
 .header-player {
-  flex: 1;
+  width: 140px;
+  padding-left: var(--spacing-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 120px;
+  flex-shrink: 0;
 }
 
 .header-id {
-  width: 100px;
-  font-size: var(--font-size-xs);
+  flex: 0 0 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-stat {
-  min-width: 40px;
-  text-align: right;
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .god-ranking-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
   padding: var(--spacing-sm);
   margin-bottom: var(--spacing-xs);
   border-radius: var(--border-radius-sm);
@@ -1289,36 +1321,65 @@ onMounted(() => {
 }
 
 .god-rank-number {
-  width: 24px;
+  width: 32px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
+  background: #696969;
+  color: #fff;
+}
+
+.god-ranking-header > .god-rank-number {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.god-ranking-item:nth-of-type(2) .god-rank-number {
+  background: #FFD700;
+  color: #000;
+}
+
+.god-ranking-item:nth-of-type(3) .god-rank-number {
+  background: #C0C0C0;
+  color: #000;
+}
+
+.god-ranking-item:nth-of-type(4) .god-rank-number {
+  background: #CD7F32;
+  color: #000;
 }
 
 .player-id {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  width: 100px;
-}
-
-.player-name {
-  flex: 1;
+  flex: 0 0 100px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 80px;
+}
+
+.player-name {
+  width: 140px;
+  padding-left: var(--spacing-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .player-stat {
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
-  min-width: 40px;
-  text-align: right;
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .god-ranking-content::-webkit-scrollbar-track {
@@ -1333,42 +1394,6 @@ onMounted(() => {
 
 .god-ranking-content::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
-}
-
-.god-ranking-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  margin-bottom: var(--spacing-xs);
-  border-radius: var(--border-radius-sm);
-  background: var(--bg-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.god-rank-number {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  flex-shrink: 0;
-}
-
-.player-id {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  margin-right: auto;
-}
-
-.player-stat {
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-sm);
-  min-width: 40px;
-  text-align: right;
 }
 
 /* 响应式设计 */

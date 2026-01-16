@@ -255,6 +255,10 @@ export function registerDefaultCommands(reg) {
     .register("car_getmemberrank")
     .register("car_research")
 
+    // 功法
+    .register("legacy_getinfo")
+    .register("legacy_claimhangup")
+
     // 咸王宝库
     .register("matchteam_getroleteaminfo")
     .register("bosstower_getinfo")

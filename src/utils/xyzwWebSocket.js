@@ -267,6 +267,23 @@ export function registerDefaultCommands(reg) {
     // 功法残卷发送
     .register("legacy_sendgift", { itemCnt: 0, legacyUIds: [], targetId: 0 })
 
+    // 装备淬炼相关
+    .register("equipment_confirm", {
+      heroId: 0,
+      part: 0,
+      quenchId: 0,
+      quenches: {}
+    })
+    .register("equipment_quench", {
+      heroId: 0,
+      part: 0,
+      quenchId: 0,
+      quenches: {},
+      seed: 0,
+      skipOrange: false
+    })
+    .register("equipment_updatequenchlock", { heroId: 0, part: 0, slot: 0, isLocked: false })
+
     // 咸王宝库
     .register("matchteam_getroleteaminfo")
     .register("bosstower_getinfo")
@@ -890,6 +907,11 @@ export class XyzwWebSocketClient {
           1300050: "请修改您的采购次数",
           200020: "出了点小问题，请尝试重启游戏解决～",
           200160: "模块未开启",
+          7500140: "请先输入密码",
+          7500100: "密码输入错误",
+          7500120: "密码输入错误次数已达上限",
+          200400: "操作太快，请稍后再试",
+          200760: "您当前看到的界面已发生变化，请重新登录",
           3500020: "没有可领取的奖励"
         };
         
@@ -949,6 +971,7 @@ export class XyzwWebSocketClient {
       mergebox_getinforesp: 'mergebox_getinfo',
       mergebox_claimfreeenergyresp: 'mergebox_claimfreeenergy',
       item_openpackresp: "item_openpack",
+      equipment_quenchresp: "equipment_quench",
       // 咸王宝库
       matchteam_getroleteaminforesp: "matchteam_getroleteaminfo",
       bosstower_getinforesp: "bosstower_getinfo",

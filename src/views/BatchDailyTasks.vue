@@ -5079,6 +5079,10 @@ const batchClaimCars = async () => {
 const startBatch = async () => {
   if (selectedTokens.value.length === 0) return;
 
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
+
   isRunning.value = true;
   shouldStop.value = false;
   // 不再重置logs数组，保留之前的日志
@@ -5166,11 +5170,18 @@ const startBatch = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量任务执行结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 // --- 批量助手函数 ---
 const batchClaimBoxPointReward = async () => {
   if (selectedTokens.value.length === 0) return;
+
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
 
   isRunning.value = true;
   shouldStop.value = false;
@@ -5235,10 +5246,17 @@ const batchClaimBoxPointReward = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量领取宝箱积分结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const batchOpenBox = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
+
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
 
   isRunning.value = true;
   shouldStop.value = false;
@@ -5344,10 +5362,17 @@ const batchOpenBox = async (isScheduledTask = false) => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量开箱结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const batchFish = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
+
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
 
   isRunning.value = true;
   shouldStop.value = false;
@@ -5444,10 +5469,17 @@ const batchFish = async (isScheduledTask = false) => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量钓鱼结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const batchRecruit = async (isScheduledTask = false) => {
   if (selectedTokens.value.length === 0) return;
+
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
 
   isRunning.value = true;
   shouldStop.value = false;
@@ -5542,10 +5574,18 @@ const batchRecruit = async (isScheduledTask = false) => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量招募结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const batchClaimFreeEnergy = async () => {
   if (selectedTokens.value.length === 0) return;
+  
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
+  
   isRunning.value = true;
   shouldStop.value = false;
 
@@ -5620,10 +5660,18 @@ const batchClaimFreeEnergy = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量领取怪异塔免费道具结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const batchLegacyClaim = async () => {
   if (selectedTokens.value.length === 0) return;
+  
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
+  
   isRunning.value = true;
   shouldStop.value = false;
   
@@ -5675,6 +5723,9 @@ const batchLegacyClaim = async () => {
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量领取功法残卷结束");
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 // 增强版批量赠送功法残卷（含完善的验证和错误处理）
@@ -5708,6 +5759,10 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
       return;
     }
   }
+  
+  // 标记任务开始，设置任务完成后关闭所有连接
+  tokenStore.startTask();
+  tokenStore.closeAllConnectionsAfterTasks();
   
   isRunning.value = true;
   shouldStop.value = false;
@@ -5919,6 +5974,9 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
   });
   
   message.success(`批量赠送功法残卷结束，成功 ${totalSuccess} 个，失败 ${totalFailed} 个`);
+  
+  // 标记任务完成
+  tokenStore.finishTask();
 };
 
 const stopBatch = () => {

@@ -67,6 +67,34 @@ const activeConnections = useLocalStorage("activeConnections", {});
 export const useTokenStore = defineStore("tokens", () => {
   const wsConnections = ref<WebCtx>({}); // WebSocket连接状态
   const connectionLocks = ref<LockCtx>({}); // 连接操作锁，防止竞态条件
+  
+  // 连接限流相关状态
+  const connectionQueue = ref<string[]>([]); // 连接请求队列
+  const activeConnectionCount = ref(0); // 当前活跃连接数
+  const maxConcurrentConnections = ref(10); // 最大并发连接数
+  const connectionDelay = ref(500); // 连接间隔时间(ms)
+  const connectionQueuePositions = ref<Record<string, number>>({}); // 每个token在队列中的位置
+  const connectionQueueTimestamps = ref<Record<string, number>>({}); // 每个token加入队列的时间
+  
+  // 任务执行状态跟踪
+  const runningTasksCount = ref(0); // 当前运行的任务数量
+  const scheduledTasksQueue = ref<number>(0); // 排队的定时任务数量
+  const isTasksRunning = ref(false); // 是否有任务正在执行
+  const shouldCloseConnectionsAfterTasks = ref(false); // 任务完成后是否关闭连接
+  
+  // 计算属性：获取排队中的token列表
+  const queuedTokens = computed(() => {
+    return [...connectionQueue.value];
+  });
+  
+  // 计算属性：获取预计等待时间
+  const getEstimatedWaitTime = (tokenId: string) => {
+    const position = connectionQueuePositions.value[tokenId];
+    if (position === undefined || position < 0) return 0;
+    
+    // 预计等待时间 = (当前活跃连接数 + 队列位置) * 连接间隔时间
+    return (activeConnectionCount.value + position) * connectionDelay.value;
+  };
 
   // 游戏数据存储
   const gameData = ref({
@@ -575,8 +603,8 @@ export const useTokenStore = defineStore("tokens", () => {
     return null;
   };
 
-  // WebSocket连接管理（重构版 - 防重连）
-  const createWebSocketConnection = async (
+  // WebSocket连接管理（内部实现 - 实际创建连接）
+  const createWebSocketConnectionInternal = async (
     tokenId: string,
     base64Token: string,
     customWsUrl = null,
@@ -765,6 +793,34 @@ export const useTokenStore = defineStore("tokens", () => {
       wsLogger.error(`关闭连接失败 [${tokenId}]:`, error);
     } finally {
       releaseConnectionLock(tokenId, "disconnect");
+    }
+  };
+  
+  // WebSocket连接管理（外部调用 - 带限流逻辑）
+  const createWebSocketConnection = async (
+    tokenId: string,
+    base64Token: string,
+    customWsUrl = null,
+  ) => {
+    // 检查当前活跃连接数
+    if (activeConnectionCount.value < maxConcurrentConnections.value) {
+      // 直接创建连接
+      activeConnectionCount.value++;
+      try {
+        const client = await createWebSocketConnectionInternal(tokenId, base64Token, customWsUrl);
+        return client;
+      } catch (error) {
+        wsLogger.error(`创建连接失败 [${tokenId}]:`, error);
+        return null;
+      } finally {
+        activeConnectionCount.value--;
+        // 连接完成后，检查队列中是否还有等待的连接请求
+        setTimeout(processConnectionQueue, connectionDelay.value);
+      }
+    } else {
+      // 加入连接队列
+      enqueueConnection(tokenId);
+      return null;
     }
   };
 
@@ -1239,25 +1295,183 @@ export const useTokenStore = defineStore("tokens", () => {
     });
   };
 
+  // 处理连接队列
+  const processConnectionQueue = async () => {
+    // 如果当前活跃连接数已经达到最大值，或者队列为空，直接返回
+    if (activeConnectionCount.value >= maxConcurrentConnections.value || connectionQueue.value.length === 0) {
+      return;
+    }
+    
+    // 从队列中取出第一个token
+    const tokenId = connectionQueue.value.shift();
+    if (!tokenId) return;
+    
+    // 更新队列位置
+    updateConnectionQueuePositions();
+    
+    try {
+      // 查找对应的token
+      const token = gameTokens.value.find(t => t.id === tokenId);
+      if (!token) {
+        wsLogger.error(`Token not found: ${tokenId}`);
+        return;
+      }
+      
+      // 增加活跃连接数
+      activeConnectionCount.value++;
+      wsLogger.info(`开始处理队列中的连接: ${tokenId}，当前活跃连接数: ${activeConnectionCount.value}`);
+      
+      // 创建连接
+      await createWebSocketConnectionInternal(tokenId, token.token, token.wsUrl);
+    } catch (error) {
+      wsLogger.error(`处理队列连接失败: ${tokenId}`, error);
+    } finally {
+      // 减少活跃连接数
+      activeConnectionCount.value--;
+      wsLogger.info(`队列连接处理完成: ${tokenId}，当前活跃连接数: ${activeConnectionCount.value}`);
+      
+      // 延迟后继续处理队列
+      setTimeout(processConnectionQueue, connectionDelay.value);
+    }
+  };
+  
+  // 更新连接队列位置
+  const updateConnectionQueuePositions = () => {
+    const newPositions: Record<string, number> = {};
+    connectionQueue.value.forEach((tokenId, index) => {
+      newPositions[tokenId] = index;
+    });
+    connectionQueuePositions.value = newPositions;
+  };
+  
+  // 将连接请求加入队列
+  const enqueueConnection = (tokenId: string) => {
+    // 如果token已经在队列中，不重复添加
+    if (connectionQueue.value.includes(tokenId)) {
+      wsLogger.debug(`Token already in queue: ${tokenId}`);
+      return;
+    }
+    
+    // 如果token已经连接或正在连接，不加入队列
+    const connection = wsConnections.value[tokenId];
+    if (connection && (connection.status === "connected" || connection.status === "connecting")) {
+      wsLogger.debug(`Token already connected or connecting: ${tokenId}`);
+      return;
+    }
+    
+    // 添加到队列
+    connectionQueue.value.push(tokenId);
+    connectionQueueTimestamps.value[tokenId] = Date.now();
+    updateConnectionQueuePositions();
+    
+    const position = connectionQueuePositions.value[tokenId];
+    const waitTime = getEstimatedWaitTime(tokenId);
+    wsLogger.info(`Token added to connection queue: ${tokenId}, position: ${position + 1}, estimated wait: ${waitTime}ms`);
+    
+    // 触发队列处理
+    setTimeout(processConnectionQueue, 0);
+  };
+  
+  // 从队列中移除token
+  const dequeueConnection = (tokenId: string) => {
+    const index = connectionQueue.value.indexOf(tokenId);
+    if (index > -1) {
+      connectionQueue.value.splice(index, 1);
+      delete connectionQueueTimestamps.value[tokenId];
+      updateConnectionQueuePositions();
+      wsLogger.info(`Token removed from connection queue: ${tokenId}`);
+    }
+  };
+  
+  // 标记任务开始
+  const startTask = () => {
+    runningTasksCount.value++;
+    isTasksRunning.value = true;
+    wsLogger.info(`任务开始，当前运行任务数: ${runningTasksCount.value}`);
+  };
+  
+  // 标记任务结束
+  const finishTask = () => {
+    runningTasksCount.value = Math.max(0, runningTasksCount.value - 1);
+    wsLogger.info(`任务结束，当前运行任务数: ${runningTasksCount.value}`);
+    
+    // 检查是否所有任务都已完成
+    if (runningTasksCount.value === 0 && scheduledTasksQueue.value === 0) {
+      isTasksRunning.value = false;
+      wsLogger.info(`所有任务执行完成`);
+      
+      // 如果需要，关闭所有连接
+      if (shouldCloseConnectionsAfterTasks.value) {
+        closeAllConnections();
+        shouldCloseConnectionsAfterTasks.value = false;
+      }
+    }
+  };
+  
+  // 标记定时任务排队
+  const scheduleTask = () => {
+    scheduledTasksQueue.value++;
+    isTasksRunning.value = true;
+    wsLogger.info(`定时任务排队，当前排队数: ${scheduledTasksQueue.value}`);
+  };
+  
+  // 标记定时任务完成
+  const finishScheduledTask = () => {
+    scheduledTasksQueue.value = Math.max(0, scheduledTasksQueue.value - 1);
+    wsLogger.info(`定时任务完成，当前排队数: ${scheduledTasksQueue.value}`);
+    
+    // 检查是否所有任务都已完成
+    if (runningTasksCount.value === 0 && scheduledTasksQueue.value === 0) {
+      isTasksRunning.value = false;
+      wsLogger.info(`所有定时任务执行完成`);
+      
+      // 如果需要，关闭所有连接
+      if (shouldCloseConnectionsAfterTasks.value) {
+        closeAllConnections();
+        shouldCloseConnectionsAfterTasks.value = false;
+      }
+    }
+  };
+  
+  // 关闭所有WebSocket连接
+  const closeAllConnections = async () => {
+    wsLogger.info(`开始关闭所有WebSocket连接`);
+    
+    // 清空连接队列
+    connectionQueue.value = [];
+    updateConnectionQueuePositions();
+    
+    // 关闭所有连接
+    const connectionIds = Object.keys(wsConnections.value);
+    wsLogger.info(`需要关闭的连接数: ${connectionIds.length}`);
+    
+    // 逐个关闭连接
+    for (const tokenId of connectionIds) {
+      try {
+        await closeWebSocketConnectionAsync(tokenId);
+        wsLogger.info(`连接已关闭: ${tokenId}`);
+      } catch (error) {
+        wsLogger.error(`关闭连接失败: ${tokenId}`, error);
+      }
+    }
+    
+    wsLogger.info(`所有WebSocket连接关闭完成`);
+  };
+  
+  // 标记任务完成后关闭连接
+  const closeAllConnectionsAfterTasks = () => {
+    shouldCloseConnectionsAfterTasks.value = true;
+    wsLogger.info(`已标记：所有任务完成后关闭连接`);
+    
+    // 如果当前没有任务正在执行，立即关闭连接
+    if (!isTasksRunning.value) {
+      closeAllConnections();
+      shouldCloseConnectionsAfterTasks.value = false;
+    }
+  };
+  
   // 初始化
   const initTokenStore = () => {
-    // // 恢复数据
-    // const savedTokens = localStorage.getItem('gameTokens')
-    // const savedSelectedId = localStorage.getItem('selectedTokenId')
-
-    // if (savedTokens) {
-    //   try {
-    //     gameTokens.value = JSON.parse(savedTokens)
-    //   } catch (error) {
-    //     tokenLogger.error('解析Token数据失败:', error.message)
-    //     gameTokens.value = []
-    //   }
-    // }
-
-    // if (savedSelectedId) {
-    //   selectedTokenId.value = savedSelectedId
-    // }
-
     // 清理过期token
     cleanExpiredTokens();
     // 启动连接监控
@@ -1287,6 +1501,12 @@ export const useTokenStore = defineStore("tokens", () => {
     hasTokens,
     selectedToken,
     selectedTokenRoleInfo,
+    
+    // 连接限流相关状态
+    connectionQueue,
+    activeConnectionCount,
+    maxConcurrentConnections,
+    queuedTokens,
 
     // Token管理方法
     addToken,
@@ -1314,6 +1534,25 @@ export const useTokenStore = defineStore("tokens", () => {
     sendClaimDailyReward,
     sendGetTeamInfo,
     sendGameMessage,
+
+    // 连接限流相关方法
+    getEstimatedWaitTime,
+    enqueueConnection,
+    dequeueConnection,
+    processConnectionQueue,
+    
+    // 任务执行管理方法
+    startTask,
+    finishTask,
+    scheduleTask,
+    finishScheduledTask,
+    closeAllConnections,
+    closeAllConnectionsAfterTasks,
+    
+    // 任务状态
+    runningTasksCount,
+    scheduledTasksQueue,
+    isTasksRunning,
 
     // 工具方法
     exportTokens,

@@ -740,7 +740,7 @@
     </n-modal>
 
     <!-- Batch Settings Modal -->
-    <n-modal v-model:show="showBatchSettingsModal" preset="card" title="定时任务设置"
+    <n-modal v-model:show="showBatchSettingsModal" preset="card" title="任务设置"
       style="width: 90%; max-width: 400px">
       <div class="settings-content">
         <div style="margin-bottom: 20px; color: #6b7280; font-size: 14px">
@@ -783,24 +783,32 @@
             <label class="setting-label">账号列表每行显示数量</label>
             <n-input-number v-model:value="batchSettings.tokenListColumns" :min="1" :max="10" :step="1" size="small" style="width: 100px;" />
           </div>
-          
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <label class="setting-label">日常任务命令执行后延迟(ms)</label>
+            <n-input-number v-model:value="batchSettings.commandDelay" :min="100" :max="2000" :step="100" size="small" style="width: 100px;" />
+          </div>
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <label class="setting-label">日常任务任务间延迟(ms)</label>
+            <n-input-number v-model:value="batchSettings.taskDelay" :min="100" :max="2000" :step="100" size="small" style="width: 100px;" />
+          </div>
+
           <!-- 连接池配置 [NEW] -->
           <n-divider title-placement="left">连接池高级设置</n-divider>
-          <div class="setting-item">
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
             <label class="setting-label">最大并发连接数 (1-10)</label>
-            <n-input-number v-model:value="batchSettings.maxConnections" :min="1" :max="10" :step="1" size="small" />
+            <n-input-number v-model:value="batchSettings.maxConnections" :min="1" :max="10" :step="1" size="small" style="width: 100px;" />
           </div>
-          <div class="setting-item">
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
             <label class="setting-label">连接超时时间 (秒)</label>
-            <n-input-number v-model:value="batchSettings.connectionTimeout" :min="5000" :max="120000" :step="5000" size="small" :parse="(v) => v / 1000" :format="(v) => v * 1000" />
+            <n-input-number v-model:value="batchSettings.connectionTimeout" :min="5000" :max="120000" :step="5000" size="small" :parse="(v) => v / 1000" :format="(v) => v * 1000" style="width: 100px;" />
           </div>
-          <div class="setting-item">
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
             <label class="setting-label">任务重试次数 (0-3)</label>
-            <n-input-number v-model:value="batchSettings.taskRetryCount" :min="0" :max="3" :step="1" size="small" />
+            <n-input-number v-model:value="batchSettings.taskRetryCount" :min="0" :max="3" :step="1" size="small" style="width: 100px;" />
           </div>
-          <div class="setting-item">
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
             <label class="setting-label">任务间延迟 (毫秒)</label>
-            <n-input-number v-model:value="batchSettings.delayBetweenTasks" :min="0" :max="5000" :step="500" size="small" />
+            <n-input-number v-model:value="batchSettings.delayBetweenTasks" :min="0" :max="5000" :step="500" size="small" style="width: 100px;" />
           </div>
         </div>
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
@@ -829,7 +837,6 @@ import { ConnectionHealthMonitor } from "@/utils/connectionHealthMonitor.js";
 // Initialize token store, message service, and task runner
 const tokenStore = useTokenStore();
 const message = useMessage();
-const runner = new DailyTaskRunner(tokenStore);
 
 // ==================== 连接池管理系统初始化 ====================
 // 创建连接池管理器 (最大3个并发连接)
@@ -960,6 +967,8 @@ const batchSettings = reactive({
   password: '',
   hideScheduledTasksModule: false,
   tokenListColumns: 2,
+  commandDelay: 500,
+  taskDelay: 500,
   // 连接池配置 [NEW]
   maxConnections: 3,
   connectionTimeout: 30000,
@@ -3986,14 +3995,30 @@ const startBatch = async () => {
           });
 
           success = true;
+          tokenStatus.value[tokenId] = "completed";
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `=== ${token.name} 执行完成 ===`,
+            type: "success",
+          });
         } catch (error) {
           console.error(error);
           if (retryCount < MAX_RETRIES) {
-            addLog({ time: new Date().toLocaleTimeString(), message: `执行出错: ${error.message}，等待3秒后重试...`, type: "warning" });
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `执行出错: ${error.message}，等待3秒后重试...`,
+              type: "warning",
+            });
+            // Wait for potential token refresh in store
             await new Promise((r) => setTimeout(r, 3000));
             retryCount++;
           } else {
-            throw error;
+            tokenStatus.value[tokenId] = "failed";
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `执行失败: ${error.message}`,
+              type: "error",
+            });
           }
         }
       }

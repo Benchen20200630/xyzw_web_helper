@@ -159,7 +159,7 @@
     v-model:show="helperDialogVisible"
     preset="card"
     title="选择护卫"
-    style="width: 520px"
+    style="width: 600px"
   >
     <div class="helper-body">
       <div class="helper-row">
@@ -170,7 +170,8 @@
           placeholder="选择俱乐部成员"
           :loading="helperLoading"
           filterable
-          style="width: 320px"
+          :max-tag-count="1"
+          style="width: 420px"
         />
       </div>
       <div class="tips">说明：次数满 4 的成员不可再被选择。</div>
@@ -356,7 +357,7 @@ const parseCarRewards = (rewards) => {
 };
 
 // 格式化数字为万的格式
-const formatNumberToWan = (num) => {
+const formatNumber = (num) => {
   const n = Number(num);
   if (n >= 1e12) return (n / 1e12).toFixed(2) + "兆";
   if (n >= 1e8) return (n / 1e8).toFixed(2) + "亿";
@@ -372,7 +373,7 @@ const formatReward = (reward) => {
 
   if (rewardType === 1) {
     // 金币
-    return `金币: ${formatNumberToWan(value)}`;
+    return `金币: ${formatNumber(value)}`;
   } else if (rewardType === 2) {
     // 金砖
     return `金砖: ${value.toLocaleString()}`;
@@ -869,8 +870,10 @@ const openHelperDialog = async (car) => {
     const opts = legionMembers.value.map((m) => {
       const mid = String(m.roleId);
       const cnt = Number(map[mid] ?? 0);
+      const power = formatNumber(m.power || m.custom?.s_power || 0);
+      const redQuench = m.custom?.red_quench_cnt || 0;
       return {
-        label: `${m.name || m.nickname || mid}（已护卫 ${cnt}/4）`,
+        label: `${m.name || m.nickname || mid}（战力: ${power} | 红粹: ${redQuench} | 已护卫 ${cnt}/4）`,
         value: mid,
         disabled: cnt >= 4,
       };
@@ -1148,4 +1151,46 @@ const cancelHelper = () => {
     color: #000;
   }
 }
-</style>
+  .helper-body {
+    padding: 16px 0;
+  }
+
+  .helper-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .helper-row .label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    min-width: 80px;
+  }
+
+  .tips {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+  }
+}
+
+:deep(.n-select) {
+  .n-select-tag {
+    max-width: none;
+    overflow: visible;
+  }
+
+  .n-base-select-option {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+}
+
+:deep(.n-modal) {
+  .n-modal-body {
+    padding: 24px;
+  }
+}

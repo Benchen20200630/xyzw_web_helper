@@ -668,7 +668,7 @@
     </n-modal>
 
     <!-- Batch Settings Modal -->
-    <n-modal v-model:show="showBatchSettingsModal" preset="card" title="定时任务设置"
+    <n-modal v-model:show="showBatchSettingsModal" preset="card" title="任务设置"
       style="width: 90%; max-width: 400px">
       <div class="settings-content">
         <div style="margin-bottom: 20px; color: #6b7280; font-size: 14px">
@@ -711,6 +711,14 @@
             <label class="setting-label">账号列表每行显示数量</label>
             <n-input-number v-model:value="batchSettings.tokenListColumns" :min="1" :max="10" :step="1" size="small" style="width: 100px;" />
           </div>
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <label class="setting-label">日常任务命令执行后延迟(ms)</label>
+            <n-input-number v-model:value="batchSettings.commandDelay" :min="100" :max="2000" :step="100" size="small" style="width: 100px;" />
+          </div>
+          <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <label class="setting-label">日常任务任务间延迟(ms)</label>
+            <n-input-number v-model:value="batchSettings.taskDelay" :min="100" :max="2000" :step="100" size="small" style="width: 100px;" />
+          </div>
         </div>
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
           <n-button @click="showBatchSettingsModal = false" style="margin-right: 12px">取消</n-button>
@@ -733,7 +741,6 @@ import { Settings } from "@vicons/ionicons5";
 // Initialize token store, message service, and task runner
 const tokenStore = useTokenStore();
 const message = useMessage();
-const runner = new DailyTaskRunner(tokenStore);
 
 const tokens = computed(() => tokenStore.gameTokens);
 const isCarActivityOpen = computed(() => {
@@ -825,6 +832,8 @@ const batchSettings = reactive({
   password: '',
   hideScheduledTasksModule: false,
   tokenListColumns: 2,
+  commandDelay: 500,
+  taskDelay: 500,
 });
 
 // Load batch settings from localStorage
@@ -5119,6 +5128,12 @@ const startBatch = async () => {
         }
 
         await ensureConnection(tokenId);
+
+        // Create runner with delay settings
+        const runner = new DailyTaskRunner(tokenStore, {
+          commandDelay: batchSettings.commandDelay,
+          taskDelay: batchSettings.taskDelay
+        });
 
         // Run tasks
         await runner.run(tokenId, {

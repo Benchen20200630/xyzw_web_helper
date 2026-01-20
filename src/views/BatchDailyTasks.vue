@@ -1643,6 +1643,24 @@
               style="width: 140px"
             />
           </div>
+          <div
+            class="setting-item"
+            style="
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <label class="setting-label">最大并发连接数</label>
+            <n-input-number
+              v-model:value="batchSettings.maxActive"
+              :min="1"
+              :max="20"
+              :step="1"
+              size="small"
+              style="width: 140px"
+            />
+          </div>
         </div>
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
           <n-button
@@ -1892,6 +1910,7 @@ const batchSettings = reactive({
   tokenListColumns: 2,
   commandDelay: 500,
   taskDelay: 500,
+  maxActive: 2,
 });
 
 // Load batch settings from localStorage
@@ -2608,12 +2627,11 @@ const legion_storebuygoods = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -2629,7 +2647,7 @@ const legion_storebuygoods = async () => {
       // Execute purchase command
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `发送购买请求...`,
+        message: `${token.name} 发送购买请求...`,
         type: "info",
       });
       const result = await tokenStore.sendMessageWithPromise(
@@ -2646,20 +2664,20 @@ const legion_storebuygoods = async () => {
         if (result.error.includes("俱乐部商品购买数量超出上限")) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `本周已购买过四圣碎片，跳过`,
+            message: `${token.name} 本周已购买过四圣碎片，跳过`,
             type: "info",
           });
         } else if (result.error.includes("物品不存在")) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `盐锭不足或未加入军团，购买失败`,
+            message: `${token.name} 盐锭不足或未加入军团，购买失败`,
             type: "error",
           });
           tokenStatus.value[tokenId] = "failed";
         } else {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `购买失败: ${result.error}`,
+            message: `${token.name} 购买失败: ${result.error}`,
             type: "error",
           });
           tokenStatus.value[tokenId] = "failed";
@@ -2667,24 +2685,32 @@ const legion_storebuygoods = async () => {
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `购买成功，获得四圣碎片`,
+          message: `${token.name} 购买成功，获得四圣碎片`,
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
       }
-
-      currentProgress.value = 100;
     } catch (error) {
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `购买过程出错: ${error.message}`,
+        message: `${token.name} 购买过程出错: ${error.message}`,
         type: "error",
       });
       tokenStatus.value[tokenId] = "failed";
     } finally {
-      await new Promise((r) => setTimeout(r, 1000)); // Add a small delay between accounts
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   currentRunningTokenId.value = null;
   isRunning.value = false;
@@ -2703,12 +2729,11 @@ const legionStoreBuySkinCoins = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -2724,12 +2749,14 @@ const legionStoreBuySkinCoins = async () => {
       // Execute purchase command
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `发送购买请求...`,
+        message: `${token.name} 发送购买请求...`,
         type: "info",
       });
 
+      let result = null;
       for (let i = 0; i < 5; i++) {
-        const result = await tokenStore.sendMessageWithPromise(
+        if (shouldStop.value) break;
+        result = await tokenStore.sendMessageWithPromise(
           tokenId,
           "legion_storebuygoods",
           { id: 1 },
@@ -2740,24 +2767,24 @@ const legionStoreBuySkinCoins = async () => {
       }
 
       // Handle result
-      if (result.error) {
+      if (result && result.error) {
         if (result.error.includes("俱乐部商品购买数量超出上限")) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `本周已购买过皮肤币，跳过`,
+            message: `${token.name} 本周已购买过皮肤币，跳过`,
             type: "info",
           });
         } else if (result.error.includes("物品不存在")) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `盐锭不足或未加入军团，购买失败`,
+            message: `${token.name} 盐锭不足或未加入军团，购买失败`,
             type: "error",
           });
           tokenStatus.value[tokenId] = "failed";
         } else {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `购买失败: ${result.error}`,
+            message: `${token.name} 购买失败: ${result.error}`,
             type: "error",
           });
           tokenStatus.value[tokenId] = "failed";
@@ -2765,24 +2792,32 @@ const legionStoreBuySkinCoins = async () => {
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `购买成功，获得皮肤币`,
+          message: `${token.name} 购买成功，获得皮肤币`,
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
       }
-
-      currentProgress.value = 100;
     } catch (error) {
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `购买过程出错: ${error.message}`,
+        message: `${token.name} 购买过程出错: ${error.message}`,
         type: "error",
       });
       tokenStatus.value[tokenId] = "failed";
     } finally {
-      await new Promise((r) => setTimeout(r, 1000)); // Add a small delay between accounts
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   currentRunningTokenId.value = null;
   isRunning.value = false;
@@ -2798,12 +2833,11 @@ const collection_claimfreereward = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -2819,7 +2853,7 @@ const collection_claimfreereward = async () => {
       // Execute claim free reward command
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `发送珍宝阁免费领取请求...`,
+        message: `${token.name} 发送珍宝阁免费领取请求...`,
         type: "info",
       });
       const result = await tokenStore.sendMessageWithPromise(
@@ -2835,31 +2869,39 @@ const collection_claimfreereward = async () => {
       if (result.error) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `珍宝阁领取失败: ${result.error}`,
+          message: `${token.name} 珍宝阁领取失败: ${result.error}`,
           type: "error",
         });
         tokenStatus.value[tokenId] = "failed";
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `珍宝阁领取成功`,
+          message: `${token.name} 珍宝阁领取成功`,
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
       }
-
-      currentProgress.value = 100;
     } catch (error) {
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `珍宝阁领取过程出错: ${error.message}`,
+        message: `${token.name} 珍宝阁领取过程出错: ${error.message}`,
         type: "error",
       });
       tokenStatus.value[tokenId] = "failed";
     } finally {
-      await new Promise((r) => setTimeout(r, 1000)); // Add a small delay between accounts
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   currentRunningTokenId.value = null;
   isRunning.value = false;
@@ -2878,12 +2920,11 @@ const store_purchase = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -2899,7 +2940,7 @@ const store_purchase = async () => {
       // Execute purchase command
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `发送黑市采购请求...`,
+        message: `${token.name} 发送黑市采购请求...`,
         type: "info",
       });
       const result = await tokenStore.sendMessageWithPromise(
@@ -2915,31 +2956,39 @@ const store_purchase = async () => {
       if (result.error) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `黑市采购失败: ${result.error}`,
+          message: `${token.name} 黑市采购失败: ${result.error}`,
           type: "error",
         });
         tokenStatus.value[tokenId] = "failed";
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `黑市采购成功`,
+          message: `${token.name} 黑市采购成功`,
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
       }
-
-      currentProgress.value = 100;
     } catch (error) {
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `黑市采购过程出错: ${error.message}`,
+        message: `${token.name} 黑市采购过程出错: ${error.message}`,
         type: "error",
       });
       tokenStatus.value[tokenId] = "failed";
     } finally {
-      await new Promise((r) => setTimeout(r, 1000)); // Add a small delay between accounts
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   currentRunningTokenId.value = null;
   isRunning.value = false;
@@ -3666,7 +3715,7 @@ const scheduleTaskExecution = () => {
   });
 };
 
-// Verify task dependencies with retry and fault tolerance
+// Verify task dependencies - 只验证基础依赖，WebSocket连接由具体任务函数处理
 const verifyTaskDependencies = async (task) => {
   addLog({
     time: new Date().toLocaleTimeString(),
@@ -3715,112 +3764,19 @@ const verifyTaskDependencies = async (task) => {
     }
   }
 
-  // WebSocket connection check with retry and manual connect mechanism
-  const checkWebSocketWithRetry = async (
-    tokenId,
-    maxRetries = 3,
-    retryDelay = 1000,
-  ) => {
-    for (let i = 0; i < maxRetries; i++) {
-      // 检查当前连接状态
-      const status = tokenStore.getWebSocketStatus(tokenId);
-      if (status === "connected") {
-        return true;
-      }
-
-      // 尝试手动触发WebSocket连接
-      if (i < maxRetries) {
-        const tokenName =
-          tokenStore.gameTokens.find((t) => t.id === tokenId)?.name || tokenId;
-
-        try {
-          addLog({
-            time: new Date().toLocaleTimeString(),
-            message: `⏳ 账号 ${tokenName} WebSocket未连接，尝试手动连接... (${i + 1}/${maxRetries})`,
-            type: "warning",
-          });
-
-          // 获取token的完整信息
-          const token = tokenStore.gameTokens.find((t) => t.id === tokenId);
-          if (token && token.token) {
-            // 尝试使用createWebSocketConnection方法手动连接
-            if (typeof tokenStore.createWebSocketConnection === "function") {
-              tokenStore.createWebSocketConnection(tokenId, token.token);
-            }
-            // 如果createWebSocketConnection方法不存在，尝试使用selectToken方法
-            else if (typeof tokenStore.selectToken === "function") {
-              tokenStore.selectToken(tokenId, true); // forceReconnect为true
-            }
-
-            // 等待一段时间让连接建立
-            await new Promise((resolve) => setTimeout(resolve, retryDelay));
-          } else {
-            // 如果token信息不完整，跳过连接尝试
-            addLog({
-              time: new Date().toLocaleTimeString(),
-              message: `⚠️  账号 ${tokenName} 缺少token信息，无法尝试手动连接`,
-              type: "warning",
-            });
-            break;
-          }
-        } catch (error) {
-          addLog({
-            time: new Date().toLocaleTimeString(),
-            message: `❌ 账号 ${tokenName} 尝试手动连接失败: ${error.message}`,
-            type: "error",
-          });
-          // 继续下一次重试
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        }
-      }
-    }
-
-    // 最后再次检查连接状态
-    return tokenStore.getWebSocketStatus(tokenId) === "connected";
-  };
-
-  // Check WebSocket connections with retry
-  const connectedTokens = [];
-  const disconnectedTokens = [];
-
-  for (const tokenId of task.selectedTokens) {
-    const tokenName =
-      tokenStore.gameTokens.find((t) => t.id === tokenId)?.name || tokenId;
-    const isConnected = await checkWebSocketWithRetry(tokenId);
-
-    if (isConnected) {
-      connectedTokens.push({ id: tokenId, name: tokenName });
-    } else {
-      disconnectedTokens.push({ id: tokenId, name: tokenName });
-    }
-  }
-
+  // 直接使用所有选中的token，WebSocket连接由具体任务函数内部管理
+  // ensureConnection函数会自动处理并行连接和连接池管理
+  const connectedTokens = task.selectedTokens.map(tokenId => {
+    const tokenName = tokenStore.gameTokens.find((t) => t.id === tokenId)?.name || tokenId;
+    return { id: tokenId, name: tokenName };
+  });
+  
   // Log connection status
-  if (connectedTokens.length > 0) {
-    addLog({
-      time: new Date().toLocaleTimeString(),
-      message: `✅ 已连接账号: ${connectedTokens.map((t) => t.name).join(", ")}`,
-      type: "info",
-    });
-  }
-
-  if (disconnectedTokens.length > 0) {
-    addLog({
-      time: new Date().toLocaleTimeString(),
-      message: `⚠️  未连接账号: ${disconnectedTokens.map((t) => t.name).join(", ")}`,
-      type: "warning",
-    });
-  }
-
-  // If no tokens are connected, return false
-  if (connectedTokens.length === 0) {
-    addLog({
-      time: new Date().toLocaleTimeString(),
-      message: `=== 定时任务 ${task.name} 没有可用的连接账号，取消执行 ===`,
-      type: "error",
-    });
-    return false;
-  }
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    message: `✅ 将使用 ${connectedTokens.length} 个账号执行任务`,
+    type: "info",
+  });
 
   // Store connected tokens for execution
   task.connectedTokens = connectedTokens.map((t) => t.id);
@@ -3856,9 +3812,9 @@ const executeScheduledTask = async (task) => {
     // Set selected tokens from the task - use selectedTokens if connectedTokens is not available
     selectedTokens.value = [...(task.connectedTokens || task.selectedTokens)];
 
-    // Execute each selected task
-    for (const taskName of task.selectedTasks) {
-      if (shouldStop.value) break;
+    // Execute selected tasks in parallel
+    const taskPromises = task.selectedTasks.map(async (taskName) => {
+      if (shouldStop.value) return;
 
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -3870,6 +3826,7 @@ const executeScheduledTask = async (task) => {
       const taskFunction = eval(taskName);
       if (typeof taskFunction === "function") {
         // For batch operations, pass isScheduledTask = true
+        // 具体的batch任务函数内部会使用ensureConnection管理并行连接
         if (
           [
             "batchOpenBox",
@@ -3889,7 +3846,10 @@ const executeScheduledTask = async (task) => {
           type: "error",
         });
       }
-    }
+    });
+
+    // Wait for all tasks to complete
+    await Promise.all(taskPromises);
 
     addLog({
       time: new Date().toLocaleTimeString(),
@@ -4613,7 +4573,7 @@ const copyLogs = () => {
     });
 };
 
-const waitForConnection = async (tokenId, timeout = 2000) => {
+const waitForConnection = async (tokenId, timeout = 15000) => {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     const status = tokenStore.getWebSocketStatus(tokenId);
@@ -4636,28 +4596,27 @@ const resetBottles = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
     try {
+      await ensureConnection(tokenId);
+      
       addLog({
         time: new Date().toLocaleTimeString(),
         message: `=== 开始重置罐子: ${token.name} ===`,
         type: "info",
-      });
-
-      await ensureConnection(tokenId);
+      });    
 
       // Execute commands
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `停止计时...`,
+        message: `${token.name} 停止计时...`,
         type: "info",
       });
       await tokenStore.sendMessageWithPromise(
@@ -4671,7 +4630,7 @@ const resetBottles = async () => {
 
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `开始计时...`,
+        message: `${token.name} 开始计时...`,
         type: "info",
       });
       await tokenStore.sendMessageWithPromise(
@@ -4692,14 +4651,23 @@ const resetBottles = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `重置失败: ${error.message}`,
+        message: `${token.name} 重置失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -4719,12 +4687,11 @@ const claimHangUpRewards = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -4742,7 +4709,7 @@ const claimHangUpRewards = async () => {
       // 1. Claim reward
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `领取挂机奖励`,
+        message: `${token.name} 领取挂机奖励`,
         type: "info",
       });
       await tokenStore.sendMessageWithPromise(
@@ -4755,9 +4722,10 @@ const claimHangUpRewards = async () => {
 
       // 2. Add time 4 times
       for (let i = 0; i < 4; i++) {
+        if (shouldStop.value) break;
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `挂机加钟 ${i + 1}/4`,
+          message: `${token.name} 挂机加钟 ${i + 1}/4`,
           type: "info",
         });
         await tokenStore.sendMessageWithPromise(
@@ -4772,7 +4740,7 @@ const claimHangUpRewards = async () => {
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `=== ${token.name} 领取完成 ===`,
+        message: `${token.name} 领取挂机奖励完成 ===`,
         type: "success",
       });
     } catch (error) {
@@ -4780,14 +4748,23 @@ const claimHangUpRewards = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `领取失败: ${error.message}`,
+        message: `${token.name} 领取挂机奖励失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -4804,11 +4781,10 @@ const batchbaoku13 = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -4854,13 +4830,22 @@ const batchbaoku13 = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `宝库战斗失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 宝库战斗失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量宝库结束");
@@ -4876,11 +4861,10 @@ const batchbaoku45 = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -4917,13 +4901,22 @@ const batchbaoku45 = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `宝库战斗失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 宝库战斗失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量宝库结束");
@@ -4939,26 +4932,25 @@ const batchmengjing = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `=== 开始一键宝库: ${token.name} ===`,
+        message: `=== 开始咸王梦境: ${token.name} ===`,
         type: "info",
       });
       await ensureConnection(tokenId);
-      if (shouldStop.value) break;
+      if (shouldStop.value) return;
       const mjbattleTeam = { 0: 107 };
       const dayOfWeek = new Date().getDay();
       if (
-        (dayOfWeek === 0) |
-        (dayOfWeek === 1) |
-        (dayOfWeek === 3) |
+        (dayOfWeek === 0) ||
+        (dayOfWeek === 1) ||
+        (dayOfWeek === 3) ||
         (dayOfWeek === 4)
       ) {
         await tokenStore.sendMessageWithPromise(
@@ -4980,20 +4972,28 @@ const batchmengjing = async () => {
           message: `=== ${token.name} 当前未在开放时间 ===`,
           type: "error",
         });
-        break;
       }
     } catch (error) {
       console.error(error);
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `咸王梦境失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 咸王梦境失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量梦境结束");
@@ -5009,11 +5009,10 @@ const batchlingguanzi = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5022,7 +5021,7 @@ const batchlingguanzi = async () => {
         type: "info",
       });
       await ensureConnection(tokenId);
-      if (shouldStop.value) break;
+      if (shouldStop.value) return;
       await tokenStore.sendMessageWithPromise(
         tokenId,
         "bottlehelper_claim",
@@ -5041,13 +5040,22 @@ const batchlingguanzi = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `领取盐罐失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 领取盐罐失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量领取盐罐结束");
@@ -5063,11 +5071,10 @@ const batchclubsign = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5076,7 +5083,7 @@ const batchclubsign = async () => {
         type: "info",
       });
       await ensureConnection(tokenId);
-      if (shouldStop.value) break;
+      if (shouldStop.value) return;
       await tokenStore.sendMessageWithPromise(
         tokenId,
         "legion_signin",
@@ -5095,13 +5102,22 @@ const batchclubsign = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `俱乐部签到失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 俱乐部签到失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量俱乐部签到结束");
@@ -5117,11 +5133,10 @@ const batcharenafight = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5130,8 +5145,9 @@ const batcharenafight = async () => {
         type: "info",
       });
       await ensureConnection(tokenId);
-      if (shouldStop.value) break;
+      if (shouldStop.value) return;
       for (let i = 0; i < 3; i++) {
+        if (shouldStop.value) break;
         // 开始竞技场
         await tokenStore.sendMessageWithPromise(tokenId, "arena_startarea", {});
         let targets;
@@ -5149,7 +5165,7 @@ const batcharenafight = async () => {
         if (!targetId) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `未找到可用的竞技场目标: ${error.message || "未知错误"}`,
+            message: `${token.name} 未找到可用的竞技场目标: ${err.message || "未知错误"}`,
             type: "error",
           });
           break;
@@ -5169,7 +5185,7 @@ const batcharenafight = async () => {
         } catch (e) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `竞技场对决失败: ${error.message || "未知错误"}`,
+            message: `${token.name} 竞技场对决失败: ${e.message || "未知错误"}`,
             type: "error",
           });
         }
@@ -5186,13 +5202,22 @@ const batcharenafight = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `竞技场战斗失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 一键竞技场战斗失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量竞技场战斗结束");
@@ -5208,11 +5233,10 @@ const batchAddHangUpTime = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5225,7 +5249,7 @@ const batchAddHangUpTime = async () => {
         if (shouldStop.value) break;
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `执行加钟 ${i + 1}/4`,
+          message: `${token.name} 执行加钟 ${i + 1}/4`,
           type: "info",
         });
         await tokenStore.sendMessageWithPromise(
@@ -5247,33 +5271,62 @@ const batchAddHangUpTime = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `加钟失败: ${error.message || "未知错误"}`,
+        message: `${token.name} 加钟失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量加钟结束");
 };
 
-const ensureConnection = async (tokenId) => {
-  // Always fetch the latest token data from the store
-  const latestToken = tokens.value.find((t) => t.id === tokenId);
+// 全局连接队列控制 - 限制并发连接数
+const connectionQueue = { active: 0 };
 
-  // 1. Check current status
+const waitForConnectionSlot = async () => {
+  while (connectionQueue.active >= batchSettings.maxActive) {
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  connectionQueue.active++;
+};
+
+const releaseConnectionSlot = () => {
+  if (connectionQueue.active > 0) {
+    connectionQueue.active--;
+  }
+};
+
+const ensureConnection = async (tokenId, maxRetries = 2) => {
+  const latestToken = tokens.value.find((t) => t.id === tokenId);
+  if (!latestToken) {
+    throw new Error(`Token not found: ${tokenId}`);
+  }
+
   let status = tokenStore.getWebSocketStatus(tokenId);
   let connected = status === "connected";
 
-  // 2. If not connected, try to connect
   if (!connected) {
+    // 等待连接槽位，限制并发连接数
+    await waitForConnectionSlot();
+    
     addLog({
       time: new Date().toLocaleTimeString(),
-      message: `正在连接...`,
+      message: `正在连接... (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
       type: "info",
     });
+
     tokenStore.createWebSocketConnection(
       tokenId,
       latestToken.token,
@@ -5281,17 +5334,15 @@ const ensureConnection = async (tokenId) => {
     );
     connected = await waitForConnection(tokenId);
 
-    if (!connected) {
-      // First attempt failed
+    if (!connected && maxRetries > 0) {
       addLog({
         time: new Date().toLocaleTimeString(),
         message: `连接超时，尝试重连...`,
         type: "warning",
       });
 
-      // 3. Retry connection (Force reconnect)
       tokenStore.closeWebSocketConnection(tokenId);
-      await new Promise((r) => setTimeout(r, 2000)); // Wait longer for cleanup
+      await new Promise((r) => setTimeout(r, 3000));
 
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -5299,7 +5350,6 @@ const ensureConnection = async (tokenId) => {
         type: "info",
       });
 
-      // Re-fetch token again just in case it was updated during the wait
       const refreshedToken = tokens.value.find((t) => t.id === tokenId);
       tokenStore.createWebSocketConnection(
         tokenId,
@@ -5309,11 +5359,15 @@ const ensureConnection = async (tokenId) => {
 
       connected = await waitForConnection(tokenId);
     }
-  }
 
-  if (!connected) {
-    throw new Error("连接失败 (重试后仍超时)");
+    if (!connected) {
+      // 连接失败，释放槽位
+      releaseConnectionSlot();
+      throw new Error("连接失败 (重试后仍超时)");
+    }
   }
+  
+  // 连接成功，槽位保持占用，直到任务完成后手动释放
 
   // Initialize Game Data (Critical for Battle Version and Session)
   try {
@@ -5359,12 +5413,11 @@ const climbTower = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -5386,7 +5439,7 @@ const climbTower = async () => {
       let energy = roleInfo?.role?.tower?.energy || 0;
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `初始体力: ${energy}`,
+        message: `${token.name} 初始体力: ${energy}`,
         type: "info",
       });
 
@@ -5394,9 +5447,7 @@ const climbTower = async () => {
       const MAX_CLIMB = 100;
       let consecutiveFailures = 0;
 
-      while (energy > 0 && count < MAX_CLIMB) {
-        if (shouldStop.value) break;
-
+      while (energy > 0 && count < MAX_CLIMB && !shouldStop.value) {
         try {
           await tokenStore.sendMessageWithPromise(
             tokenId,
@@ -5408,7 +5459,7 @@ const climbTower = async () => {
           consecutiveFailures = 0;
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `爬塔第 ${count} 次`,
+            message: `${token.name} 爬塔第 ${count} 次`,
             type: "info",
           });
 
@@ -5430,7 +5481,7 @@ const climbTower = async () => {
           if (err.message && err.message.includes("200400")) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `爬塔次数已用完 (200400)`,
+              message: `${token.name} 爬塔次数已用完 (200400)`,
               type: "info",
             });
             break;
@@ -5446,7 +5497,7 @@ const climbTower = async () => {
           if (consecutiveFailures >= 3) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `连续失败次数过多，停止爬塔`,
+              message: `${token.name} 连续失败次数过多，停止爬塔`,
               type: "error",
             });
             break;
@@ -5475,14 +5526,23 @@ const climbTower = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `爬塔失败: ${error.message}`,
+        message: `${token.name} 爬塔失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -5510,12 +5570,11 @@ const batchStudy = async () => {
   });
   await preloadQuestions();
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -5550,9 +5609,7 @@ const batchStudy = async () => {
       let completed = false;
       let lastStatus = "";
 
-      while (maxWait > 0) {
-        if (shouldStop.value) break;
-
+      while (maxWait > 0 && !shouldStop.value) {
         const status = tokenStore.gameData.studyStatus;
 
         if (status.status !== lastStatus) {
@@ -5560,13 +5617,13 @@ const batchStudy = async () => {
           if (status.status === "answering") {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `开始答题...`,
+              message: `${token.name} 开始答题...`,
               type: "info",
             });
           } else if (status.status === "claiming_rewards") {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `正在领取奖励...`,
+              message: `${token.name} 领取奖励...`,
               type: "info",
             });
           }
@@ -5597,14 +5654,14 @@ const batchStudy = async () => {
         if (shouldStop.value) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `已停止`,
+            message: `${token.name} 已停止`,
             type: "warning",
           });
         } else {
           tokenStatus.value[tokenId] = "failed";
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `答题超时或未开始`,
+            message: `${token.name} 答题超时或未开始`,
             type: "error",
           });
         }
@@ -5617,11 +5674,20 @@ const batchStudy = async () => {
         message: `答题失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -5639,11 +5705,10 @@ const batchTopUpFish = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5655,7 +5720,7 @@ const batchTopUpFish = async () => {
       // 获取月度任务进度
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `获取月度任务进度...`,
+        message: `${token.name} 获取月度任务进度...`,
         type: "info",
       });
       const result = await tokenStore.sendMessageWithPromise(
@@ -5669,11 +5734,11 @@ const batchTopUpFish = async () => {
       if (!act) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `获取月度任务进度失败`,
+          message: `${token.name} 获取月度任务进度失败`,
           type: "error",
         });
         tokenStatus.value[tokenId] = "failed";
-        continue;
+        return;
       }
       const myMonthInfo = act.myMonthInfo || {};
       const fishNum = Number(myMonthInfo?.["2"]?.num || 0);
@@ -5695,7 +5760,7 @@ const batchTopUpFish = async () => {
       const need = Math.max(0, shouldBe - fishNum);
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `当前进度: ${fishNum}/${FISH_TARGET}，需要补齐: ${need}次`,
+        message: `${token.name} 当前进度: ${fishNum}/${FISH_TARGET}，需要补齐: ${need}次`,
         type: "info",
       });
       if (need <= 0) {
@@ -5705,12 +5770,12 @@ const batchTopUpFish = async () => {
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
-        continue;
+        return;
       }
       // 执行钓鱼补齐
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `开始执行钓鱼补齐...`,
+        message: `${token.name} 开始执行钓鱼补齐...`,
         type: "info",
       });
       // 检查免费次数
@@ -5728,7 +5793,7 @@ const batchTopUpFish = async () => {
       if (isTodayAvailable(lastFreeTime)) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `检测到今日免费钓鱼次数，开始消耗 3 次`,
+          message: `${token.name} 检测到今日免费钓鱼次数，开始消耗 3 次`,
           type: "info",
         });
         for (let i = 0; i < 3 && need > freeUsed && !shouldStop.value; i++) {
@@ -5744,7 +5809,7 @@ const batchTopUpFish = async () => {
           } catch (e) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `免费钓鱼失败: ${e.message}`,
+              message: `${token.name} 免费钓鱼失败: ${e.message}`,
               type: "error",
             });
             break;
@@ -5767,7 +5832,7 @@ const batchTopUpFish = async () => {
       let remaining = Math.max(0, shouldBe - updatedFishNum);
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `免费次数后进度: ${updatedFishNum}/${FISH_TARGET}，还需补齐: ${remaining}次`,
+        message: `${token.name} 免费次数后进度: ${updatedFishNum}/${FISH_TARGET}，还需补齐: ${remaining}次`,
         type: "info",
       });
       if (remaining <= 0) {
@@ -5777,12 +5842,12 @@ const batchTopUpFish = async () => {
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
-        continue;
+        return;
       }
       // 付费钓鱼
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `开始付费钓鱼补齐: 共需 ${remaining} 次（每次最多10）`,
+        message: `${token.name} 开始付费钓鱼补齐: 共需 ${remaining} 次（每次最多10）`,
         type: "info",
       });
 
@@ -5797,7 +5862,7 @@ const batchTopUpFish = async () => {
           );
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `完成 ${batch} 次付费钓鱼`,
+            message: `${token.name} 完成 ${batch} 次付费钓鱼`,
             type: "info",
           });
           remaining -= batch;
@@ -5805,7 +5870,7 @@ const batchTopUpFish = async () => {
         } catch (e) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `付费钓鱼失败: ${e.message}`,
+            message: `${token.name} 付费钓鱼失败: ${e.message}`,
             type: "error",
           });
           break;
@@ -5825,13 +5890,13 @@ const batchTopUpFish = async () => {
       if (finalFishNum >= shouldBe || finalFishNum >= FISH_TARGET) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `钓鱼补齐完成，最终进度: ${finalFishNum}/${FISH_TARGET}`,
+          message: `${token.name} 钓鱼补齐完成，最终进度: ${finalFishNum}/${FISH_TARGET}`,
           type: "success",
         });
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `钓鱼补齐已停止，未达到目标，最终进度: ${finalFishNum}/${FISH_TARGET}`,
+          message: `${token.name} 钓鱼补齐已停止，未达到目标，最终进度: ${finalFishNum}/${FISH_TARGET}`,
           type: "warning",
         });
       }
@@ -5841,13 +5906,22 @@ const batchTopUpFish = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `钓鱼补齐失败: ${error.message}`,
+        message: `${token.name} 钓鱼补齐失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量钓鱼补齐结束");
@@ -5863,11 +5937,10 @@ const batchTopUpArena = async () => {
   selectedTokens.value.forEach((id) => {
     tokenStatus.value[id] = "waiting";
   });
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -5879,7 +5952,7 @@ const batchTopUpArena = async () => {
       // 获取月度任务进度
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `获取月度任务进度...`,
+        message: `${token.name} 获取月度任务进度...`,
         type: "info",
       });
       const result = await tokenStore.sendMessageWithPromise(
@@ -5893,11 +5966,11 @@ const batchTopUpArena = async () => {
       if (!act) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `获取月度任务进度失败`,
+          message: `${token.name} 获取月度任务进度失败`,
           type: "error",
         });
         tokenStatus.value[tokenId] = "failed";
-        continue;
+        return;
       }
       const myArenaInfo = act.myArenaInfo || {};
       const arenaNum = Number(myArenaInfo?.num || 0);
@@ -5919,22 +5992,22 @@ const batchTopUpArena = async () => {
       const need = Math.max(0, shouldBe - arenaNum);
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `当前进度: ${arenaNum}/${ARENA_TARGET}，需要补齐: ${need}次`,
+        message: `${token.name} 当前进度: ${arenaNum}/${ARENA_TARGET}，需要补齐: ${need}次`,
         type: "info",
       });
       if (need <= 0) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `当前进度已达标，无需补齐`,
+          message: `${token.name} 当前进度已达标，无需补齐`,
           type: "success",
         });
         tokenStatus.value[tokenId] = "completed";
-        continue;
+        return;
       }
       // 执行竞技场补齐
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `开始执行竞技场补齐...`,
+        message: `${token.name} 开始执行竞技场补齐...`,
         type: "info",
       });
       // 开始竞技场
@@ -5948,7 +6021,7 @@ const batchTopUpArena = async () => {
       } catch (error) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `开始竞技场失败: ${error.message}`,
+          message: `${token.name} 开始竞技场失败: ${error.message}`,
           type: "warning",
         });
         // 继续执行，可能已经在竞技场中
@@ -5965,7 +6038,7 @@ const batchTopUpArena = async () => {
         const planFights = Math.ceil(remaining / 2); // 估计每场战斗可能获得2次进度
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `第${round}轮：计划战斗 ${planFights} 场`,
+          message: `${token.name} 第${round}轮：计划战斗 ${planFights} 场`,
           type: "info",
         });
 
@@ -5987,7 +6060,7 @@ const batchTopUpArena = async () => {
           } catch (err) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `获取竞技场目标失败：${err.message}`,
+              message: `${token.name} 获取竞技场目标失败：${err.message}`,
               type: "error",
             });
             break;
@@ -5997,7 +6070,7 @@ const batchTopUpArena = async () => {
           if (!targetId) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `未找到可用的竞技场目标`,
+              message: `${token.name} 未找到可用的竞技场目标`,
               type: "warning",
             });
             break;
@@ -6012,13 +6085,13 @@ const batchTopUpArena = async () => {
             );
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `竞技场战斗 ${i + 1}/${planFights} 完成`,
+              message: `${token.name} 竞技场战斗 ${i + 1}/${planFights} 完成`,
               type: "info",
             });
           } catch (e) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `竞技场对决失败：${e.message}`,
+              message: `${token.name} 竞技场对决失败：${e.message}`,
               type: "error",
             });
             // 继续尝试下一场战斗
@@ -6045,7 +6118,7 @@ const batchTopUpArena = async () => {
 
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `第${round}轮后进度: ${updatedArenaNum}/${ARENA_TARGET}，还需补齐: ${remaining}次`,
+          message: `${token.name} 第${round}轮后进度: ${updatedArenaNum}/${ARENA_TARGET}，还需补齐: ${remaining}次`,
           type: "info",
         });
 
@@ -6065,7 +6138,7 @@ const batchTopUpArena = async () => {
       if (finalArenaNum >= shouldBe || finalArenaNum >= ARENA_TARGET) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `竞技场补齐完成，最终进度: ${finalArenaNum}/${ARENA_TARGET}`,
+          message: `${token.name} 竞技场补齐完成，最终进度: ${finalArenaNum}/${ARENA_TARGET}`,
           type: "success",
         });
       } else if (safetyCounter >= safetyMaxFights) {
@@ -6077,7 +6150,7 @@ const batchTopUpArena = async () => {
       } else {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `竞技场补齐已停止，未达到目标，最终进度: ${finalArenaNum}/${ARENA_TARGET}`,
+          message: `${token.name} 竞技场补齐已停止，未达到目标，最终进度: ${finalArenaNum}/${ARENA_TARGET}`,
           type: "warning",
         });
       }
@@ -6087,13 +6160,22 @@ const batchTopUpArena = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `竞技场补齐失败: ${error.message}`,
+        message: `${token.name} 竞技场补齐失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
   isRunning.value = false;
   currentRunningTokenId.value = null;
   message.success("批量竞技场补齐结束");
@@ -6200,12 +6282,11 @@ const batchSmartSendCar = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6221,7 +6302,7 @@ const batchSmartSendCar = async () => {
       // 1. Fetch Car Info
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `获取车辆信息...`,
+        message: `${token.name} 获取车辆信息...`,
         type: "info",
       });
       const res = await tokenStore.sendMessageWithPromise(
@@ -6245,7 +6326,7 @@ const batchSmartSendCar = async () => {
         refreshTickets = Number(qty || 0);
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `剩余车票: ${refreshTickets}`,
+          message: `${token.name} 剩余刷新次数: ${refreshTickets}`,
           type: "info",
         });
       } catch (_) {}
@@ -6260,7 +6341,7 @@ const batchSmartSendCar = async () => {
         if (shouldSendCar(car, refreshTickets)) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
+            message: `${token.name} 车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
             type: "info",
           });
           await tokenStore.sendMessageWithPromise(
@@ -6287,7 +6368,7 @@ const batchSmartSendCar = async () => {
           // No tickets and not free, just send
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
+            message: `${token.name} 车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
             type: "warning",
           });
           await tokenStore.sendMessageWithPromise(
@@ -6306,12 +6387,10 @@ const batchSmartSendCar = async () => {
         }
 
         // Refresh loop
-        while (shouldRefresh) {
-          if (shouldStop.value) break;
-
+        while (shouldRefresh && !shouldStop.value) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `车辆[${gradeLabel(car.color)}]尝试刷新...`,
+            message: `${token.name} 车辆[${gradeLabel(car.color)}]尝试刷新...`,
             type: "info",
           });
           const resp = await tokenStore.sendMessageWithPromise(
@@ -6347,7 +6426,7 @@ const batchSmartSendCar = async () => {
           if (shouldSendCar(car, refreshTickets)) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,
+              message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,
               type: "success",
             });
             await tokenStore.sendMessageWithPromise(
@@ -6372,7 +6451,7 @@ const batchSmartSendCar = async () => {
           else {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `刷新后车辆[${gradeLabel(car.color)}]仍不满足条件且无刷新次数，发车`,
+              message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]仍不满足条件且无刷新次数，发车`,
               type: "warning",
             });
             await tokenStore.sendMessageWithPromise(
@@ -6408,11 +6487,20 @@ const batchSmartSendCar = async () => {
         message: `智能发车失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6432,12 +6520,11 @@ const batchClaimCars = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6453,7 +6540,7 @@ const batchClaimCars = async () => {
       // 1. Fetch Car Info
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `获取车辆信息...`,
+        message: `${token.name} 获取车辆信息...`,
         type: "info",
       });
       const res = await tokenStore.sendMessageWithPromise(
@@ -6468,6 +6555,7 @@ const batchClaimCars = async () => {
       // 2. Claim Cars
       let claimedCount = 0;
       for (const car of carList) {
+        if (shouldStop.value) break;
         if (canClaim(car)) {
           try {
             await tokenStore.sendMessageWithPromise(
@@ -6479,7 +6567,7 @@ const batchClaimCars = async () => {
             claimedCount++;
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `收车成功: ${gradeLabel(car.color)}`,
+              message: `${token.name} 收车成功: ${gradeLabel(car.color)}`,
               type: "success",
             });
             const roleRes = await tokenStore.sendMessageWithPromise(
@@ -6493,7 +6581,8 @@ const batchClaimCars = async () => {
             );
             while (
               refreshlevel < CarresearchItem.length &&
-              refreshpieces >= CarresearchItem[refreshlevel]
+              refreshpieces >= CarresearchItem[refreshlevel] &&
+              !shouldStop.value
             ) {
               try {
                 await tokenStore.sendMessageWithPromise(
@@ -6517,7 +6606,7 @@ const batchClaimCars = async () => {
 
                 addLog({
                   time: new Date().toLocaleTimeString(),
-                  message: `执行车辆改装升级，当前等级: ${refreshlevel}`,
+                  message: `${token.name} 执行车辆改装升级，当前等级: ${refreshlevel}`,
                   type: "success",
                 });
 
@@ -6525,7 +6614,7 @@ const batchClaimCars = async () => {
               } catch (e) {
                 addLog({
                   time: new Date().toLocaleTimeString(),
-                  message: `车辆改装升级失败: ${e.message}`,
+                  message: `${token.name} 车辆改装升级失败: ${e.message}`,
                   type: "error",
                 });
                 break; // 升级失败时跳出循环
@@ -6534,7 +6623,7 @@ const batchClaimCars = async () => {
           } catch (e) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `收车失败: ${e.message}`,
+              message: `${token.name} 收车失败: ${e.message}`,
               type: "warning",
             });
           }
@@ -6545,7 +6634,7 @@ const batchClaimCars = async () => {
       if (claimedCount === 0) {
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `没有可收取的车辆`,
+          message: `${token.name} 没有可收取的车辆`,
           type: "info",
         });
       }
@@ -6561,14 +6650,23 @@ const batchClaimCars = async () => {
       tokenStatus.value[tokenId] = "failed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `收车失败: ${error.message}`,
+        message: `${token.name} 收车失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6588,18 +6686,19 @@ const startBatch = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     let retryCount = 0;
     const MAX_RETRIES = 1;
     let success = false;
 
     while (retryCount <= MAX_RETRIES && !success) {
+      if (shouldStop.value) break;
+
       const token = tokens.value.find((t) => t.id === tokenId);
 
       try {
@@ -6629,7 +6728,7 @@ const startBatch = async () => {
         await runner.run(tokenId, {
           onLog: (log) => addLog(log),
           onProgress: (p) => {
-            currentProgress.value = p;
+            // 每个token维护自己的进度
           },
         });
 
@@ -6642,10 +6741,10 @@ const startBatch = async () => {
         });
       } catch (error) {
         console.error(error);
-        if (retryCount < MAX_RETRIES) {
+        if (retryCount < MAX_RETRIES && !shouldStop.value) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `执行出错: ${error.message}，等待3秒后重试...`,
+            message: `${token.name} 执行出错: ${error.message}，等待3秒后重试...`,
             type: "warning",
           });
           // Wait for potential token refresh in store
@@ -6655,18 +6754,28 @@ const startBatch = async () => {
           tokenStatus.value[tokenId] = "failed";
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `执行失败: ${error.message}`,
+            message: `${token.name} 执行失败: ${error.message}`,
             type: "error",
           });
         }
+      } finally {
+        // 完成后关闭连接并释放槽位
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+          type: "info",
+        });
       }
     }
+  });
 
-    // Optional: Disconnect if it wasn't connected before?
-    // For now, keep it connected or let the store manage it.
-    // Maybe wait a bit before next
-    await new Promise((r) => setTimeout(r, 1000));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
+
+  // 等待所有任务完成后再继续
+  await new Promise((r) => setTimeout(r, 1000));
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6686,12 +6795,11 @@ const batchClaimBoxPointReward = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6712,7 +6820,7 @@ const batchClaimBoxPointReward = async () => {
       );
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `宝箱积分领取成功`,
+        message: `${token.name} 宝箱积分领取成功`,
         type: "success",
       });
 
@@ -6720,7 +6828,7 @@ const batchClaimBoxPointReward = async () => {
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `=== ${token.name} 领取完成 ===`,
+        message: `${token.name} === 领取完成 ===`,
         type: "success",
       });
     } catch (error) {
@@ -6731,11 +6839,20 @@ const batchClaimBoxPointReward = async () => {
         message: `领取失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6769,12 +6886,11 @@ const batchOpenBox = async (isScheduledTask = false) => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6786,26 +6902,22 @@ const batchOpenBox = async (isScheduledTask = false) => {
       });
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `宝箱类型: ${boxNames[boxType]}, 数量: ${totalCount}`,
+        message: `${token.name} 宝箱类型: ${boxNames[boxType]}, 数量: ${totalCount}`,
         type: "info",
       });
 
       await ensureConnection(tokenId);
 
-      for (let i = 0; i < batches; i++) {
-        if (shouldStop.value) break;
+      for (let i = 0; i < batches && !shouldStop.value; i++) {
         await tokenStore.sendMessageWithPromise(
           tokenId,
           "item_openbox",
           { itemId: boxType, number: 10 },
           5000,
         );
-        currentProgress.value = Math.floor(
-          ((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100,
-        );
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `开箱进度: ${(i + 1) * 10}/${totalCount}`,
+          message: `${token.name} 开箱进度: ${(i + 1) * 10}/${totalCount}`,
           type: "info",
         });
         await new Promise((r) => setTimeout(r, 300));
@@ -6820,7 +6932,7 @@ const batchOpenBox = async (isScheduledTask = false) => {
         );
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `开箱进度: ${totalCount}/${totalCount}`,
+          message: `${token.name} 开箱进度: ${totalCount}/${totalCount}`,
           type: "info",
         });
       }
@@ -6844,11 +6956,20 @@ const batchOpenBox = async (isScheduledTask = false) => {
         message: `开箱失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6877,12 +6998,11 @@ const batchFish = async (isScheduledTask = false) => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6894,26 +7014,22 @@ const batchFish = async (isScheduledTask = false) => {
       });
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `鱼竿类型: ${fishNames[fishType]}, 数量: ${totalCount}`,
+        message: `${token.name} 鱼竿类型: ${fishNames[fishType]}, 数量: ${totalCount}`,
         type: "info",
       });
 
       await ensureConnection(tokenId);
 
-      for (let i = 0; i < batches; i++) {
-        if (shouldStop.value) break;
+      for (let i = 0; i < batches && !shouldStop.value; i++) {
         await tokenStore.sendMessageWithPromise(
           tokenId,
           "artifact_lottery",
           { type: fishType, lotteryNumber: 10, newFree: true },
           5000,
         );
-        currentProgress.value = Math.floor(
-          ((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100,
-        );
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `钓鱼进度: ${(i + 1) * 10}/${totalCount}`,
+          message: `${token.name} 钓鱼进度: ${(i + 1) * 10}/${totalCount}`,
           type: "info",
         });
         await new Promise((r) => setTimeout(r, 300));
@@ -6928,7 +7044,7 @@ const batchFish = async (isScheduledTask = false) => {
         );
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `钓鱼进度: ${totalCount}/${totalCount}`,
+          message: `${token.name} 钓鱼进度: ${totalCount}/${totalCount}`,
           type: "info",
         });
       }
@@ -6937,7 +7053,7 @@ const batchFish = async (isScheduledTask = false) => {
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `=== ${token.name} 钓鱼完成 ===`,
+        message: `${token.name} === 钓鱼完成 ===`,
         type: "success",
       });
     } catch (error) {
@@ -6948,11 +7064,20 @@ const batchFish = async (isScheduledTask = false) => {
         message: `钓鱼失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -6977,12 +7102,11 @@ const batchRecruit = async (isScheduledTask = false) => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
 
-    currentRunningTokenId.value = tokenId;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
 
@@ -6994,22 +7118,18 @@ const batchRecruit = async (isScheduledTask = false) => {
       });
       addLog({
         time: new Date().toLocaleTimeString(),
-        message: `招募数量: ${totalCount}`,
+        message: `${token.name} 招募数量: ${totalCount}`,
         type: "info",
       });
 
       await ensureConnection(tokenId);
 
-      for (let i = 0; i < batches; i++) {
-        if (shouldStop.value) break;
+      for (let i = 0; i < batches && !shouldStop.value; i++) {
         await tokenStore.sendMessageWithPromise(
           tokenId,
           "hero_recruit",
           { recruitType: 1, recruitNumber: 10 },
           5000,
-        );
-        currentProgress.value = Math.floor(
-          ((i + 1) / (batches + (remainder > 0 ? 1 : 0))) * 100,
         );
         addLog({
           time: new Date().toLocaleTimeString(),
@@ -7048,11 +7168,20 @@ const batchRecruit = async (isScheduledTask = false) => {
         message: `招募失败: ${error.message}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -7069,11 +7198,10 @@ const batchClaimFreeEnergy = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
@@ -7127,10 +7255,20 @@ const batchClaimFreeEnergy = async () => {
         message: `=== ${token.name} 领取免费道具失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -7147,11 +7285,10 @@ const batchLegacyClaim = async () => {
     tokenStatus.value[id] = "waiting";
   });
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
@@ -7182,10 +7319,20 @@ const batchLegacyClaim = async () => {
         message: `=== ${token.name} 领取功法残卷失败: ${error.message || "未知错误"}`,
         type: "error",
       });
+    } finally {
+      // 完成后关闭连接并释放槽位
+      tokenStore.closeWebSocketConnection(tokenId);
+      releaseConnectionSlot();
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+        type: "info",
+      });
     }
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  });
+
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;
@@ -7239,17 +7386,16 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
   let totalSuccess = 0;
   let totalFailed = 0;
 
-  for (const tokenId of selectedTokens.value) {
-    if (shouldStop.value) break;
-    currentRunningTokenId.value = tokenId;
+  // 并行执行任务，但通过connectionQueue限制并发连接数
+  const taskPromises = selectedTokens.value.map(async (tokenId) => {
+    if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
-    currentProgress.value = 0;
 
     const token = tokens.value.find((t) => t.id === tokenId);
     let consecutiveErrors = 0;
     const maxRetries = 2;
 
-    while (consecutiveErrors <= maxRetries) {
+    while (consecutiveErrors <= maxRetries && !shouldStop.value) {
       try {
         addLog({
           time: new Date().toLocaleTimeString(),
@@ -7337,7 +7483,7 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
         if (!commitPasswordResp.role?.statistics?.["que:wh:tm"]) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: "=== 密码解除失败,请检查密码是否配置正确",
+            message: `${token.name} === 密码解除失败,请检查密码是否配置正确 ===`,
             type: "error",
           });
           tokenStatus.value[tokenId] = "failed";
@@ -7353,7 +7499,7 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
         // 4. 发送legacy_sendgift命令
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `=== 开始赠送功法残卷${giftConfig.quantity}个,目标:[${giftConfig.serverName}] ID:${giftConfig.recipientId} ${giftConfig.name} ===`,
+          message: `${token.name} === 开始赠送功法残卷${giftConfig.quantity}个,目标:[${giftConfig.serverName}] ID:${giftConfig.recipientId} ${giftConfig.name} ===`,
           type: "info",
         });
 
@@ -7404,7 +7550,7 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
           errorType = "warning";
         }
 
-        if (consecutiveErrors <= maxRetries) {
+        if (consecutiveErrors <= maxRetries && !shouldStop.value) {
           addLog({
             time: new Date().toLocaleTimeString(),
             message: `=== ${token.name} 赠送功法残卷失败: ${errorMsg}，将在3秒后重试 ===`,
@@ -7421,12 +7567,21 @@ const batchLegacyGiftSendEnhanced = async (isScheduledTask = false) => {
           totalFailed++;
           break;
         }
+      } finally {
+        // 完成后关闭连接并释放槽位
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+          type: "info",
+        });
       }
     }
+  });
 
-    currentProgress.value = 100;
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  // 等待所有任务完成
+  await Promise.all(taskPromises);
 
   isRunning.value = false;
   currentRunningTokenId.value = null;

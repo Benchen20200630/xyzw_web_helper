@@ -303,32 +303,22 @@
           <!-- 任务执行统计条 -->
           <div class="execution-stats-bar" style="margin-top: 12px; padding: 8px 12px; background: #f9fafb; border-radius: 6px; border: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; gap: 16px; align-items: center;">
-              <n-space :size="8">
-                <n-tag :bordered="false" type="success" size="small">
-                  成功: {{ batchExecutionStats.successCount }}
-                </n-tag>
-                <n-popover trigger="hover" placement="top" v-if="batchExecutionStats.failedCount > 0">
-                  <template #trigger>
-                    <n-tag :bordered="false" type="error" size="small" style="cursor: pointer">
-                      失败: {{ batchExecutionStats.failedCount }} (查看详情)
-                    </n-tag>
-                  </template>
-                  <div style="max-height: 200px; overflow-y: auto">
-                    <div v-for="item in batchExecutionStats.failedTokens" :key="item.id" style="margin-bottom: 8px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span style="color: #ef4444; font-weight: 500;">• {{ item.name }}</span>
-                        <span style="color: #9ca3af; font-size: 10px; padding-left: 8px;">任务: {{ item.taskName }}</span>
-                      </div>
-                      <n-button size="tiny" type="primary" secondary @click="retryTaskForToken(item.id)">
-                        补做
-                      </n-button>
-                    </div>
-                  </div>
-                </n-popover>
-                <n-tag v-else :bordered="false" type="error" size="small">
-                  失败: 0
-                </n-tag>
-              </n-space>
+              <n-tag :bordered="false" type="success" size="small">
+                成功: {{ batchExecutionStats.successCount }}
+              </n-tag>
+              <n-button 
+                v-if="batchExecutionStats.failedCount > 0"
+                type="error"
+                size="small"
+                @click="openFailedDetails"
+                :bordered="false"
+                style="cursor: pointer; padding: 0 12px;"
+              >
+                失败: {{ batchExecutionStats.failedCount }} (查看详情)
+              </n-button>
+              <n-tag v-else :bordered="false" type="error" size="small">
+                失败: 0
+              </n-tag>
             </div>
             <div style="font-size: 12px; color: #9ca3af;">
               总计: {{ batchExecutionStats.totalCount }}
@@ -814,6 +804,62 @@
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
           <n-button @click="showBatchSettingsModal = false" style="margin-right: 12px">取消</n-button>
           <n-button type="primary" @click="saveBatchSettings">保存设置</n-button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- Failed Details Modal -->
+    <n-modal v-model:show="showFailedDetailsModal" preset="card" title="失败任务详情"
+      style="width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <div class="failed-details-content">
+        <div v-if="batchExecutionStats.failedCount === 0" style="text-align: center; padding: 40px; color: #6b7280;">
+          暂无失败任务记录
+        </div>
+        <div v-else>
+          <n-collapse>
+            <n-collapse-item 
+              v-for="group in failedTasksByType" 
+              :key="group.taskName" 
+              :title="`${group.taskName} (${group.tokens.length}个)`"
+            >
+              <div class="failed-tasks-table" style="width: 100%; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <thead>
+                    <tr style="background-color: #f5f7fa; border-bottom: 1px solid #e4e7ed;">
+                      <th style="padding: 8px 16px; text-align: left; font-weight: bold; border-right: 1px solid #e4e7ed;">失败时间</th>
+                      <th style="padding: 8px 16px; text-align: left; font-weight: bold; border-right: 1px solid #e4e7ed;">失败任务</th>
+                      <th style="padding: 8px 16px; text-align: left; font-weight: bold; border-right: 1px solid #e4e7ed;">失败账号</th>
+                      <th style="padding: 8px 16px; text-align: left; font-weight: bold;">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr 
+                      v-for="token in group.tokens" 
+                      :key="token.id" 
+                      style="border-bottom: 1px solid #e4e7ed;"
+                    >
+                      <td style="padding: 8px 16px; border-right: 1px solid #e4e7ed;">{{ token.timestamp }}</td>
+                      <td style="padding: 8px 16px; border-right: 1px solid #e4e7ed;">{{ token.taskName }}</td>
+                      <td style="padding: 8px 16px; border-right: 1px solid #e4e7ed;">{{ token.name }}</td>
+                      <td style="padding: 8px 16px;">
+                        <n-button 
+                          size="tiny" 
+                          type="primary" 
+                          secondary 
+                          @click="retryTaskForToken(token.id)"
+                        >
+                          补做
+                        </n-button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </n-collapse-item>
+          </n-collapse>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button type="primary" @click="closeFailedDetails">关闭</n-button>
         </div>
       </div>
     </n-modal>
@@ -3007,14 +3053,9 @@ const executeBatchTask = async (tokenIds, taskFn, options = {}) => {
 
   const isRetry = options.isRetry || false;
 
-  // 重置统计数据 (非补做模式才重置)
+  // 累积统计数据：仅更新totalCount，不重置其他统计
   if (!isRetry) {
-    batchExecutionStats.value = {
-      successCount: 0,
-      failedCount: 0,
-      totalCount: tokenIds.length,
-      failedTokens: []
-    };
+    batchExecutionStats.value.totalCount += tokenIds.length;
   } else {
     // 补做模式：从失败列表中移除当前要补做的账号
     tokenIds.forEach(id => {
@@ -3127,7 +3168,8 @@ const executeBatchTask = async (tokenIds, taskFn, options = {}) => {
         batchExecutionStats.value.failedTokens.push({ 
           id: tokenId, 
           name: token?.name || tokenId,
-          taskName: taskName
+          taskName: taskName,
+          timestamp: new Date().toLocaleString()
         });
       } finally {
         // 4. 清理连接
@@ -3169,7 +3211,7 @@ const batchExecutionStats = ref({
   successCount: 0,
   failedCount: 0,
   totalCount: 0,
-  failedTokens: [] // 存储 { id, name }
+  failedTokens: [] // 存储 { id, name, taskName, timestamp }
 });
 const lastTaskContext = ref(null); // 存储 { taskFn, options }
 const errorCount = computed(() => {
@@ -3188,6 +3230,35 @@ const currentRunningTokenName = computed(() => {
   return t ? t.name : "";
 });
 
+// 失败详情模态框状态
+const showFailedDetailsModal = ref(false);
+
+// 按任务分类失败记录
+const failedTasksByType = computed(() => {
+  const grouped = {};
+  batchExecutionStats.value.failedTokens.forEach(token => {
+    if (!grouped[token.taskName]) {
+      grouped[token.taskName] = [];
+    }
+    grouped[token.taskName].push(token);
+  });
+  // 返回数组格式，确保Vue diff算法能正确处理
+  return Object.entries(grouped).map(([taskName, tokens]) => ({
+    taskName,
+    tokens
+  }));
+});
+
+// 打开失败详情模态框
+const openFailedDetails = () => {
+  showFailedDetailsModal.value = true;
+};
+
+// 关闭失败详情模态框
+const closeFailedDetails = () => {
+  showFailedDetailsModal.value = false;
+};
+
 /**
  * 针对单个 Token 补做最近一次失败的任务
  */
@@ -3196,6 +3267,9 @@ const retryTaskForToken = async (tokenId) => {
     message.warning('没有可补做的任务上下文');
     return;
   }
+
+  // 先关闭模态框，避免组件更新冲突
+  closeFailedDetails();
 
   const { taskFn, options } = lastTaskContext.value;
   const taskName = options.taskName || '补做任务';

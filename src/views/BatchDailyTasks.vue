@@ -1538,6 +1538,29 @@
               style="width: 140px"
             />
           </div>
+          <div
+            class="setting-item"
+            style="
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <label class="setting-label">保底车辆颜色等级</label>
+            <n-select
+              v-model:value="batchSettings.carMinColor"
+              :options="[
+                { label: '绿·普通', value: 1 },
+                { label: '蓝·稀有', value: 2 },
+                { label: '紫·史诗', value: 3 },
+                { label: '橙·传说', value: 4 },
+                { label: '红·神话', value: 5 },
+                { label: '金·传奇', value: 6 },
+              ]"
+              size="small"
+              style="width: 140px"
+            />
+          </div>
           <n-divider title-placement="left" style="margin: 1px 0"
             >功法定时赠送设置</n-divider
           >
@@ -1657,6 +1680,42 @@
               :min="1"
               :max="20"
               :step="1"
+              size="small"
+              style="width: 140px"
+            />
+          </div>
+          <div
+            class="setting-item"
+            style="
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <label class="setting-label">连接超时时间(ms)</label>
+            <n-input-number
+              v-model:value="batchSettings.connectionTimeout"
+              :min="1000"
+              :max="30000"
+              :step="1000"
+              size="small"
+              style="width: 140px"
+            />
+          </div>
+          <div
+            class="setting-item"
+            style="
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <label class="setting-label">重连等待时间(ms)</label>
+            <n-input-number
+              v-model:value="batchSettings.reconnectDelay"
+              :min="100"
+              :max="5000"
+              :step="100"
               size="small"
               style="width: 140px"
             />
@@ -1911,6 +1970,9 @@ const batchSettings = reactive({
   commandDelay: 500,
   taskDelay: 500,
   maxActive: 2,
+  carMinColor: 4,
+  connectionTimeout: 10000,
+  reconnectDelay: 1000,
 });
 
 // Load batch settings from localStorage
@@ -3766,11 +3828,12 @@ const verifyTaskDependencies = async (task) => {
 
   // 直接使用所有选中的token，WebSocket连接由具体任务函数内部管理
   // ensureConnection函数会自动处理并行连接和连接池管理
-  const connectedTokens = task.selectedTokens.map(tokenId => {
-    const tokenName = tokenStore.gameTokens.find((t) => t.id === tokenId)?.name || tokenId;
+  const connectedTokens = task.selectedTokens.map((tokenId) => {
+    const tokenName =
+      tokenStore.gameTokens.find((t) => t.id === tokenId)?.name || tokenId;
     return { id: tokenId, name: tokenName };
   });
-  
+
   // Log connection status
   addLog({
     time: new Date().toLocaleTimeString(),
@@ -4573,7 +4636,10 @@ const copyLogs = () => {
     });
 };
 
-const waitForConnection = async (tokenId, timeout = 15000) => {
+const waitForConnection = async (
+  tokenId,
+  timeout = batchSettings.connectionTimeout,
+) => {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     const status = tokenStore.getWebSocketStatus(tokenId);
@@ -4606,12 +4672,12 @@ const resetBottles = async () => {
 
     try {
       await ensureConnection(tokenId);
-      
+
       addLog({
         time: new Date().toLocaleTimeString(),
         message: `=== 开始重置罐子: ${token.name} ===`,
         type: "info",
-      });    
+      });
 
       // Execute commands
       addLog({
@@ -4948,10 +5014,10 @@ const batchmengjing = async () => {
       const mjbattleTeam = { 0: 107 };
       const dayOfWeek = new Date().getDay();
       if (
-        (dayOfWeek === 0) ||
-        (dayOfWeek === 1) ||
-        (dayOfWeek === 3) ||
-        (dayOfWeek === 4)
+        dayOfWeek === 0 ||
+        dayOfWeek === 1 ||
+        dayOfWeek === 3 ||
+        dayOfWeek === 4
       ) {
         await tokenStore.sendMessageWithPromise(
           tokenId,
@@ -5320,7 +5386,7 @@ const ensureConnection = async (tokenId, maxRetries = 2) => {
   if (!connected) {
     // 等待连接槽位，限制并发连接数
     await waitForConnectionSlot();
-    
+
     addLog({
       time: new Date().toLocaleTimeString(),
       message: `正在连接... (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
@@ -5342,7 +5408,7 @@ const ensureConnection = async (tokenId, maxRetries = 2) => {
       });
 
       tokenStore.closeWebSocketConnection(tokenId);
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, batchSettings.reconnectDelay));
 
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -5366,7 +5432,7 @@ const ensureConnection = async (tokenId, maxRetries = 2) => {
       throw new Error("连接失败 (重试后仍超时)");
     }
   }
-  
+
   // 连接成功，槽位保持占用，直到任务完成后手动释放
 
   // Initialize Game Data (Critical for Battle Version and Session)
@@ -6255,10 +6321,14 @@ const shouldSendCar = (car, tickets) => {
   const color = Number(car?.color || 0);
   const rewards = Array.isArray(car?.rewards) ? car.rewards : [];
   const racingTickets = countRacingRefreshTickets(rewards);
+  const minColor = batchSettings.carMinColor || 4;
   if (tickets >= 6) {
-    return color >= 5 || racingTickets >= 4 || isBigPrize(rewards);
+    return (
+      color >= minColor &&
+      (color >= 5 || racingTickets >= 4 || isBigPrize(rewards))
+    );
   }
-  return color >= 4 || racingTickets >= 2 || isBigPrize(rewards);
+  return color >= minColor || racingTickets >= 2 || isBigPrize(rewards);
 };
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
@@ -6337,97 +6407,13 @@ const batchSmartSendCar = async () => {
 
         if (Number(car.sendAt || 0) !== 0) continue; // Already sent
 
-        // Check if we should send immediately
-        if (shouldSendCar(car, refreshTickets)) {
-          addLog({
-            time: new Date().toLocaleTimeString(),
-            message: `${token.name} 车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
-            type: "info",
-          });
-          await tokenStore.sendMessageWithPromise(
-            tokenId,
-            "car_send",
-            {
-              carId: String(car.id),
-              helperId: 0,
-              text: "",
-              isUpgrade: false,
-            },
-            10000,
-          );
-          await new Promise((r) => setTimeout(r, 500));
-          continue;
-        }
-
-        // Try to refresh
-        let shouldRefresh = false;
-        const free = Number(car.refreshCount ?? 0) === 0;
-        if (refreshTickets >= 6) shouldRefresh = true;
-        else if (free) shouldRefresh = true;
-        else {
-          // No tickets and not free, just send
-          addLog({
-            time: new Date().toLocaleTimeString(),
-            message: `${token.name} 车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
-            type: "warning",
-          });
-          await tokenStore.sendMessageWithPromise(
-            tokenId,
-            "car_send",
-            {
-              carId: String(car.id),
-              helperId: 0,
-              text: "",
-              isUpgrade: false,
-            },
-            10000,
-          );
-          await new Promise((r) => setTimeout(r, 500));
-          continue;
-        }
-
-        // Refresh loop
-        while (shouldRefresh && !shouldStop.value) {
-          addLog({
-            time: new Date().toLocaleTimeString(),
-            message: `${token.name} 车辆[${gradeLabel(car.color)}]尝试刷新...`,
-            type: "info",
-          });
-          const resp = await tokenStore.sendMessageWithPromise(
-            tokenId,
-            "car_refresh",
-            { carId: String(car.id) },
-            10000,
-          );
-          const data = resp?.car || resp?.body?.car || resp;
-
-          // Update local car info
-          if (data && typeof data === "object") {
-            if (data.color != null) car.color = Number(data.color);
-            if (data.refreshCount != null)
-              car.refreshCount = Number(data.refreshCount);
-            if (data.rewards != null) car.rewards = data.rewards;
-          }
-
-          // Update tickets
-          try {
-            const roleRes = await tokenStore.sendMessageWithPromise(
-              tokenId,
-              "role_getroleinfo",
-              {},
-              5000,
-            );
-            refreshTickets = Number(
-              roleRes?.role?.items?.[35002]?.quantity || 0,
-            );
-          } catch (_) {}
-
-          // Check if good enough now
+        try {
+          // Check if we should send immediately
           if (shouldSendCar(car, refreshTickets)) {
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,
-              type: "success",
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
+              type: "info",
             });
             await tokenStore.sendMessageWithPromise(
               tokenId,
@@ -6441,17 +6427,19 @@ const batchSmartSendCar = async () => {
               10000,
             );
             await new Promise((r) => setTimeout(r, 500));
-            break;
+            continue;
           }
 
-          // Check if can continue refreshing
-          const freeNow = Number(car.refreshCount ?? 0) === 0;
+          // Try to refresh
+          let shouldRefresh = false;
+          const free = Number(car.refreshCount ?? 0) === 0;
           if (refreshTickets >= 6) shouldRefresh = true;
-          else if (freeNow) shouldRefresh = true;
+          else if (free) shouldRefresh = true;
           else {
+            // No tickets and not free, just send
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]仍不满足条件且无刷新次数，发车`,
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
               type: "warning",
             });
             await tokenStore.sendMessageWithPromise(
@@ -6466,10 +6454,101 @@ const batchSmartSendCar = async () => {
               10000,
             );
             await new Promise((r) => setTimeout(r, 500));
-            break;
+            continue;
           }
 
-          await new Promise((r) => setTimeout(r, 1000));
+          // Refresh loop
+          while (shouldRefresh && !shouldStop.value) {
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]尝试刷新...`,
+              type: "info",
+            });
+            const resp = await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "car_refresh",
+              { carId: String(car.id) },
+              10000,
+            );
+            const data = resp?.car || resp?.body?.car || resp;
+
+            // Update local car info
+            if (data && typeof data === "object") {
+              if (data.color != null) car.color = Number(data.color);
+              if (data.refreshCount != null)
+                car.refreshCount = Number(data.refreshCount);
+              if (data.rewards != null) car.rewards = data.rewards;
+            }
+
+            // Update tickets
+            try {
+              const roleRes = await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "role_getroleinfo",
+                {},
+                5000,
+              );
+              refreshTickets = Number(
+                roleRes?.role?.items?.[35002]?.quantity || 0,
+              );
+            } catch (_) {}
+
+            // Check if good enough now
+            if (shouldSendCar(car, refreshTickets)) {
+              addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,
+                type: "success",
+              });
+              await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "car_send",
+                {
+                  carId: String(car.id),
+                  helperId: 0,
+                  text: "",
+                  isUpgrade: false,
+                },
+                10000,
+              );
+              await new Promise((r) => setTimeout(r, 500));
+              break;
+            }
+
+            // Check if can continue refreshing
+            const freeNow = Number(car.refreshCount ?? 0) === 0;
+            if (refreshTickets >= 6) shouldRefresh = true;
+            else if (freeNow) shouldRefresh = true;
+            else {
+              addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]仍不满足条件且无刷新次数，发车`,
+                type: "warning",
+              });
+              await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "car_send",
+                {
+                  carId: String(car.id),
+                  helperId: 0,
+                  text: "",
+                  isUpgrade: false,
+                },
+                10000,
+              );
+              await new Promise((r) => setTimeout(r, 500));
+              break;
+            }
+
+            await new Promise((r) => setTimeout(r, 1000));
+          }
+        } catch (carError) {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 车辆[${gradeLabel(car.color)}]处理失败: ${carError.message}，跳过该车辆`,
+            type: "error",
+          });
+          continue;
         }
       }
 

@@ -78,7 +78,14 @@
             >
               停止
             </n-button>
-            <n-button @click="openBatchSettings" size="medium">
+            <n-button
+              @click="openTemplateManagerModal"
+              type="info"
+              size="medium"
+            >
+              任务模板
+            </n-button>
+            <n-button @click="openBatchSettings" type="default" size="medium">
               <template #icon>
                 <n-icon>
                   <Settings />
@@ -295,6 +302,42 @@
               批量功法残卷赠送
             </n-button>
           </n-space>
+          <!-- 排序按钮组 -->
+          <div class="sort-buttons" style="margin-bottom: 12px">
+            <n-space align="center">
+              <n-button-group size="small">
+                <n-button
+                  @click="toggleSort('name')"
+                  :type="sortConfig.field === 'name' ? 'primary' : 'default'"
+                >
+                  名称 {{ getSortIcon("name") }}
+                </n-button>
+                <n-button
+                  @click="toggleSort('server')"
+                  :type="sortConfig.field === 'server' ? 'primary' : 'default'"
+                >
+                  服务器 {{ getSortIcon("server") }}
+                </n-button>
+                <n-button
+                  @click="toggleSort('createdAt')"
+                  :type="
+                    sortConfig.field === 'createdAt' ? 'primary' : 'default'
+                  "
+                >
+                  创建时间 {{ getSortIcon("createdAt") }}
+                </n-button>
+                <n-button
+                  @click="toggleSort('lastUsed')"
+                  :type="
+                    sortConfig.field === 'lastUsed' ? 'primary' : 'default'
+                  "
+                >
+                  最后使用 {{ getSortIcon("lastUsed") }}
+                </n-button>
+              </n-button-group>
+            </n-space>
+          </div>
+
           <n-space vertical>
             <n-checkbox
               :checked="isAllSelected"
@@ -309,7 +352,7 @@
                 :y-gap="8"
                 :cols="batchSettings.tokenListColumns"
               >
-                <n-grid-item v-for="token in tokens" :key="token.id">
+                <n-grid-item v-for="token in sortedTokens" :key="token.id">
                   <div class="token-row">
                     <n-checkbox
                       :value="token.id"
@@ -537,6 +580,323 @@
         </div>
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
           <n-button type="primary" @click="saveSettings">保存设置</n-button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- Task Template Modal -->
+    <n-modal
+      v-model:show="showTaskTemplateModal"
+      preset="card"
+      :title="currentTemplateId ? '编辑任务模板' : '任务模板设置'"
+      style="width: 90%; max-width: 400px"
+    >
+      <div class="settings-content">
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-label">模板名称</label>
+            <n-input
+              v-model:value="currentTemplateName"
+              placeholder="请输入模板名称"
+              size="small"
+            />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">竞技场阵容</label>
+            <n-select
+              v-model:value="currentTemplate.arenaFormation"
+              :options="formationOptions"
+              size="small"
+            />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">BOSS阵容</label>
+            <n-select
+              v-model:value="currentTemplate.bossFormation"
+              :options="formationOptions"
+              size="small"
+            />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">BOSS次数</label>
+            <n-select
+              v-model:value="currentTemplate.bossTimes"
+              :options="bossTimesOptions"
+              size="small"
+            />
+          </div>
+          <div class="setting-switches">
+            <div class="switch-row">
+              <span class="switch-label">领罐子</span
+              ><n-switch v-model:value="currentTemplate.claimBottle" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">领挂机</span
+              ><n-switch v-model:value="currentTemplate.claimHangUp" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">竞技场</span
+              ><n-switch v-model:value="currentTemplate.arenaEnable" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">开宝箱</span
+              ><n-switch v-model:value="currentTemplate.openBox" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">领取邮件奖励</span
+              ><n-switch v-model:value="currentTemplate.claimEmail" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">黑市购买物品</span
+              ><n-switch v-model:value="currentTemplate.blackMarketPurchase" />
+            </div>
+            <div class="switch-row">
+              <span class="switch-label">付费招募</span
+              ><n-switch v-model:value="currentTemplate.payRecruit" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button
+            @click="showTaskTemplateModal = false"
+            style="margin-right: 12px"
+            >取消</n-button
+          >
+          <n-button @click="saveTaskTemplate" type="primary">保存模板</n-button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- Apply Template Modal -->
+    <n-modal
+      v-model:show="showApplyTemplateModal"
+      preset="card"
+      title="应用任务模板"
+      style="width: 90%; max-width: 600px"
+    >
+      <div class="settings-content">
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-label">选择模板</label>
+            <n-select
+              v-model:value="selectedTemplateId"
+              :options="taskTemplates"
+              label-field="name"
+              value-field="id"
+              placeholder="请选择要应用的模板"
+              size="small"
+              style="width: 100%"
+            />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">选择账号</label>
+            <n-checkbox
+              :checked="isAllSelectedForApply"
+              :indeterminate="isIndeterminateForApply"
+              @update:checked="handleSelectAllForApply"
+            >
+              全选
+            </n-checkbox>
+            <n-checkbox-group
+              v-model:value="selectedTokensForApply"
+              style="margin-top: 8px"
+            >
+              <n-grid :cols="2" :x-gap="12" :y-gap="8">
+                <n-grid-item v-for="token in sortedTokens" :key="token.id">
+                  <n-checkbox :value="token.id">{{ token.name }}</n-checkbox>
+                </n-grid-item>
+              </n-grid>
+            </n-checkbox-group>
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showApplyTemplateModal = false">取消</n-button>
+          <n-button
+            @click="applyTemplate"
+            type="success"
+            :disabled="
+              !selectedTemplateId || selectedTokensForApply.length === 0
+            "
+            >应用模板</n-button
+          >
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- Template Manager Modal -->
+    <n-modal
+      v-model:show="showTemplateManagerModal"
+      preset="card"
+      title="任务模板管理"
+      style="width: 90%; max-width: 800px"
+    >
+      <div class="settings-content">
+        <div
+          class="modal-header-actions"
+          style="
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <div>
+            <n-button type="primary" @click="openNewTemplateModal"
+              >新增模板</n-button
+            >
+            <n-button
+              @click="openApplyTemplateModal"
+              type="success"
+              style="margin-left: 8px"
+              >应用模板</n-button
+            >
+            <n-button
+              @click="openAccountTemplateModal"
+              type="info"
+              style="margin-left: 8px"
+              >查看账号模板引用</n-button
+            >
+          </div>
+          <n-input placeholder="搜索模板" size="small" style="width: 200px" />
+        </div>
+
+        <!-- Template List -->
+        <div
+          class="template-list"
+          style="max-height: 400px; overflow-y: auto; margin-bottom: 16px"
+        >
+          <n-card
+            v-for="template in filteredTaskTemplates"
+            :key="template.id"
+            size="small"
+            style="margin-bottom: 12px"
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <div>
+                <h4 style="margin: 0; margin-bottom: 8px">
+                  {{ template.name }}
+                </h4>
+                <div style="font-size: 12px; color: #86909c">
+                  创建时间: {{ new Date(template.createdAt).toLocaleString() }}
+                  <span v-if="template.updatedAt"
+                    >, 更新时间:
+                    {{ new Date(template.updatedAt).toLocaleString() }}</span
+                  >
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px">
+                <n-button size="small" @click="openEditTemplateModal(template)"
+                  >编辑</n-button
+                >
+                <n-button
+                  size="small"
+                  type="error"
+                  @click="deleteTaskTemplate(template.id)"
+                  >删除</n-button
+                >
+              </div>
+            </div>
+          </n-card>
+          <div
+            v-if="filteredTaskTemplates.length === 0"
+            style="text-align: center; padding: 24px; color: #86909c"
+          >
+            暂无模板
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showTemplateManagerModal = false">关闭</n-button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- Account Template References Modal -->
+    <n-modal
+      v-model:show="showAccountTemplateModal"
+      preset="card"
+      title="账号模板引用查看"
+      style="width: 90%; max-width: 800px"
+    >
+      <div class="settings-content">
+        <div
+          class="modal-header-actions"
+          style="
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <div>
+            <span>共 {{ filteredAccountTemplates.length }} 个账号</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <label style="font-size: 12px; color: #86909c">按模板筛选:</label>
+            <n-select
+              v-model:value="selectedTemplateForFilter"
+              :options="taskTemplates"
+              label-field="name"
+              value-field="id"
+              placeholder="全部模板"
+              size="small"
+              @update:value="filterAccountTemplates"
+              style="width: 180px"
+            />
+          </div>
+        </div>
+
+        <!-- Account Template List -->
+        <div
+          class="account-template-list"
+          style="max-height: 400px; overflow-y: auto; margin-bottom: 16px"
+        >
+          <n-card
+            v-for="item in filteredAccountTemplates"
+            :key="item.tokenId"
+            size="small"
+            style="margin-bottom: 12px"
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <div>
+                <h4 style="margin: 0; margin-bottom: 4px">
+                  {{ item.tokenName }}
+                </h4>
+              </div>
+              <div>
+                <n-tag
+                  :type="item.templateId ? 'success' : 'default'"
+                  size="small"
+                >
+                  {{ item.templateName }}
+                </n-tag>
+              </div>
+            </div>
+          </n-card>
+          <div
+            v-if="filteredAccountTemplates.length === 0"
+            style="text-align: center; padding: 24px; color: #86909c"
+          >
+            暂无账号数据
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showAccountTemplateModal = false">关闭</n-button>
         </div>
       </div>
     </n-modal>
@@ -1039,7 +1399,7 @@
             </div>
             <n-checkbox-group v-model:value="taskForm.selectedTokens">
               <n-grid :cols="2" :x-gap="12" :y-gap="8">
-                <n-grid-item v-for="token in tokens" :key="token.id">
+                <n-grid-item v-for="token in sortedTokens" :key="token.id">
                   <n-checkbox :value="token.id">{{ token.name }}</n-checkbox>
                 </n-grid-item>
               </n-grid>
@@ -1320,6 +1680,78 @@ import { Settings } from "@vicons/ionicons5";
 const tokenStore = useTokenStore();
 const message = useMessage();
 
+// 排序配置（从localStorage读取，与TokenImport共享）
+const savedSortConfig = localStorage.getItem("tokenSortConfig");
+const sortConfig = ref(
+  savedSortConfig
+    ? JSON.parse(savedSortConfig)
+    : {
+        field: "createdAt", // 排序字段：name, server, createdAt, lastUsed
+        direction: "asc", // 排序方向：asc, desc
+      },
+);
+
+// 排序后的游戏角色Token列表
+const sortedTokens = computed(() => {
+  return [...tokenStore.gameTokens].sort((tokenA, tokenB) => {
+    let valueA, valueB;
+
+    // 根据排序字段获取比较值
+    switch (sortConfig.value.field) {
+      case "name":
+        valueA = tokenA.name?.toLowerCase() || "";
+        valueB = tokenB.name?.toLowerCase() || "";
+        break;
+      case "server":
+        valueA = tokenA.server?.toLowerCase() || "";
+        valueB = tokenB.server?.toLowerCase() || "";
+        break;
+      case "createdAt":
+        valueA = new Date(tokenA.createdAt || 0).getTime();
+        valueB = new Date(tokenB.createdAt || 0).getTime();
+        break;
+      case "lastUsed":
+        valueA = new Date(tokenA.lastUsed || 0).getTime();
+        valueB = new Date(tokenB.lastUsed || 0).getTime();
+        break;
+      default:
+        valueA = tokenA.name?.toLowerCase() || "";
+        valueB = tokenB.name?.toLowerCase() || "";
+    }
+
+    // 根据排序方向比较值
+    if (valueA < valueB) {
+      return sortConfig.value.direction === "asc" ? -1 : 1;
+    }
+    if (valueA > valueB) {
+      return sortConfig.value.direction === "asc" ? 1 : -1;
+    }
+    return 0;
+  });
+});
+
+// 切换排序
+const toggleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    // 如果点击的是当前排序字段，则切换排序方向
+    sortConfig.value.direction =
+      sortConfig.value.direction === "asc" ? "desc" : "asc";
+  } else {
+    // 如果点击的是新的排序字段，则默认升序
+    sortConfig.value.field = field;
+    sortConfig.value.direction = "asc";
+  }
+
+  // 保存排序设置到localStorage
+  localStorage.setItem("tokenSortConfig", JSON.stringify(sortConfig.value));
+};
+
+// 获取排序图标
+const getSortIcon = (field) => {
+  if (sortConfig.value.field !== field) return null;
+  return sortConfig.value.direction === "asc" ? "↑" : "↓";
+};
+
 const tokens = computed(() => tokenStore.gameTokens);
 const isCarActivityOpen = computed(() => {
   const day = new Date().getDay();
@@ -1382,6 +1814,54 @@ const currentSettings = reactive({
   claimHangUp: true,
   claimEmail: true,
   blackMarketPurchase: true,
+});
+
+// Task Template State
+const showTaskTemplateModal = ref(false);
+const showApplyTemplateModal = ref(false);
+const showTemplateManagerModal = ref(false);
+const showAccountTemplateModal = ref(false);
+const taskTemplates = ref([]);
+const selectedTemplateId = ref(null);
+const selectedTokensForApply = ref([]);
+const currentTemplateName = ref("");
+const currentTemplateId = ref(null); // 用于编辑现有模板
+const currentTemplate = reactive({
+  arenaFormation: 1,
+  bossFormation: 1,
+  bossTimes: 2,
+  claimBottle: true,
+  payRecruit: true,
+  openBox: true,
+  arenaEnable: true,
+  claimHangUp: true,
+  claimEmail: true,
+  blackMarketPurchase: true,
+});
+
+// Account Template References
+const accountTemplateReferences = ref([]);
+const filteredAccountTemplates = ref([]);
+const selectedTemplateForFilter = ref(null);
+
+// Computed for Apply Template
+const isAllSelectedForApply = computed(() => {
+  return (
+    selectedTokensForApply.value.length === sortedTokens.value.length &&
+    sortedTokens.value.length > 0
+  );
+});
+
+const isIndeterminateForApply = computed(() => {
+  return (
+    selectedTokensForApply.value.length > 0 &&
+    selectedTokensForApply.value.length < sortedTokens.value.length
+  );
+});
+
+// Computed for Template Manager
+const filteredTaskTemplates = computed(() => {
+  return taskTemplates.value;
 });
 
 // Helper Modal State
@@ -2929,6 +3409,7 @@ onMounted(() => {
   scheduleTaskExecution();
   // Start countdown timer
   startCountdown();
+  loadTaskTemplates();
 });
 
 // Cleanup countdown interval on unmount
@@ -3735,6 +4216,269 @@ const saveSettings = () => {
     );
     message.success(`已保存 ${currentSettingsTokenName.value} 的设置`);
     showSettingsModal.value = false;
+  }
+};
+
+// Task Template Functions
+const openTaskTemplateModal = () => {
+  // 加载模板列表
+  loadTaskTemplates();
+  // 重置当前模板
+  Object.assign(currentTemplate, {
+    arenaFormation: 1,
+    bossFormation: 1,
+    bossTimes: 2,
+    claimBottle: true,
+    payRecruit: true,
+    openBox: true,
+    arenaEnable: true,
+    claimHangUp: true,
+    claimEmail: true,
+    blackMarketPurchase: true,
+  });
+  currentTemplateName.value = "";
+  showTaskTemplateModal.value = true;
+};
+
+const loadTaskTemplates = () => {
+  const templates = localStorage.getItem("task-templates");
+  const parsed = templates ? JSON.parse(templates) : [];
+  taskTemplates.value = parsed;
+  return parsed;
+};
+
+const openApplyTemplateModal = () => {
+  // 加载模板列表
+  loadTaskTemplates();
+  // 重置选择
+  selectedTemplateId.value = null;
+  selectedTokensForApply.value = [];
+  showApplyTemplateModal.value = true;
+};
+
+const handleSelectAllForApply = (checked) => {
+  if (checked) {
+    selectedTokensForApply.value = sortedTokens.value.map((token) => token.id);
+  } else {
+    selectedTokensForApply.value = [];
+  }
+};
+
+const applyTemplate = () => {
+  if (!selectedTemplateId.value || selectedTokensForApply.value.length === 0) {
+    message.error("请选择模板和要应用的账号");
+    return;
+  }
+
+  // 找到选中的模板
+  const templates = loadTaskTemplates();
+  const template = templates.find((t) => t.id === selectedTemplateId.value);
+  if (!template) {
+    message.error("模板不存在");
+    return;
+  }
+
+  // 应用模板到选中的账号
+  let successCount = 0;
+  selectedTokensForApply.value.forEach((tokenId) => {
+    // 保存账号设置时同时保存模板ID
+    const accountSettings = {
+      ...template.settings,
+      templateId: template.id, // 记录模板ID
+    };
+    localStorage.setItem(
+      `daily-settings:${tokenId}`,
+      JSON.stringify(accountSettings),
+    );
+    successCount++;
+  });
+
+  message.success(`已成功应用模板到 ${successCount} 个账号`);
+  showApplyTemplateModal.value = false;
+};
+
+// Template Manager Functions
+const openTemplateManagerModal = () => {
+  // 加载模板列表
+  loadTaskTemplates();
+  showTemplateManagerModal.value = true;
+};
+
+const openEditTemplateModal = (template) => {
+  // 加载模板数据到当前编辑模板
+  currentTemplateId.value = template.id;
+  currentTemplateName.value = template.name;
+  Object.assign(currentTemplate, template.settings);
+  showTaskTemplateModal.value = true;
+};
+
+const updateTaskTemplate = () => {
+  if (!currentTemplateName.value.trim()) {
+    message.error("请输入模板名称");
+    return;
+  }
+
+  // 找到并更新模板
+  const templates = loadTaskTemplates();
+  const templateIndex = templates.findIndex(
+    (t) => t.id === currentTemplateId.value,
+  );
+  if (templateIndex === -1) {
+    message.error("模板不存在");
+    return;
+  }
+
+  // 更新模板
+  templates[templateIndex] = {
+    ...templates[templateIndex],
+    name: currentTemplateName.value.trim(),
+    settings: {
+      ...currentTemplate,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+
+  // 保存模板到localStorage
+  localStorage.setItem("task-templates", JSON.stringify(templates));
+
+  // 更新模板列表
+  taskTemplates.value = templates;
+
+  message.success(`已更新模板 "${templates[templateIndex].name}"`);
+  showTaskTemplateModal.value = false;
+
+  // 重置编辑状态
+  resetTemplateForm();
+};
+
+const deleteTaskTemplate = (templateId) => {
+  // 确认删除
+  if (confirm("确定要删除这个模板吗？")) {
+    // 找到并删除模板
+    const templates = loadTaskTemplates();
+    const filteredTemplates = templates.filter((t) => t.id !== templateId);
+
+    // 保存模板到localStorage
+    localStorage.setItem("task-templates", JSON.stringify(filteredTemplates));
+
+    // 更新模板列表
+    taskTemplates.value = filteredTemplates;
+
+    message.success("模板已删除");
+  }
+};
+
+const resetTemplateForm = () => {
+  currentTemplateId.value = null;
+  currentTemplateName.value = "";
+  Object.assign(currentTemplate, {
+    arenaFormation: 1,
+    bossFormation: 1,
+    bossTimes: 2,
+    claimBottle: true,
+    payRecruit: true,
+    openBox: true,
+    arenaEnable: true,
+    claimHangUp: true,
+    claimEmail: true,
+    blackMarketPurchase: true,
+  });
+};
+
+const openAccountTemplateModal = () => {
+  // 加载账号模板引用关系
+  loadAccountTemplateReferences();
+  showAccountTemplateModal.value = true;
+};
+
+const loadAccountTemplateReferences = () => {
+  const templates = loadTaskTemplates();
+  const references = [];
+
+  // 遍历所有账号，获取其模板引用
+  sortedTokens.value.forEach((token) => {
+    const settingsStr = localStorage.getItem(`daily-settings:${token.id}`);
+    if (settingsStr) {
+      try {
+        const settings = JSON.parse(settingsStr);
+        const templateId = settings.templateId;
+        const template = templates.find((t) => t.id === templateId);
+
+        references.push({
+          tokenId: token.id,
+          tokenName: token.name,
+          templateId: templateId,
+          templateName: template ? template.name : "未引用模板",
+        });
+      } catch (e) {
+        console.error(`解析账号 ${token.name} 的设置失败:`, e);
+      }
+    } else {
+      // 没有设置的账号
+      references.push({
+        tokenId: token.id,
+        tokenName: token.name,
+        templateId: null,
+        templateName: "未引用模板",
+      });
+    }
+  });
+
+  accountTemplateReferences.value = references;
+  filteredAccountTemplates.value = references;
+};
+
+const filterAccountTemplates = () => {
+  if (!selectedTemplateForFilter.value) {
+    filteredAccountTemplates.value = accountTemplateReferences.value;
+  } else {
+    filteredAccountTemplates.value = accountTemplateReferences.value.filter(
+      (item) => item.templateId === selectedTemplateForFilter.value,
+    );
+  }
+};
+
+const openNewTemplateModal = () => {
+  // 重置表单，准备创建新模板
+  resetTemplateForm();
+  showTaskTemplateModal.value = true;
+};
+
+// 修改saveTaskTemplate函数，支持新增和编辑
+const saveTaskTemplate = () => {
+  if (!currentTemplateName.value.trim()) {
+    message.error("请输入模板名称");
+    return;
+  }
+
+  const templates = loadTaskTemplates();
+
+  if (currentTemplateId.value) {
+    // 更新现有模板
+    updateTaskTemplate();
+  } else {
+    // 创建新模板
+    const template = {
+      id: Date.now().toString(),
+      name: currentTemplateName.value.trim(),
+      settings: {
+        ...currentTemplate,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    // 添加新模板
+    templates.push(template);
+    localStorage.setItem("task-templates", JSON.stringify(templates));
+
+    // 更新模板列表
+    taskTemplates.value = templates;
+
+    message.success(`已保存模板 "${template.name}"`);
+    showTaskTemplateModal.value = false;
+
+    // 重置表单
+    resetTemplateForm();
   }
 };
 

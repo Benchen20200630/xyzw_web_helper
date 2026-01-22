@@ -4849,6 +4849,7 @@ const ensureConnectionWithCleanup = async (tokenId, priority = 5) => {
   // 这里应该是连接池相关逻辑，但代码已被简化
   // 直接返回连接状态
   return tokenStore.getWebSocketStatus(tokenId) === 'connected';
+};
 
 const currentRunningTokenId = ref(null);
 const currentProgress = ref(0);

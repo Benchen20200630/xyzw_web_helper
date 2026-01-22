@@ -2151,37 +2151,11 @@ const toggleSort = (field) => {
 
 // 启动健康监控和加载模板列表
 onMounted(() => {
-  console.log("[BatchDailyTasks] 组件加载完成，启动健康监控");
-  // healthMonitor已被移除，这行代码可以删除
+  console.log("[BatchDailyTasks] 组件加载完成");
   loadTaskTemplates();
 });
 // ==================== 连接池管理系统初始化结束 ====================
-        valueA = tokenA.server?.toLowerCase() || '';
-        valueB = tokenB.server?.toLowerCase() || '';
-        break;
-      case 'createdAt':
-        valueA = new Date(tokenA.createdAt || 0).getTime();
-        valueB = new Date(tokenB.createdAt || 0).getTime();
-        break;
-      case 'lastUsed':
-        valueA = new Date(tokenA.lastUsed || 0).getTime();
-        valueB = new Date(tokenB.lastUsed || 0).getTime();
-        break;
-      default:
-        valueA = tokenA.name?.toLowerCase() || '';
-        valueB = tokenB.name?.toLowerCase() || '';
-    }
-    
-    // 根据排序方向比较值
-    if (valueA < valueB) {
-      return sortConfig.value.direction === 'asc' ? -1 : 1;
-    }
-    if (valueA > valueB) {
-      return sortConfig.value.direction === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
-});
+
 // 获取排序图标
 const getSortIcon = (field) => {
   if (sortConfig.value.field !== field) return null;

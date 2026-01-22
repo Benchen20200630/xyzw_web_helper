@@ -2145,33 +2145,17 @@ const toggleSort = (field) => {
     sortConfig.value.direction = "asc";
   }
 
+  // 保存排序配置到localStorage
+  localStorage.setItem('tokenSortConfig', JSON.stringify(sortConfig.value));
+};
+
 // 启动健康监控和加载模板列表
 onMounted(() => {
   console.log("[BatchDailyTasks] 组件加载完成，启动健康监控");
-  healthMonitor.startMonitoring();
+  // healthMonitor已被移除，这行代码可以删除
   loadTaskTemplates();
 });
 // ==================== 连接池管理系统初始化结束 ====================
-
-// 排序配置（从localStorage读取，与TokenImport共享）
-const savedSortConfig = localStorage.getItem('tokenSortConfig');
-const sortConfig = ref(savedSortConfig ? JSON.parse(savedSortConfig) : {
-  field: 'createdAt', // 排序字段：name, server, createdAt, lastUsed
-  direction: 'asc' // 排序方向：asc, desc
-});
-
-// 排序后的游戏角色Token列表
-const sortedTokens = computed(() => {
-  return [...tokenStore.gameTokens].sort((tokenA, tokenB) => {
-    let valueA, valueB;
-    
-    // 根据排序字段获取比较值
-    switch (sortConfig.value.field) {
-      case 'name':
-        valueA = tokenA.name?.toLowerCase() || '';
-        valueB = tokenB.name?.toLowerCase() || '';
-        break;
-      case 'server':
         valueA = tokenA.server?.toLowerCase() || '';
         valueB = tokenB.server?.toLowerCase() || '';
         break;
@@ -2198,22 +2182,6 @@ const sortedTokens = computed(() => {
     return 0;
   });
 });
-
-// 切换排序
-const toggleSort = (field) => {
-  if (sortConfig.value.field === field) {
-    // 如果点击的是当前排序字段，则切换排序方向
-    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc';
-  } else {
-    // 如果点击的是新的排序字段，则默认升序
-    sortConfig.value.field = field;
-    sortConfig.value.direction = 'asc';
-  }
-  
-  // 保存排序设置到localStorage
-  localStorage.setItem('tokenSortConfig', JSON.stringify(sortConfig.value));
-};
-
 // 获取排序图标
 const getSortIcon = (field) => {
   if (sortConfig.value.field !== field) return null;
@@ -4903,250 +4871,10 @@ const ensureConnectionWithCleanup = async (tokenId, priority = 5) => {
     message: `[连接池] 获取连接: ${token?.name || tokenId}`,
     type: "info",
   });
-  currentTemplateName.value = "";
-  showTaskTemplateModal.value = true;
-};
 
-const loadTaskTemplates = () => {
-  const templates = localStorage.getItem("task-templates");
-  const parsed = templates ? JSON.parse(templates) : [];
-  taskTemplates.value = parsed;
-  return parsed;
-};
-
-const openApplyTemplateModal = () => {
-  // 加载模板列表
-  loadTaskTemplates();
-  // 重置选择
-  selectedTemplateId.value = null;
-  selectedTokensForApply.value = [];
-  showApplyTemplateModal.value = true;
-};
-
-const handleSelectAllForApply = (checked) => {
-  if (checked) {
-    selectedTokensForApply.value = sortedTokens.value.map((token) => token.id);
-  } else {
-    selectedTokensForApply.value = [];
-  }
-};
-
-const applyTemplate = () => {
-  if (!selectedTemplateId.value || selectedTokensForApply.value.length === 0) {
-    message.error("请选择模板和要应用的账号");
-    return;
-  }
-
-  // 找到选中的模板
-  const templates = loadTaskTemplates();
-  const template = templates.find((t) => t.id === selectedTemplateId.value);
-  if (!template) {
-    message.error("模板不存在");
-    return;
-  }
-
-  // 应用模板到选中的账号
-  let successCount = 0;
-  selectedTokensForApply.value.forEach((tokenId) => {
-    // 保存账号设置时同时保存模板ID
-    const accountSettings = {
-      ...template.settings,
-      templateId: template.id, // 记录模板ID
-    };
-    localStorage.setItem(
-      `daily-settings:${tokenId}`,
-      JSON.stringify(accountSettings),
-    );
-    successCount++;
-  });
-
-  message.success(`已成功应用模板到 ${successCount} 个账号`);
-  showApplyTemplateModal.value = false;
-};
-
-// Template Manager Functions
-const openTemplateManagerModal = () => {
-  // 加载模板列表
-  loadTaskTemplates();
-  showTemplateManagerModal.value = true;
-};
-
-const openEditTemplateModal = (template) => {
-  // 加载模板数据到当前编辑模板
-  currentTemplateId.value = template.id;
-  currentTemplateName.value = template.name;
-  Object.assign(currentTemplate, template.settings);
-  showTaskTemplateModal.value = true;
-};
-
-  // 累积统计数据：仅更新totalCount，不重置其他统计
-  if (!isRetry) {
-    batchExecutionStats.value = {
-      successCount: 0,
-      failedCount: 0,
-      totalCount: tokenIds.length,
-      failedTokens: []
-    };
-  } else {
-    // 补做模式：从失败列表中移除当前要补做的账号
-    tokenIds.forEach((id) => {
-      const index = batchExecutionStats.value.failedTokens.findIndex(
-        (t) => t.id === id,
-      );
-      if (index !== -1) {
-        batchExecutionStats.value.failedTokens.splice(index, 1);
-        batchExecutionStats.value.failedCount--;
-      }
-    });
-  }
-
-  // 找到并更新模板
-  const templates = loadTaskTemplates();
-  const templateIndex = templates.findIndex(
-    (t) => t.id === currentTemplateId.value,
-  );
-  if (templateIndex === -1) {
-    message.error("模板不存在");
-    return;
-  }
-
-  // 更新模板
-  templates[templateIndex] = {
-    ...templates[templateIndex],
-    name: currentTemplateName.value.trim(),
-    settings: {
-      ...currentTemplate,
-    },
-    updatedAt: new Date().toISOString(),
-  };
-
-  // 保存模板到localStorage
-  localStorage.setItem("task-templates", JSON.stringify(templates));
-
-  // 更新模板列表
-  taskTemplates.value = templates;
-
-  message.success(`已更新模板 "${templates[templateIndex].name}"`);
-  showTaskTemplateModal.value = false;
-
-  // 重置编辑状态
-  resetTemplateForm();
-};
-
-const deleteTaskTemplate = (templateId) => {
-  // 确认删除
-  if (confirm("确定要删除这个模板吗？")) {
-    // 找到并删除模板
-    const templates = loadTaskTemplates();
-    const filteredTemplates = templates.filter((t) => t.id !== templateId);
-
-    // 保存模板到localStorage
-    localStorage.setItem("task-templates", JSON.stringify(filteredTemplates));
-
-    // 更新模板列表
-    taskTemplates.value = filteredTemplates;
-
-    message.success("模板已删除");
-  }
-};
-
-const resetTemplateForm = () => {
-  currentTemplateId.value = null;
-  currentTemplateName.value = "";
-  Object.assign(currentTemplate, {
-    arenaFormation: 1,
-    bossFormation: 1,
-    bossTimes: 2,
-    claimBottle: true,
-    payRecruit: true,
-    openBox: true,
-    arenaEnable: true,
-    claimHangUp: true,
-    claimEmail: true,
-    blackMarketPurchase: true,
-  });
-};
-
-        // 记录失败统计 (仅在致命错误或重试耗尽时执行到这里)
-        tokenStatus.value[tokenId] = "failed";
-        results.failed.push(tokenId);
-        batchExecutionStats.value.failedCount++;
-        batchExecutionStats.value.failedTokens.push({
-          id: tokenId,
-          name: token?.name || tokenId,
-          taskName: taskName
-        });
-      } catch (e) {
-        console.error(`解析账号 ${token.name} 的设置失败:`, e);
-      }
-    } else {
-      // 没有设置的账号
-      references.push({
-        tokenId: token.id,
-        tokenName: token.name,
-        templateId: null,
-        templateName: "未引用模板",
-      });
-    }
-  });
-
-  accountTemplateReferences.value = references;
-  filteredAccountTemplates.value = references;
-};
-
-const filterAccountTemplates = () => {
-  if (!selectedTemplateForFilter.value) {
-    filteredAccountTemplates.value = accountTemplateReferences.value;
-  } else {
-    filteredAccountTemplates.value = accountTemplateReferences.value.filter(
-      (item) => item.templateId === selectedTemplateForFilter.value,
-    );
-  }
-};
-
-const openNewTemplateModal = () => {
-  // 重置表单，准备创建新模板
-  resetTemplateForm();
-  showTaskTemplateModal.value = true;
-};
-
-// 修改saveTaskTemplate函数，支持新增和编辑
-const saveTaskTemplate = () => {
-  if (!currentTemplateName.value.trim()) {
-    message.error("请输入模板名称");
-    return;
-  }
-
-  const templates = loadTaskTemplates();
-
-  if (currentTemplateId.value) {
-    // 更新现有模板
-    updateTaskTemplate();
-  } else {
-    // 创建新模板
-    const template = {
-      id: Date.now().toString(),
-      name: currentTemplateName.value.trim(),
-      settings: {
-        ...currentTemplate,
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    // 添加新模板
-    templates.push(template);
-    localStorage.setItem("task-templates", JSON.stringify(templates));
-
-    // 更新模板列表
-    taskTemplates.value = templates;
-
-    message.success(`已保存模板 "${template.name}"`);
-    showTaskTemplateModal.value = false;
-
-    // 重置表单
-    resetTemplateForm();
-  }
-};
+  // 这里应该是连接池相关逻辑，但代码已被简化
+  // 直接返回连接状态
+  return tokenStore.getWebSocketStatus(tokenId) === 'connected';
 
 const currentRunningTokenId = ref(null);
 const currentProgress = ref(0);

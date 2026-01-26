@@ -19,7 +19,7 @@ declare interface TokenData {
   wsUrl: string | null; // 可选的自定义WebSocket URL
   server: string;
   remark?: string; // 备注信息
-  importMethod?: "manual" | "bin" | "url"; // 导入方式：manual（手动）、bin文件或url链接
+  importMethod?: "manual" | "bin" | "url" | "wxQrcode"; // 导入方式：manual（手动）、bin文件或url链接
   sourceUrl?: string; // 当importMethod为url时，存储url链接
   upgradedToPermanent?: boolean; // 是否升级为长期有效
   upgradedAt?: string; // 升级时间
@@ -334,7 +334,10 @@ export const useTokenStore = defineStore("tokens", () => {
               } catch (error) {
                 console.error("从URL获取token失败:", error);
               }
-            } else {
+            } else if (
+              gameToken.importMethod === "bin" ||
+              gameToken.importMethod === "wxQrcode"
+            ) {
               // Bin形式token刷新（原有逻辑）
               console.log("getArrayBuffer", await getArrayBuffer("小鱼"));
               const userToken: ArrayBuffer | null = await getArrayBuffer(
@@ -1054,6 +1057,7 @@ export const useTokenStore = defineStore("tokens", () => {
       if (
         token.importMethod === "url" ||
         token.importMethod === "bin" ||
+        token.importMethod === "wxQrcode" ||
         token.upgradedToPermanent
       ) {
         return true;
@@ -1074,7 +1078,8 @@ export const useTokenStore = defineStore("tokens", () => {
       token &&
       !token.upgradedToPermanent &&
       token.importMethod !== "url" &&
-      token.importMethod !== "bin"
+      token.importMethod !== "bin" &&
+      token.importMethod !== "wxQrcode"
     ) {
       updateToken(tokenId, {
         upgradedToPermanent: true,

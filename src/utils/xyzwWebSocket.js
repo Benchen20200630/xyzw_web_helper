@@ -331,31 +331,12 @@ export function registerDefaultCommands(reg) {
     .register("bosstower_getinfo")
     .register("bosstower_startboss")
     .register("bosstower_startbox")
-    .register("discount_getdiscountinfo");
-
-<<<<<<< HEAD
+    .register("discount_getdiscountinfo")
+    
     //发送游戏内消息
     .register("system_sendchatmessage")
+    ;
 
-  registry.commands.set("fight_startareaarena", (ack = 0, seq = 0, params = {}) => {
-    if (params?.targetId === undefined || params?.targetId === null) {
-      throw new Error("fight_startareaarena requires targetId in params")
-    }
-    // battleVersion 由调用方通过 params 传入
-    const payload = { ...params }
-    const body = registry.encoder?.bon?.encode
-      ? registry.encoder.bon.encode(payload)
-      : payload
-
-    return {
-      cmd: "fight_startareaarena",
-      ack,
-      seq,
-      time: Date.now(),
-      body
-    }
-  })
-=======
   registry.commands.set(
     "fight_startareaarena",
     (ack = 0, seq = 0, params = {}) => {
@@ -377,7 +358,6 @@ export function registerDefaultCommands(reg) {
       };
     },
   );
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
 
   registry.commands.set("fight_startpvp", (ack = 0, seq = 0, params = {}) => {
     // battleVersion 由调用方通过 params 传入
@@ -452,12 +432,7 @@ export class XyzwWebSocketClient {
 
     this.socket.onmessage = (evt) => {
       try {
-<<<<<<< HEAD
-        let packet
-        // evt.data.arrayBuffer().then(buffer => {console.log(buffer)})
-=======
         let packet;
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
         if (typeof evt.data === "string") {
           packet = JSON.parse(evt.data);
         } else if (evt.data instanceof ArrayBuffer) {

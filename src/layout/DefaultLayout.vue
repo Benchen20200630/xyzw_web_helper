@@ -70,21 +70,17 @@
             </n-icon>
             <span>消息测试</span>
           </router-link>
-<<<<<<< HEAD
           <router-link to="/admin/legion-war" class="nav-item" active-class="active"  v-if="isNowInLegionWarTime()" >
             <n-icon>
               <LockOpen />
             </n-icon>
             <span>实时盐场</span>
           </router-link>
-          <router-link to="/admin/profile" class="nav-item" active-class="active">
-=======
           <router-link
             to="/admin/profile"
             class="nav-item"
             active-class="active"
           >
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
             <n-icon>
               <Settings />
             </n-icon>
@@ -180,21 +176,17 @@
           </n-icon>
           <span>消息测试</span>
         </router-link>
-<<<<<<< HEAD
           <router-link to="/admin/legion-war" class="nav-item" active-class="active"  v-if="isNowInLegionWarTime()" >
             <n-icon>
               <LockOpen />
             </n-icon>
             <span>实时盐场</span>
           </router-link>
-        <router-link to="/admin/profile" class="drawer-item" @click="isMobileMenuOpen = false">
-=======
         <router-link
           to="/admin/profile"
           class="drawer-item"
           @click="isMobileMenuOpen = false"
         >
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
           <n-icon>
             <Settings />
           </n-icon>
@@ -227,16 +219,10 @@ import {
   Layers,
 } from "@vicons/ionicons5";
 
-<<<<<<< HEAD
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { ref } from 'vue'
 import { isNowInLegionWarTime } from '@/utils/clubBattleUtils'
-=======
-import { useRouter } from "vue-router";
-import { useMessage } from "naive-ui";
-import { ref } from "vue";
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
 
 const tokenStore = useTokenStore();
 const router = useRouter();

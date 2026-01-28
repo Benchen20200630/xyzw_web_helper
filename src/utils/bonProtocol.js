@@ -926,15 +926,9 @@ export const GameMessages = {
 // 创建全局实例
 export const g_utils = {
   getEnc,
-<<<<<<< HEAD
-  encode: (obj, encName = 'x') => encode(obj, getEnc(encName)),
-  parse: (data, encName = 'auto',isLegion=false) => parse(data, getEnc(encName),isLegion),
-  bon // 添加BON编解码器
-=======
   encode: (obj, encName = "x") => encode(obj, getEnc(encName)),
   parse: (data, encName = "auto") => parse(data, getEnc(encName)),
   bon, // 添加BON编解码器
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
 };
 
 // 兼容性导出（保持旧的接口）

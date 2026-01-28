@@ -65,7 +65,7 @@
 
     <!-- 武将升级助手（提取组件） -->
     <HeroUpgradeCard v-if="activeSection === 'tools'" />
-<<<<<<< Updated upstream
+
 
     <!-- 洗练助手（提取组件） -->
     <RefineHelperCard v-if="activeSection === 'tools'" />
@@ -74,10 +74,6 @@
     <ConsumptionProgressCard v-if="activeSection === 'tools'" />
     <!-- 咸王宝库（提取组件） -->
     <BossTower v-if="activeSection === 'tools'" />
-
-=======
-	
->>>>>>> Stashed changes
     <!-- 俱乐部排位（暂时隐藏） -->
     <div
       class="status-card legion-match"
@@ -206,7 +202,6 @@ import StarUpgradeCard from "./cards/StarUpgradeCard.vue";
 import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";
-<<<<<<< Updated upstream
 import ClubWarrank from "./Club/ClubWarrank.vue";
 import ClubMonthBattleRecords from "./Club/ClubMonthBattleRecords.vue";
 import TopRankList from "./cards/TopRankListPageCard.vue";
@@ -222,18 +217,6 @@ import TowerStatus from "./Tower/TowerStatus.vue";
 import WeirdTowerStatus from "./Tower/WeirdTowerStatus.vue";
 import BossTower from "./Tower/BossTower.vue";
 import PeachInfo from "./Club/PeachInfo.vue";
-=======
-import ClubWarrank from './Club/ClubWarrank.vue';
-import TopRankList from './cards/TopRankListPageCard.vue';
-import TopClubList from './cards/TopClubListPageCard.vue';
-import GoldClubList from './cards/GoldRankListPageCard.vue';
-import FightPvp from './cards/FightPvp.vue';
-import FightHelperCard from './cards/FightHelperCard.vue';
-import DreamHelperCard from './cards/DreamHelperCard.vue';
-import HeroUpgradeCard from './cards/HeroUpgradeCard.vue';
-import TowerStatus from './Tower/TowerStatus.vue';
-import WeirdTowerStatus from './Tower/WeirdTowerStatus.vue';
->>>>>>> Stashed changes
 const tokenStore = useTokenStore();
 const message = useMessage();
 

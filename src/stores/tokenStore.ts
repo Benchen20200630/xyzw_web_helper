@@ -1134,15 +1134,9 @@ export const useTokenStore = defineStore("tokens", () => {
       setInterval(() => {
         const now = Date.now();
 
-<<<<<<< HEAD
-        // console.log('ws连接监控运行中...', wsConnections.value)
-        // console.log('co连接监控运行中...', connectionLocks.value)
-        // console.log('ac连接监控运行中...', activeConnections.value)
-=======
         console.log("ws连接监控运行中...", wsConnections.value);
         console.log("co连接监控运行中...", connectionLocks.value);
         console.log("ac连接监控运行中...", activeConnections.value);
->>>>>>> b89cd95b3ffeb6743473d31259d9046fc2905eeb
 
         // 检查连接超时（超过30秒未活动）
         Object.entries(wsConnections.value).forEach(([tokenId, connection]) => {

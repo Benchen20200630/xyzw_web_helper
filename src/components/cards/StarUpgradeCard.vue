@@ -61,6 +61,7 @@
       </div>
     </template>
   </MyCard>
+<<<<<<< Updated upstream
   <n-modal
     v-model:show="state.showConfirm"
     preset="dialog"
@@ -69,6 +70,9 @@
     positive-text="开始"
     negative-text="取消"
   />
+=======
+  <n-modal v-model:show="state.showConfirm" preset="dialog" title="确认执行" content="将对预设英雄执行升星、图鉴升星并领取奖励。" positive-text="开始" negative-text="取消"  />
+>>>>>>> Stashed changes
 </template>
 
 <script setup>

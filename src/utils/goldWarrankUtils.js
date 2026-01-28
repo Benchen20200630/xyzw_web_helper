@@ -34,8 +34,8 @@ export function formatWarrankRecordsForExport(legionRankList, queryDate) {
       .sort((a, b) => (a.rank || 0) - (b.rank || 0))
       .map((member, index) => [
         member.rank,
-	   member.id,
-	   member.ServerId,
+	      member.id,
+	      member.ServerId,
         member.Clubname,
         formatPower(member.power),
         member.redQuench,
@@ -47,42 +47,59 @@ export function formatWarrankRecordsForExport(legionRankList, queryDate) {
   ];
   
   // 初始化统计变量
-let totalmeng = 0, totalbig = 0, totalzhengyi = 0, totallong = 0, totalweizhi = 0;
+  let totalmeng = 0, totalbig = 0, totalzhengyi = 0, totallong = 0, totalweizhi = 0;
 
-legionRankList.forEach((member) => {
-  const alliance = allianceincludes(member.announcement); 
-  switch (alliance) {
-    case "梦盟":
-      totalmeng++;
-      break;
-    case "大联盟":
-      totalbig++;
-      break;
-    case "正义联盟":
-      totalzhengyi++;
-      break;
-    case "龙盟":
-      totallong++;
-      break;
-    default:
-      totalweizhi++;
-  }
-});
-
+  legionRankList.forEach((member) => {
+    const alliance = allianceincludes(member.announcement); 
+    switch (alliance) {
+      case "梦盟":
+        totalmeng++;
+        break;
+      case "大联盟":
+        totalbig++;
+        break;
+      case "正义联盟":
+        totalzhengyi++;
+        break;
+      case "龙盟":
+        totallong++;
+        break;
+      default:
+        totalweizhi++;
+    }
+  });
+  
+  // 联盟统计信息
+  const allianceStats = {
+    '梦盟': totalmeng,
+    '大联盟': totalbig,
+    '正义联盟': totalzhengyi,
+    '龙盟': totallong,
+    '未知': totalweizhi
+  };
+  
   // 创建工作簿
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
   
+  // 添加空白行分隔数据和统计信息
+  XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 });
+  
+  // 添加联盟统计标题行
+  XLSX.utils.sheet_add_aoa(worksheet, [['联盟名称', '俱乐部数量', '占比']], { origin: -1 });
+  
+  // 添加各联盟统计数据
+  const totalClubs = legionRankList.length;
+  for (const [alliance, count] of Object.entries(allianceStats)) {
+    const percentage = totalClubs > 0 ? ((count / totalClubs) * 100).toFixed(1) + '%' : '0%';
+    XLSX.utils.sheet_add_aoa(worksheet, [[alliance, count, percentage]], { origin: -1 });
+  }
+  
   // 添加总计行
   XLSX.utils.sheet_add_aoa(worksheet, [
-    ['总计', 
-     '梦盟：' + totalmeng + '家',
-     '大联盟：' + totalbig + '家',
-     '正义联盟：' + totalzhengyi + '家',
-     '龙盟：' + totallong + '家',
-     '未知：' + totalweizhi + '家'
-    ]
+    ['总计', totalClubs, '100.0%']
   ], { origin: -1 });
+  
   // 设置列宽
   worksheet['!cols'] = [{wch:8}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:80}];
 
@@ -117,18 +134,29 @@ const connectstr = (str1,str2,str3) => {
   return str1 + ',' + str2 + ',' +str3
 }
 
+const allianceConfig = [
+  {
+    keywords: ["大联盟"],
+    value: "大联盟",
+  },
+  {
+    keywords: ["正义"],
+    value: "正义联盟",
+  },
+  {
+    keywords: ["龙盟", "龍盟"],
+    value: "龙盟",  
+  },
+  {
+    keywords: ["梦", "梦盟", "梦想之盟"],
+    value: "梦盟",
+  },
+];
+
 export const allianceincludes = (str1) => {
-	if (str1.includes("梦盟") || str1.includes("梦想之盟") || str1.includes("梦")){
-		return ("梦盟")
-	}
-	else if(str1.includes("大联盟")){
-		return ("大联盟")
-	}
-	else if(str1.includes("正义")){
-		return ("正义联盟")
-	}
-	else if(str1.includes("龙盟") || str1.includes("龍盟")){
-		return ("龙盟")
-	}
-	else { return ("未知") }
-}
+  const matchedItem = allianceConfig.find((item) => {
+    return item.keywords.some((keyword) => str1.includes(keyword));
+  });
+
+  return matchedItem ? matchedItem.value : "未知联盟";
+};

@@ -555,7 +555,6 @@ export const useTokenStore = defineStore('tokens', () => {
           throw new Error(`Token无效: ${parseResult.error}`)
         }
       }
-
       // 6. 构建WebSocket URL
       const baseWsUrl = `wss://xxz-xyzw.hortorgames.com/agent?p=${encodeURIComponent(actualToken)}&e=x&lang=chinese`
 
@@ -846,6 +845,15 @@ export const useTokenStore = defineStore('tokens', () => {
     return sendMessageWithPromise(tokenId, 'presetteam_getinfo', params)
   }
 
+  //发送消息到世界
+  const sendMessageToWorld = (tokenId: string,message:string)=>{
+    return sendMessageWithPromise(tokenId,'system_sendchatmessage',{channel:1,emojiId: 0,extra:null,msg:message,msgType:1})
+  }
+  //发送消息到俱乐部
+  const sendMessageToLegion = (tokenId: string,message:string)=>{
+    return sendMessageWithPromise(tokenId,'system_sendchatmessage',{channel:2,emojiId: 0,extra:null,msg:message,msgType:1})
+  }
+
   // 发送自定义游戏消息
   const sendGameMessage = (tokenId: string, cmd: string, params = {}, options = {}) => {
     if (options.usePromise) {
@@ -993,9 +1001,9 @@ export const useTokenStore = defineStore('tokens', () => {
       setInterval(() => {
         const now = Date.now()
 
-        console.log('ws连接监控运行中...', wsConnections.value)
-        console.log('co连接监控运行中...', connectionLocks.value)
-        console.log('ac连接监控运行中...', activeConnections.value)
+        // console.log('ws连接监控运行中...', wsConnections.value)
+        // console.log('co连接监控运行中...', connectionLocks.value)
+        // console.log('ac连接监控运行中...', activeConnections.value)
 
         // 检查连接超时（超过30秒未活动）
         Object.entries(wsConnections.value).forEach(([tokenId, connection]) => {
@@ -1192,6 +1200,7 @@ export const useTokenStore = defineStore('tokens', () => {
     sendGetTeamInfo,
     sendGameMessage,
 
+
     // 工具方法
     exportTokens,
     importTokens,
@@ -1199,6 +1208,10 @@ export const useTokenStore = defineStore('tokens', () => {
     cleanExpiredTokens,
     upgradeTokenToPermanent,
     initTokenStore,
+
+    //游戏内发送消息方法
+    sendMessageToLegion,
+    sendMessageToWorld,
 
     // 塔信息方法
     getCurrentTowerLevel,

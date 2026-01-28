@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import * as autoRoutes from "vue-router/auto-routes";
 import { useTokenStore } from '@/stores/tokenStore'
+import { isNowInLegionWarTime } from "@/utils/clubBattleUtils"
 
 const generatedRoutes = autoRoutes.routes ?? [];
 
@@ -60,6 +61,15 @@ const my_routes = [
         component: () => import('@/components/Test/MessageTester.vue'),
         meta: {
           title: '消息测试',
+          requiresToken: true
+        }
+      },
+      {
+        path: 'legion-war',
+        name: 'LegionWar',
+        component: () => import('@/views/LegionWar.vue'),
+        meta: {
+          title: '实时盐场',
           requiresToken: true
         }
       },
@@ -149,9 +159,15 @@ router.beforeEach((to, from, next) => {
 
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - XYZW 游戏管理系统` : 'XYZW 游戏管理系统'
-
+  if(to.name==="LegionWar"&&!isNowInLegionWarTime()){
+  // if(to.name==="LegionWar"&&isNowInLegionWarTime()){
+    next('/admin/dashboard');
+    return;
+  }
+  console.log(to.meta)
   // 检查是否需要Token
-  if (to.meta.requiresToken && !tokenStore.hasTokens) {
+  // if (to.meta.requiresToken  && tokenStore.getWebSocketStatus(tokenStore.selectedToken.id)=="disconnected") {
+    if (to.meta.requiresToken  && !tokenStore.hasTokens) {
     next('/tokens')
   } else if (to.path === '/' && tokenStore.hasTokens) {
     // 首页重定向逻辑

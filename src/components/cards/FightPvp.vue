@@ -122,6 +122,10 @@
                     <td class="label-cell">战力：</td>
                     <td class="value-cell power-value">{{ memberData.power }}</td>
                   </tr>
+                  <tr>
+                    <td class="label-cell">玩具：</td>
+                    <td class="value-cell">{{ memberData.lordWeaponId }}</td>
+                  </tr>
                   <tr class="highlight-row">
                     <td class="label-cell">阵容：</td>
                     <td class="value-cell lineup">
@@ -135,16 +139,12 @@
                     <td class="value-cell">{{ memberData.legionName }}</td>
                   </tr>
                   <tr>
-                    <td class="label-cell">历史最高战力：</td>
+                    <td class="label-cell">俱乐部战力：</td>
                     <td class="value-cell">{{ memberData.MaxPower }}</td>
                   </tr>
                   <tr>
                     <td class="label-cell">当前红数：</td>
                     <td class="value-cell">{{ memberData.legionRed }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label-cell">历史最高红数：</td>
-                    <td class="value-cell">{{ memberData.legionMaxRed }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -435,7 +435,7 @@ import {
   copyToClipboard
 } from '@/utils/clubBattleUtils'
 import { gettoday, formatWarrankRecordsForExport, allianceincludes } from '@/utils/goldWarrankUtils'
-import { HERO_DICT, HeroFillInfo } from '@/utils/HeroList'
+import { HERO_DICT, HeroFillInfo,formatWeapon } from '@/utils/HeroList'
 import html2canvas from 'html2canvas';
 
 const props = defineProps({
@@ -679,6 +679,7 @@ const fetchTargetInfo = async () => {
         isSearch: false,
         roleId: targetId.value
       }, 5000)
+      
     if (!result.roleInfo && !result.legionInfo) {
       memberData.value = null;
       message.warning('未查询到对手信息');
@@ -693,17 +694,18 @@ const fetchTargetInfo = async () => {
       hero.PearlInfo = fishInfo[hero.artifactId] || {};
     });
     // 俱乐部名称
-    teamData.legionName = result.legionInfo.name;
+    teamData.legionName = result.legionInfo?.name||"无俱乐部";
     // 俱乐部当前红数
-    teamData.legionRed = result.legionInfo.statistics['battle:red:quench'];
+    teamData.legionRed = result.legionInfo?.statistics['battle:red:quench']||"无";
     // 俱乐部历史最高红数
-    teamData.legionMaxRed = result.legionInfo.statistics['red:quench'];
+    teamData.legionMaxRed = result.legionInfo?.statistics['red:quench']||"无";
     // 俱乐部历史最高战力
-    teamData.MaxPower = formatPower(result.legionInfo.statistics['max:power']);
+    teamData.MaxPower = formatPower(result.legionInfo?.statistics['max:power']||"0");
     // 切磋对手武将信息
     teamData.heroList = heroAndholdAndRed.heroList;
     // 切磋对手玩家头像
     teamData.headImg = result.roleInfo.headImg;
+    teamData.lordWeaponId = formatWeapon(result.roleInfo.lordWeaponId);
     // 切磋对手玩家名称
     teamData.name = result.roleInfo.name;
     teamData.power = formatPower(result.roleInfo.power);
@@ -737,6 +739,7 @@ const getHeroInfo = (heroObj) => {
         let equipmentInfo = getEquipment(hero.equipment);
         let tempObj = {
             heroId: hero.heroId, //英雄ID
+            heroSort:hero.battleTeamSlot, //阵容站位
             artifactId: hero.artifactId, //英雄装备ID，用于匹配鱼灵信息
             power: formatPower(hero.power), //英雄战力
             star: hero.star, //英雄星级
@@ -752,7 +755,7 @@ const getHeroInfo = (heroObj) => {
         holeCount += tempObj.hole;
         heroList.push(tempObj);
     });
-    return { redCount, holeCount, heroList };
+    return { redCount, holeCount, heroList:heroList.sort((a,b)=>{return a.heroSort-b.heroSort}) };
 }
 
 //获取装备信息红数和孔数
@@ -797,7 +800,7 @@ const handleFightNumChange = (value) => {
       fightNum.value = 1;
     }
   } else {
-    if(num>0&&num<50){
+    if(value>0&&value<50){
       // 如果已经是数字类型，直接使用
       fightNum.value = value;
     }else{
@@ -891,7 +894,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .fight-pvp-container {
   width: 100%;
-  padding: 16px;
+  // padding: 16px;
 }
 
 .main-card {
@@ -1684,7 +1687,7 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .main-card {
-    padding: 16px;
+    padding: 12px;
   }
   
   .card-header {

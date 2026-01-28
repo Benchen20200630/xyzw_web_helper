@@ -243,6 +243,9 @@ export function registerDefaultCommands(reg) {
     .register("bosstower_startbox")
     .register("discount_getdiscountinfo")
 
+    //发送游戏内消息
+    .register("system_sendchatmessage")
+
   registry.commands.set("fight_startareaarena", (ack = 0, seq = 0, params = {}) => {
     if (params?.targetId === undefined || params?.targetId === null) {
       throw new Error("fight_startareaarena requires targetId in params")
@@ -334,6 +337,7 @@ export class XyzwWebSocketClient {
     this.socket.onmessage = (evt) => {
       try {
         let packet
+        // evt.data.arrayBuffer().then(buffer => {console.log(buffer)})
         if (typeof evt.data === "string") {
           packet = JSON.parse(evt.data)
         } else if (evt.data instanceof ArrayBuffer) {

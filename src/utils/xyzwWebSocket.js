@@ -331,7 +331,11 @@ export function registerDefaultCommands(reg) {
     .register("bosstower_getinfo")
     .register("bosstower_startboss")
     .register("bosstower_startbox")
-    .register("discount_getdiscountinfo");
+    .register("discount_getdiscountinfo")
+    
+    //发送游戏内消息
+    .register("system_sendchatmessage")
+    ;
 
   registry.commands.set(
     "fight_startareaarena",

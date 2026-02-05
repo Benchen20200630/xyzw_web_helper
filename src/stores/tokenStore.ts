@@ -182,8 +182,9 @@ export const useTokenStore = defineStore("tokens", () => {
 
   // Token管理
   const addToken = (tokenData: TokenData) => {
+    let id = tokenData.id || `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newToken = {
-      id: "token_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+      id: id,
       name: tokenData.name,
       token: tokenData.token, // 保存原始Base64 token
       wsUrl: tokenData.wsUrl || null, // 可选的自定义WebSocket URL
@@ -339,7 +340,6 @@ export const useTokenStore = defineStore("tokens", () => {
               gameToken.importMethod === "wxQrcode"
             ) {
               // Bin形式token刷新（原有逻辑）
-              console.log("getArrayBuffer", await getArrayBuffer("小鱼"));
               const userToken: ArrayBuffer | null = await getArrayBuffer(
                 gameToken.name,
               );
@@ -956,12 +956,12 @@ export const useTokenStore = defineStore("tokens", () => {
   };
 
   //发送消息到世界
-  const sendMessageToWorld = (tokenId: string,message:string)=>{
-    return sendMessageWithPromise(tokenId,'system_sendchatmessage',{channel:1,emojiId: 0,extra:null,msg:message,msgType:1})
+  const sendMessageToWorld = (tokenId: string, message: string) => {
+    return sendMessageWithPromise(tokenId, 'system_sendchatmessage', { channel: 1, emojiId: 0, extra: null, msg: message, msgType: 1 })
   }
   //发送消息到俱乐部
-  const sendMessageToLegion = (tokenId: string,message:string)=>{
-    return sendMessageWithPromise(tokenId,'system_sendchatmessage',{channel:2,emojiId: 0,extra:null,msg:message,msgType:1})
+  const sendMessageToLegion = (tokenId: string, message: string) => {
+    return sendMessageWithPromise(tokenId, 'system_sendchatmessage', { channel: 2, emojiId: 0, extra: null, msg: message, msgType: 1 })
   }
 
   // 发送自定义游戏消息
@@ -1133,10 +1133,6 @@ export const useTokenStore = defineStore("tokens", () => {
     startMonitoring: () => {
       setInterval(() => {
         const now = Date.now();
-
-        console.log("ws连接监控运行中...", wsConnections.value);
-        console.log("co连接监控运行中...", connectionLocks.value);
-        console.log("ac连接监控运行中...", activeConnections.value);
 
         // 检查连接超时（超过30秒未活动）
         Object.entries(wsConnections.value).forEach(([tokenId, connection]) => {

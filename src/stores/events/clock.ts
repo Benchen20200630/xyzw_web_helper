@@ -1,7 +1,4 @@
-import { gameLogger } from "@/utils/logger";
 import type { EVM, Session } from ".";
-import { findAnswer } from "@/utils/studyQuestionsFromJSON";
-import { isInCurrentWeek } from "@/utils/base";
 
 export const ClockPlugin = ({ onSome, $emit }: EVM) => {
   onSome(

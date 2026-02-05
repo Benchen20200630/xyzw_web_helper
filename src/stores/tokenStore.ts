@@ -1,14 +1,15 @@
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+
 import { g_utils, ProtoMsg } from "@/utils/bonProtocol";
 import { gameLogger, tokenLogger, wsLogger } from "@/utils/logger";
 import { XyzwWebSocketClient } from "@/utils/xyzwWebSocket";
 
-import { emitPlus } from "./events/index.js";
 import useIndexedDB from "@/hooks/useIndexedDB";
-import { transformToken } from "@/utils/token";
 import { generateRandomSeed } from "@/utils/randomSeed";
+import { transformToken } from "@/utils/token";
+import { emitPlus } from "./events/index.js";
 
 const { getArrayBuffer } = useIndexedDB();
 
@@ -60,6 +61,7 @@ export const selectedRoleInfo = useLocalStorage<any>("selectedRoleInfo", null);
 // 跨标签页连接协调
 const activeConnections = useLocalStorage("activeConnections", {});
 
+
 /**
  * 重构后的Token管理存储
  * 以名称-token列表形式管理多个游戏角色
@@ -86,6 +88,7 @@ export const useTokenStore = defineStore("tokens", () => {
     },
     lastUpdated: null as string | null,
   });
+
 
   // 获取当前选中token的角色信息
   const selectedTokenRoleInfo = computed(() => {
@@ -299,6 +302,7 @@ export const useTokenStore = defineStore("tokens", () => {
     message: ProtoMsg,
     client: any,
   ) => {
+
     try {
       if (!message) {
         gameLogger.warn(`消息处理跳过 [${tokenId}]: 无效消息`);

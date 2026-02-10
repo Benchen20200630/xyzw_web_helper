@@ -1301,7 +1301,11 @@
                   : '#1677ff',
               }"
             >
-              {{ taskCountdowns[task.id]?.formatted || "计算中..." }}
+              {{
+                task.enabled
+                  ? taskCountdowns[task.id]?.formatted || "计算中..."
+                  : "已禁用"
+              }}
             </span>
           </div>
           <div style="margin-bottom: 4px">
@@ -3274,6 +3278,12 @@ const updateCountdowns = () => {
   const now = Date.now();
 
   scheduledTasks.value.forEach((task) => {
+    if (!task.enabled) {
+      // Clear countdown for disabled tasks
+      delete taskCountdowns.value[task.id];
+      return;
+    }
+
     if (
       !nextExecutionTimes.value[task.id] ||
       nextExecutionTimes.value[task.id] <= now
@@ -3302,6 +3312,8 @@ const shortestCountdownTask = computed(() => {
 
   // 遍历所有任务，找到倒计时最短的任务
   scheduledTasks.value.forEach((task) => {
+    if (!task.enabled) return;
+
     const countdown = taskCountdowns.value[task.id];
     if (countdown && countdown.remainingTime < shortestTime) {
       shortestTime = countdown.remainingTime;
@@ -3902,8 +3914,38 @@ const executeScheduledTask = async (task) => {
       return;
     }
 
-    // Set selected tokens from the task - use selectedTokens if connectedTokens is not available
-    selectedTokens.value = [...task.selectedTokens];
+    // Filter out tokens that don't exist in current tokens.value
+    const availableTokens = (
+      task.connectedTokens || task.selectedTokens
+    ).filter((tokenId) => {
+      return tokens.value.some((t) => t.id === tokenId);
+    });
+
+    const missingTokens = (task.connectedTokens || task.selectedTokens).filter(
+      (tokenId) => {
+        return !tokens.value.some((t) => t.id === tokenId);
+      },
+    );
+
+    if (missingTokens.length > 0) {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `⚠️  跳过不存在的Token: ${missingTokens.join(", ")}`,
+        type: "warning",
+      });
+    }
+
+    if (availableTokens.length === 0) {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `=== 定时任务 ${task.name} 没有可用的Token，取消执行 ===`,
+        type: "error",
+      });
+      return;
+    }
+
+    // Always use the latest selectedTokens from the task that exist in current tokens.value
+    selectedTokens.value = [...availableTokens];
 
     // Execute selected tasks in parallel
     const taskPromises = task.selectedTasks.map(async (taskName) => {

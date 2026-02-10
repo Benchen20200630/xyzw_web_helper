@@ -592,6 +592,9 @@
                   <span :class="hero.HolyBeast ? 'opened' : 'closed'">
                     {{ hero.HolyBeast ? "已开四圣" : "未开四圣" }}
                   </span>
+                  <span v-if="hero.HolyBeast"
+                    >四圣等级: {{ hero.HBlevel || 0 }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -676,10 +679,23 @@
             <n-descriptions-item label="四圣状态">
               {{ heroModealTemp.HolyBeast ? "已激活" : "未激活" }}
             </n-descriptions-item>
+            <n-descriptions-item
+              label="四圣等级"
+              v-if="heroModealTemp.HolyBeast"
+            >
+              {{ heroModealTemp.HBlevel }}
+            </n-descriptions-item>
             <n-descriptions-item label="鱼灵">
               {{
                 heroModealTemp?.PearlInfo?.FishInfo?.name != undefined
                   ? heroModealTemp.PearlInfo?.FishInfo?.name
+                  : "无"
+              }}
+            </n-descriptions-item>
+            <n-descriptions-item label="鱼珠技能">
+              {{
+                heroModealTemp?.PearlInfo?.PearlSkill?.name != undefined
+                  ? heroModealTemp.PearlInfo?.PearlSkill?.name
                   : "无"
               }}
             </n-descriptions-item>
@@ -693,13 +709,6 @@
                 ></div>
               </div>
               <div v-else>无</div>
-            </n-descriptions-item>
-            <n-descriptions-item label="鱼珠技能">
-              {{
-                heroModealTemp?.PearlInfo?.PearlSkill?.name != undefined
-                  ? heroModealTemp.PearlInfo?.PearlSkill?.name
-                  : "无"
-              }}
             </n-descriptions-item>
           </n-descriptions>
         </div>
@@ -962,6 +971,7 @@ const getHeroInfo = (heroObj) => {
         hole: equipmentInfo.holeCount, //英雄开孔数量
         red: equipmentInfo.redCount, //英雄红数
         HolyBeast: hero.hB?.active === true, //激活四圣
+        HBlevel: hero.hB?.order || 0, //四圣等级
         // 添加英雄详情信息
         skillList: hero.skillList || [],
         attributeList: hero.attributeList || [],

@@ -489,6 +489,11 @@
                     ? `正在执行: ${currentRunningTokenName}`
                     : "执行日志"
                 }}
+                <span
+                  style="margin-left: 12px; font-size: 12px; color: #86909c"
+                >
+                  {{ logs.length }}/{{ batchSettings.maxLogEntries || 1000 }}
+                </span>
               </div>
               <div class="log-header-controls">
                 <n-checkbox v-model:checked="autoScrollLog" size="small">
@@ -500,6 +505,7 @@
                 <n-tag v-if="errorCount > 0" type="error" size="small">
                   {{ errorCount }} 个错误
                 </n-tag>
+                <n-button size="small" @click="clearLogs"> 清空日志 </n-button>
                 <n-button size="small" @click="copyLogs"> 复制日志 </n-button>
               </div>
             </div>
@@ -1735,6 +1741,27 @@
               style="width: 140px"
             />
           </div>
+          <n-divider title-placement="left" style="margin: 1px 0"
+            >日志设置</n-divider
+          >
+          <div
+            class="setting-item"
+            style="
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <label class="setting-label">最大日志条目数</label>
+            <n-input-number
+              v-model:value="batchSettings.maxLogEntries"
+              :min="100"
+              :max="5000"
+              :step="100"
+              size="small"
+              style="width: 140px"
+            />
+          </div>
         </div>
         <div class="modal-actions" style="margin-top: 20px; text-align: right">
           <n-button
@@ -2006,6 +2033,7 @@ const batchSettings = reactive({
   carMinColor: 4,
   connectionTimeout: 10000,
   reconnectDelay: 1000,
+  maxLogEntries: 1000,
 });
 
 // Load batch settings from localStorage
@@ -4674,10 +4702,35 @@ const calculateMonthProgress = () => {
 };
 
 const addLog = (log) => {
+  // 添加日志数据到数组
   logs.value.push(log);
-  nextTick(() => {
+
+  // 限制logs数组大小，防止内存占用过大
+  const maxLogEntries = batchSettings.maxLogEntries || 1000;
+  if (logs.value.length > maxLogEntries) {
+    logs.value = logs.value.slice(-maxLogEntries);
+  }
+
+  // 尝试DOM操作，但不依赖nextTick确保日志显示
+  // 在后台运行时，浏览器可能会限制DOM操作
+  try {
     if (logContainer.value && autoScrollLog.value) {
+      // 直接尝试滚动，不使用nextTick
       logContainer.value.scrollTop = logContainer.value.scrollHeight;
+    }
+  } catch (error) {
+    // 忽略DOM操作错误，确保日志数据仍然被记录
+    console.warn("Failed to scroll log container:", error);
+  }
+
+  // 同时使用nextTick作为后备，确保在页面回到前台时能正确滚动
+  nextTick(() => {
+    try {
+      if (logContainer.value && autoScrollLog.value) {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      }
+    } catch (error) {
+      // 忽略错误
     }
   });
 };
@@ -4685,7 +4738,12 @@ const addLog = (log) => {
 watch(autoScrollLog, (newValue) => {
   if (newValue && logContainer.value) {
     nextTick(() => {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      try {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      } catch (error) {
+        // 忽略DOM操作错误
+        console.warn("Failed to scroll log container:", error);
+      }
     });
   }
 });
@@ -4706,6 +4764,11 @@ const copyLogs = () => {
     .catch((err) => {
       message.error("复制日志失败: " + err.message);
     });
+};
+
+const clearLogs = () => {
+  logs.value = [];
+  message.success("日志已清空");
 };
 
 const waitForConnection = async (

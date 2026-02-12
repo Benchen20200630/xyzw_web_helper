@@ -549,6 +549,14 @@
             />
           </div>
           <div class="setting-item">
+            <label class="setting-label">爬塔阵容</label>
+            <n-select
+              v-model:value="currentSettings.towerFormation"
+              :options="formationOptions"
+              size="small"
+            />
+          </div>
+          <div class="setting-item">
             <label class="setting-label">BOSS阵容</label>
             <n-select
               v-model:value="currentSettings.bossFormation"
@@ -622,6 +630,14 @@
             <label class="setting-label">竞技场阵容</label>
             <n-select
               v-model:value="currentTemplate.arenaFormation"
+              :options="formationOptions"
+              size="small"
+            />
+          </div>
+          <div class="setting-item">
+            <label class="setting-label">爬塔阵容</label>
+            <n-select
+              v-model:value="currentTemplate.towerFormation"
               :options="formationOptions"
               size="small"
             />
@@ -1942,6 +1958,7 @@ const currentSettingsTokenId = ref(null);
 const currentSettingsTokenName = ref("");
 const currentSettings = reactive({
   arenaFormation: 1,
+  towerFormation: 1,
   bossFormation: 1,
   bossTimes: 2,
   claimBottle: true,
@@ -1965,6 +1982,7 @@ const currentTemplateName = ref("");
 const currentTemplateId = ref(null); // 用于编辑现有模板
 const currentTemplate = reactive({
   arenaFormation: 1,
+  towerFormation: 1,
   bossFormation: 1,
   bossTimes: 2,
   claimBottle: true,
@@ -4306,6 +4324,7 @@ const loadSettings = (tokenId) => {
     const raw = localStorage.getItem(`daily-settings:${tokenId}`);
     const defaultSettings = {
       arenaFormation: 1,
+      towerFormation: 1,
       bossFormation: 1,
       bossTimes: 2,
       claimBottle: true,
@@ -4349,6 +4368,7 @@ const openTaskTemplateModal = () => {
   // 重置当前模板
   Object.assign(currentTemplate, {
     arenaFormation: 1,
+    towerFormation: 1,
     bossFormation: 1,
     bossTimes: 2,
     claimBottle: true,
@@ -4496,6 +4516,7 @@ const resetTemplateForm = () => {
   currentTemplateName.value = "";
   Object.assign(currentTemplate, {
     arenaFormation: 1,
+    towerFormation: 1,
     bossFormation: 1,
     bossTimes: 2,
     claimBottle: true,
@@ -5347,6 +5368,42 @@ const batcharenafight = async () => {
       });
       await ensureConnection(tokenId);
       if (shouldStop.value) return;
+      const teamInfo = await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "presetteam_getinfo",
+        {},
+        5000,
+      );
+      if (!teamInfo || !teamInfo.presetTeamInfo) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `阵容信息异常: ${JSON.stringify(teamInfo)}`,
+          type: "warning",
+        });
+      }
+
+      const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
+      let Isswitching = false;
+      if (currentFormation === currentSettings.arenaFormation) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `当前已是阵容${currentSettings.arenaFormation}，无需切换`,
+          type: "info",
+        });
+      } else {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentSettings.arenaFormation },
+          5000,
+        );
+        Isswitching = true;
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `成功切换到阵容${currentSettings.arenaFormation}`,
+          type: "info",
+        });
+      }
       for (let i = 0; i < 3; i++) {
         if (shouldStop.value) break;
         // 开始竞技场
@@ -5392,6 +5449,14 @@ const batcharenafight = async () => {
         }
       }
       await new Promise((r) => setTimeout(r, 500));
+      if (Isswitching) {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentFormation },
+          5000,
+        );
+      }
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -5631,6 +5696,43 @@ const climbTower = async () => {
 
       await ensureConnection(tokenId);
 
+      const teamInfo = await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "presetteam_getinfo",
+        {},
+        5000,
+      );
+      if (!teamInfo || !teamInfo.presetTeamInfo) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `阵容信息异常: ${JSON.stringify(teamInfo)}`,
+          type: "warning",
+        });
+      }
+
+      const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
+      let Isswitching = false;
+      if (currentFormation === currentSettings.towerFormation) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `当前已是阵容${currentSettings.towerFormation}，无需切换`,
+          type: "info",
+        });
+      } else {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentSettings.towerFormation },
+          5000,
+        );
+        Isswitching = true;
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `成功切换到阵容${currentSettings.towerFormation}`,
+          type: "info",
+        });
+      }
+
       // Initial check
       // 模仿 TowerStatus.vue 的逻辑，同时请求 tower_getinfo 和 role_getroleinfo
       await tokenStore
@@ -5715,7 +5817,14 @@ const climbTower = async () => {
           }
         }
       }
-
+      if (Isswitching) {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentFormation },
+          5000,
+        );
+      }
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -5780,6 +5889,42 @@ const climbWeirdTower = async () => {
 
       await ensureConnection(tokenId);
 
+      const teamInfo = await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "presetteam_getinfo",
+        {},
+        5000,
+      );
+      if (!teamInfo || !teamInfo.presetTeamInfo) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `阵容信息异常: ${JSON.stringify(teamInfo)}`,
+          type: "warning",
+        });
+      }
+
+      const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
+      let Isswitching = false;
+      if (currentFormation === currentSettings.towerFormation) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `当前已是阵容${currentSettings.towerFormation}，无需切换`,
+          type: "info",
+        });
+      } else {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentSettings.towerFormation },
+          5000,
+        );
+        Isswitching = true;
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `成功切换到阵容${currentSettings.towerFormation}`,
+          type: "info",
+        });
+      }
       // 获取怪异塔信息
       const evotowerinfo1 = await tokenStore.sendMessageWithPromise(
         tokenId,
@@ -5912,7 +6057,14 @@ const climbWeirdTower = async () => {
           }
         }
       }
-
+      if (Isswitching) {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentFormation },
+          5000,
+        );
+      }
       tokenStatus.value[tokenId] = "completed";
       addLog({
         time: new Date().toLocaleTimeString(),
@@ -6339,6 +6491,42 @@ const batchTopUpArena = async () => {
   const taskPromises = selectedTokens.value.map(async (tokenId) => {
     if (shouldStop.value) return;
     tokenStatus.value[tokenId] = "running";
+    const teamInfo = await tokenStore.sendMessageWithPromise(
+      tokenId,
+      "presetteam_getinfo",
+      {},
+      5000,
+    );
+    if (!teamInfo || !teamInfo.presetTeamInfo) {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `阵容信息异常: ${JSON.stringify(teamInfo)}`,
+        type: "warning",
+      });
+    }
+
+    const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
+    let Isswitching = false;
+    if (currentFormation === currentSettings.arenaFormation) {
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `当前已是阵容${currentSettings.arenaFormation}，无需切换`,
+        type: "info",
+      });
+    } else {
+      await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "presetteam_saveteam",
+        { teamId: currentSettings.arenaFormation },
+        5000,
+      );
+      Isswitching = true;
+      addLog({
+        time: new Date().toLocaleTimeString(),
+        message: `成功切换到阵容${currentSettings.arenaFormation}`,
+        type: "info",
+      });
+    }
     const token = tokens.value.find((t) => t.id === tokenId);
     try {
       addLog({
@@ -6551,6 +6739,14 @@ const batchTopUpArena = async () => {
           message: `${token.name} 竞技场补齐已停止，未达到目标，最终进度: ${finalArenaNum}/${ARENA_TARGET}`,
           type: "warning",
         });
+      }
+      if (Isswitching) {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "presetteam_saveteam",
+          { teamId: currentFormation },
+          5000,
+        );
       }
       tokenStatus.value[tokenId] = "completed";
     } catch (error) {

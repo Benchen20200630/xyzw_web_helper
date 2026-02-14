@@ -1960,14 +1960,24 @@ const exportToImage = async () => {
     return;
   }
 
-  try {
-    // 保存原始样式
-    const originalHeight = exportDom.value.style.height;
-    const originalOverflow = exportDom.value.style.overflow;
+  // 获取 table-container
+  const tableContainer = exportDom.value.querySelector('.table-container');
+  // 保存滚动位置
+  const scrollTop = tableContainer ? tableContainer.scrollTop : 0;
 
+  try {
     // 临时调整表格容器高度，确保所有内容可见
     exportDom.value.style.height = "auto";
     exportDom.value.style.overflow = "visible";
+
+    if (tableContainer) {
+      // 保存原始样式
+      tableContainer.dataset.originalHeight = tableContainer.style.height;
+      tableContainer.dataset.originalOverflow = tableContainer.style.overflow;
+      
+      tableContainer.style.height = "auto";
+      tableContainer.style.overflow = "visible";
+    }
 
     // 等待DOM更新
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -2003,8 +2013,29 @@ const exportToImage = async () => {
     alert("导出图片失败，请重试");
   } finally {
     // 恢复原始样式
-    exportDom.value.style.height = originalHeight;
-    exportDom.value.style.overflow = originalOverflow;
+    exportDom.value.style.removeProperty('height');
+    exportDom.value.style.removeProperty('overflow');
+    
+    if (tableContainer) {
+      if (tableContainer.dataset.originalHeight) {
+        tableContainer.style.height = tableContainer.dataset.originalHeight;
+      } else {
+        tableContainer.style.removeProperty('height');
+      }
+      
+      if (tableContainer.dataset.originalOverflow) {
+        tableContainer.style.overflow = tableContainer.dataset.originalOverflow;
+      } else {
+        tableContainer.style.removeProperty('overflow');
+      }
+      
+      // 清理 dataset
+      delete tableContainer.dataset.originalHeight;
+      delete tableContainer.dataset.originalOverflow;
+      
+      // 恢复滚动位置
+      tableContainer.scrollTop = scrollTop;
+    }
   }
 };
 
@@ -2867,11 +2898,11 @@ onMounted(() => {
 // 表格内容区
 .table-content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
-  height: calc(100% - 200px);
 
   // 加载状态
   .loading-state {

@@ -59,7 +59,7 @@ export const availableTasks = [
   { label: "批量领取功法残卷", value: "batchLegacyClaim" },
   { label: "批量赠送功法残卷", value: "batchLegacyGiftSendEnhanced" },
   { label: "一键合成怪异塔道具", value: "batchMergeItems" },
-  { label: "一键怪异塔合成(需要8级以上)", value: "batchMergeWeirdItems" },
+  { label: "一键怪异塔合成", value: "batchMergeWeirdItems" },
 ];
 
 // 车辆研究消耗表

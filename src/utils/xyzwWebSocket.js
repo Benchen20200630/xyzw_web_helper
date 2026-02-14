@@ -231,6 +231,9 @@ export function registerDefaultCommands(reg) {
     .register("mergebox_claimfreeenergy")
     .register("mergebox_openbox")
     .register("mergebox_automergeitem", { actType: 1 })
+    .register("mergebox_mergeitem", { actType: 1 })
+    .register("mergebox_claimcostprogress", { actType: 1 })
+    .register("mergebox_claimmergeprogress", { actType: 1 })
 
     // 瓶子机器人
     .register("bottlehelper_claim")
@@ -1040,6 +1043,9 @@ export class XyzwWebSocketClient {
       mergebox_claimfreeenergyresp: "mergebox_claimfreeenergy",
       mergebox_openboxresp: "mergebox_openbox",
       mergebox_automergeitemresp: "mergebox_automergeitem",
+      mergebox_mergeitemresp: "mergebox_mergeitem",
+      mergebox_claimcostprogressresp: "mergebox_claimcostprogress",
+      mergebox_claimmergeprogressresp: "mergebox_claimmergeprogress",
       item_openpackresp: "item_openpack",
       equipment_quenchresp: "equipment_quench",
       rank_getserverrankresp: "rank_getserverrank",

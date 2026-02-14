@@ -263,6 +263,14 @@ const startUseItems = async () => {
       await new Promise((res) => setTimeout(res, 500));
     }
 
+    // 领取累计奖励
+    await tokenStore.sendMessageWithPromise(
+      tokenId,
+      "mergebox_claimcostprogress",
+      { actType: 1 },
+      5000
+    ).catch(() => {});
+
     message.success(`已使用道具 ${processedCount} 次`);
     // 刷新一下
     await getTowerInfo();
@@ -305,13 +313,112 @@ const autoMergeItems = async () => {
 
     message.loading("正在执行一键合成...");
 
-    // 调用合成接口
-    await tokenStore.sendMessageWithPromise(
+    // 获取当前信息
+    const infoRes = await tokenStore.sendMessageWithPromise(
       tokenId,
-      "mergebox_automergeitem",
+      "mergebox_getinfo",
       { actType: 1 },
-      10000 // 增加一点超时时间，因为合成可能比较慢
+      5000
     );
+
+    const isLevel8OrAbove = infoRes.mergeBox && infoRes.mergeBox.taskMap && infoRes.mergeBox.taskMap["251212208"] && infoRes.mergeBox.taskMap["251212208"] !== 0;
+
+    if (!isLevel8OrAbove) {
+      // 8级以下使用智能合成
+      if (!infoRes.mergeBox) {
+         throw new Error("返回数据缺少 mergeBox");
+      }
+      // 解析 gridMap
+      const gridMap = infoRes.mergeBox.gridMap || {};
+      const items = [];
+
+      // 收集所有 gridConfId === 0 的物品
+      for (const xStr in gridMap) {
+        for (const yStr in gridMap[xStr]) {
+          const item = gridMap[xStr][yStr];
+          if (item.gridConfId == 0 && item.gridItemId > 0 && !item.isLock) {
+            items.push({
+              x: parseInt(xStr),
+              y: parseInt(yStr),
+              id: item.gridItemId
+            });
+          }
+        }
+      }
+
+      // 按 gridItemId 分组
+      const groupedItems = {};
+      items.forEach(item => {
+        if (!groupedItems[item.id]) {
+          groupedItems[item.id] = [];
+        }
+        groupedItems[item.id].push(item);
+      });
+
+      // 执行合成
+      let hasMergeAction = false;
+      for (const id in groupedItems) {
+        if (stopMergeFlag) break;
+        const group = groupedItems[id];
+        // 两两合成
+        while (group.length >= 2) {
+          if (stopMergeFlag) break;
+          const source = group.shift();
+          const target = group.shift();
+
+          hasMergeAction = true;
+          await tokenStore.sendMessageWithPromise(
+            tokenId,
+            "mergebox_mergeitem",
+            {
+              actType: 1,
+              sourcePos: { gridX: source.x, gridY: source.y },
+              targetPos: { gridX: target.x, gridY: target.y }
+            },
+            1000
+          ).catch(() => {});
+          await new Promise((res) => setTimeout(res, 300));
+        }
+      }
+
+      if (!hasMergeAction) {
+        message.info("当前没有可合成的物品");
+      }
+    } else {
+       await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "mergebox_automergeitem",
+        { actType: 1 },
+        10000 
+      );
+    }
+
+    // 领取合成奖励
+    // 重新获取信息以获得最新的 taskMap
+    const finalInfoRes = await tokenStore.sendMessageWithPromise(
+      tokenId,
+      "mergebox_getinfo",
+      { actType: 1 },
+      5000
+    );
+    
+    if (finalInfoRes && finalInfoRes.mergeBox && finalInfoRes.mergeBox.taskMap) {
+      const taskMap = finalInfoRes.mergeBox.taskMap;
+      const taskClaimMap = finalInfoRes.mergeBox.taskClaimMap || {};
+
+      for (const taskId in taskMap) {
+        if (stopMergeFlag) break;
+        if (taskMap[taskId] !== 0 && !taskClaimMap[taskId]) {
+           await tokenStore.sendMessageWithPromise(
+             tokenId,
+             "mergebox_claimmergeprogress",
+             { actType: 1, taskId: parseInt(taskId) },
+             2000
+           ).catch(() => {});
+           await new Promise((res) => setTimeout(res, 500));
+        }
+      }
+    }
 
     message.success("一键合成操作完成");
     // 刷新一下

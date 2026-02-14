@@ -175,7 +175,7 @@
                 !isWeirdTowerActivityOpen
               "
             >
-              一键怪异塔合成(需要8级以上)
+              一键怪异塔合成
             </n-button>
             <n-button
               size="small"

@@ -855,6 +855,19 @@ export function createTasksTower(deps) {
           await new Promise((res) => setTimeout(res, 500));
         }
 
+        // 领取累计奖励
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "mergebox_claimcostprogress",
+          { actType: 1 },
+          5000
+        ).catch(() => {});
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 尝试领取累计使用奖励`,
+          type: "info",
+        });
+
         tokenStatus.value[tokenId] = "completed";
         addLog({
           time: new Date().toLocaleTimeString(),
@@ -913,13 +926,117 @@ export function createTasksTower(deps) {
 
         await ensureConnection(tokenId);
 
-        // 调用合成接口
-        await tokenStore.sendMessageWithPromise(
+        // 获取当前信息判断等级
+        const infoRes = await tokenStore.sendMessageWithPromise(
           tokenId,
-          "mergebox_automergeitem",
+          "mergebox_getinfo",
           { actType: 1 },
-          10000 
+          5000
         );
+
+        // 调用合成接口
+        // 判断等级逻辑：如果infoRes.mergeBox.taskMap.251212208存在且不为0，则视为8级以上
+        const isLevel8OrAbove = infoRes.mergeBox && infoRes.mergeBox.taskMap && infoRes.mergeBox.taskMap["251212208"] && infoRes.mergeBox.taskMap["251212208"] !== 0;
+
+        if (!isLevel8OrAbove) {
+           // 8级以下使用智能合成
+           if (!infoRes.mergeBox) {
+             addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 返回数据缺少 mergeBox`,
+                type: "warning",
+              });
+             return;
+           }
+
+           // 解析 gridMap
+           const gridMap = infoRes.mergeBox.gridMap || {};
+           const items = [];
+
+           // 收集所有 gridConfId === 0 的物品
+           for (const xStr in gridMap) {
+             for (const yStr in gridMap[xStr]) {
+               const item = gridMap[xStr][yStr];
+               if (item.gridConfId == 0 && item.gridItemId > 0) {
+                 items.push({
+                   x: parseInt(xStr),
+                   y: parseInt(yStr),
+                   id: item.gridItemId
+                 });
+               }
+             }
+           }
+
+           // 按 gridItemId 分组
+           const groupedItems = {};
+           items.forEach(item => {
+             if (!groupedItems[item.id]) {
+               groupedItems[item.id] = [];
+             }
+             groupedItems[item.id].push(item);
+           });
+
+           // 执行合成
+           for (const id in groupedItems) {
+             if (shouldStop.value) break;
+             const group = groupedItems[id];
+             // 两两合成
+             while (group.length >= 2) {
+               if (shouldStop.value) break;
+               const source = group.shift();
+               const target = group.shift();
+
+               await tokenStore.sendMessageWithPromise(
+                 tokenId,
+                 "mergebox_mergeitem",
+                 {
+                   actType: 1,
+                   sourcePos: { gridX: source.x, gridY: source.y },
+                   targetPos: { gridX: target.x, gridY: target.y }
+                 },
+                 500
+               ).catch(() => {}); 
+             }
+           }
+        } else {
+           await tokenStore.sendMessageWithPromise(
+            tokenId,
+            "mergebox_automergeitem",
+            { actType: 1 },
+            10000 
+          );
+        }
+
+        // 领取合成奖励
+        const finalInfoRes = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "mergebox_getinfo",
+          { actType: 1 },
+          5000
+        );
+        
+        if (finalInfoRes && finalInfoRes.mergeBox && finalInfoRes.mergeBox.taskMap) {
+          const taskMap = finalInfoRes.mergeBox.taskMap;
+          const taskClaimMap = finalInfoRes.mergeBox.taskClaimMap || {};
+
+          for (const taskId in taskMap) {
+            if (shouldStop.value) break;
+            if (taskMap[taskId] !== 0 && !taskClaimMap[taskId]) {
+               await tokenStore.sendMessageWithPromise(
+                 tokenId,
+                 "mergebox_claimmergeprogress",
+                 { actType: 1, taskId: parseInt(taskId) },
+                 2000
+               ).catch(() => {});
+               addLog({
+                 time: new Date().toLocaleTimeString(),
+                 message: `${token.name} 领取合成奖励: ${taskId}`,
+                 type: "success",
+               });
+               await new Promise((res) => setTimeout(res, 500));
+            }
+          }
+        }
 
         tokenStatus.value[tokenId] = "completed";
         addLog({

@@ -92,7 +92,7 @@
                         formatNumber(apply.power || 0)
                       }}</span>
                       <span v-if="apply.serverId"
-                        >服务区: {{ apply.serverId }}</span
+                        >服务器: {{ apply.serverId }}</span
                       >
                     </div>
                     <div v-if="apply.applyReason" class="apply-reason">

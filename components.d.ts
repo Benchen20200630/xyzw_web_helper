@@ -59,6 +59,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Signin: typeof import('./src/components/Club/Signin.vue')['default']
+    SkinChallengeCard: typeof import('./src/components/cards/SkinChallengeCard.vue')['default']
     StarUpgradeCard: typeof import('./src/components/cards/StarUpgradeCard.vue')['default']
     StudyChallengeCard: typeof import('./src/components/cards/StudyChallengeCard.vue')['default']
     TeamFormation: typeof import('./src/components/Team/TeamFormation.vue')['default']

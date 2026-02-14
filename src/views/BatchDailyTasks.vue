@@ -322,6 +322,13 @@
             >
               批量功法残卷赠送
             </n-button>
+            <n-button
+              size="small"
+              @click="skinChallenge"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键换皮闯关
+            </n-button>
           </n-space>
           <!-- 排序按钮组 -->
           <div class="sort-buttons" style="margin-bottom: 12px">
@@ -2310,8 +2317,24 @@ const exportConfig = () => {
       selectedTokens: task.selectedTokens?.filter((tokenId) => validTokenIds.has(tokenId)) || [],
     })).filter((task) => task.selectedTokens.length > 0); // Remove tasks with no valid tokens
 
+    // Gather token settings
+    const tokenSettings = [];
+    tokens.value.forEach((token) => {
+      const settings = localStorage.getItem(`daily-settings:${token.id}`);
+      if (settings) {
+        try {
+          tokenSettings.push({
+            tokenId: token.id,
+            settings: JSON.parse(settings),
+          });
+        } catch (e) {
+          console.warn(`Failed to parse settings for token ${token.id}`, e);
+        }
+      }
+    });
+
     const exportData = {
-      version: "1.0",
+      version: "1.1",
       exportTime: new Date().toISOString(),
       tokens: tokens.value.map((t) => ({
         id: t.id,
@@ -2343,6 +2366,7 @@ const exportConfig = () => {
         maxActive: batchSettings.maxActive,
         tokenListColumns: batchSettings.tokenListColumns,
       },
+      tokenSettings: tokenSettings,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
@@ -2429,6 +2453,18 @@ const importConfig = async ({ file }) => {
         if (importData.batchSettings) {
           Object.assign(batchSettings, importData.batchSettings);
           saveBatchSettings();
+        }
+
+        // Import token settings
+        if (Array.isArray(importData.tokenSettings)) {
+          importData.tokenSettings.forEach((item) => {
+            if (item.tokenId && item.settings) {
+              localStorage.setItem(
+                `daily-settings:${item.tokenId}`,
+                JSON.stringify(item.settings)
+              );
+            }
+          });
         }
 
         message.success(
@@ -4051,7 +4087,7 @@ const tasksBottle = createTasksBottle(createTaskDeps());
 const { resetBottles, batchlingguanzi } = tasksBottle;
 
 const tasksTower = createTasksTower(createTaskDeps());
-const { climbTower, climbWeirdTower, batchClaimFreeEnergy } = tasksTower;
+const { climbTower, climbWeirdTower, batchClaimFreeEnergy, skinChallenge } = tasksTower;
 
 const tasksCar = createTasksCar(createTaskDeps());
 const { batchSmartSendCar, batchClaimCars } = tasksCar;

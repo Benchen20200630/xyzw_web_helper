@@ -39,6 +39,7 @@ const errorCodeMap = {
   12400000: "挂机奖励领取过于频繁",
   2300250: "俱乐部BOSS今日攻打次数已用完",
   400010: "物品数量不足",
+  7900023: "已达到使用次数上限",
 };
 
 // 事件节流定义表，根据实际需要调整命令和节流时间
@@ -336,6 +337,11 @@ export function registerDefaultCommands(reg) {
     .register("bosstower_startboss")
     .register("bosstower_startbox")
     .register("discount_getdiscountinfo")
+
+    // 换皮闯关相关
+    .register("towers_getinfo")
+    .register("towers_start")
+    .register("towers_fight")
 
     //发送游戏内消息
     .register("system_sendchatmessage");
@@ -1058,6 +1064,10 @@ export class XyzwWebSocketClient {
       legacy_claimhangupresp: "legacy_claimhangup",
       legacy_sendgiftresp: "legacy_sendgift",
       legacy_getgiftsresp: "legacy_getgifts",
+      // 换皮闯关相关响应映射
+      towers_getinforesp: "towers_getinfo",
+      towers_startresp: "towers_start",
+      towers_fightresp: "towers_fight",
       // 特殊响应映射 - 有些命令有独立响应，有些用同步响应
       task_claimdailyrewardresp: "task_claimdailyreward",
       task_claimweekrewardresp: "task_claimweekreward",

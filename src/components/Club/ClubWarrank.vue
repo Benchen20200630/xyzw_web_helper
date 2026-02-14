@@ -196,6 +196,7 @@
           <div class="table-header">
             <div class="table-cell rank">红粹排名</div>
             <div class="table-cell alliance">联盟</div>
+            <div class="table-cell server">服务器</div>
             <div class="table-cell avatar">头像</div>
             <div class="table-cell name">名称</div>
             <div class="table-cell score" v-if="ScoreShow === 1">积分</div>
@@ -203,7 +204,6 @@
             <div class="table-cell first-3">前三车头</div>
             <div class="table-cell power">战力</div>
             <div class="table-cell level">等级</div>
-            <div class="table-cell server">服务区</div>
             <div class="table-cell announcement">公告</div>
           </div>
 
@@ -238,6 +238,7 @@
                 allianceincludes(member.announcement) || "未知联盟"
               }}</span>
             </div>
+            <div class="table-cell server">{{ member.serverId || 0 }}</div>
             <div class="table-cell avatar">
               <img
                 v-if="member.logo"
@@ -302,7 +303,6 @@
             <div class="table-cell level">
               <span>{{ member.level || 30 }}</span>
             </div>
-            <div class="table-cell server">{{ member.serverId || 0 }}</div>
             <div class="table-cell announcement">
               {{ member.announcement || "" }}
             </div>

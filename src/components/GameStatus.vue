@@ -159,6 +159,9 @@
     <!-- 咸鱼大冲关（提取组件） -->
     <StudyChallengeCard v-show="activeSection === 'activity'" />
 
+    <!-- 换皮闯关 -->
+    <SkinChallengeCard v-show="activeSection === 'activity'" />
+
     <!-- 盐场（提取组件） -->
     <div class="warrank-full-container" v-if="activeSection === 'warrank'">
       <ClubWarrank />
@@ -170,13 +173,19 @@
     </div>
 
     <!-- 巅峰榜（提取组件） -->
-    <TopRankList v-if="activeSection === 'toprank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'toprank'">
+      <TopRankList />
+    </div>
 
     <!-- 百服俱乐部（提取组件） -->
-    <TopClubList v-if="activeSection === 'topclubrank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'topclubrank'">
+      <TopClubList />
+    </div>
 
     <!-- 黄金积分（提取组件） -->
-    <GoldClubList v-if="activeSection === 'goldclubrank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'goldclubrank'">
+      <GoldClubList />
+    </div>
 
     <!-- 切磋（提取组件） -->
     <FightPvp v-if="activeSection === 'fightPvp'" />
@@ -202,6 +211,7 @@ import StarUpgradeCard from "./cards/StarUpgradeCard.vue";
 import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";
+import SkinChallengeCard from "./cards/SkinChallengeCard.vue";
 import ClubWarrank from "./Club/ClubWarrank.vue";
 import ClubMonthBattleRecords from "./Club/ClubMonthBattleRecords.vue";
 import TopRankList from "./cards/TopRankListPageCard.vue";

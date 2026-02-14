@@ -1,3 +1,5 @@
+import { HERO_DICT } from "@/utils/HeroList";
+
 /**
  * 开箱、钓鱼、招募类任务
  * 包含: batchOpenBox, batchClaimBoxPointReward, batchFish, batchRecruit
@@ -35,6 +37,273 @@ export function createTasksItem(deps) {
   };
 
   const fishNames = { 1: "普通鱼竿", 2: "黄金鱼竿" };
+
+  const heroIds = Object.keys(HERO_DICT).map(Number);
+
+  /**
+   * 批量英雄升星
+   */
+  const batchHeroUpgrade = async () => {
+    if (selectedTokens.value.length === 0) return;
+
+    isRunning.value = true;
+    shouldStop.value = false;
+
+    selectedTokens.value.forEach((id) => {
+      tokenStatus.value[id] = "waiting";
+    });
+
+    const taskPromises = selectedTokens.value.map(async (tokenId) => {
+      if (shouldStop.value) return;
+
+      tokenStatus.value[tokenId] = "running";
+      const token = tokens.value.find((t) => t.id === tokenId);
+
+      try {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 开始英雄升星: ${token.name} ===`,
+          type: "info",
+        });
+
+        await ensureConnection(tokenId);
+
+        for (const heroId of heroIds) {
+          if (shouldStop.value) break;
+          
+          // 每个英雄尝试最多10次升星（只要成功就继续，失败则跳过该英雄）
+          for (let i = 1; i <= 10; i++) {
+            if (shouldStop.value) break;
+            
+            try {
+              const res = await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "hero_heroupgradestar",
+                { heroId },
+                5000,
+              );
+              const ok =
+                res &&
+                (res.code === 0 || res.success === true || res.result === 0);
+              
+              if (ok) {
+                 addLog({
+                    time: new Date().toLocaleTimeString(),
+                    message: `${token.name} 英雄ID:${heroId} 升星成功 (第${i}次)`,
+                    type: "success",
+                 });
+                 // 成功了继续尝试下一级，直到失败或达到10次
+              } else {
+                 // 失败说明无法继续升星（碎片不足或满星），跳出循环处理下一个英雄
+                 throw new Error("升星失败");
+              }
+            } catch (err) {
+              // 失败则停止当前英雄的升星尝试
+              break; 
+            }
+            await new Promise((r) => setTimeout(r, delayConfig.action));
+          }
+        }
+
+        tokenStatus.value[tokenId] = "completed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} === 英雄升星完成 ===`,
+          type: "success",
+        });
+      } catch (error) {
+        console.error(error);
+        tokenStatus.value[tokenId] = "failed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `英雄升星失败: ${error.message}`,
+          type: "error",
+        });
+      } finally {
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+      }
+    });
+
+    await Promise.all(taskPromises);
+    isRunning.value = false;
+    currentRunningTokenId.value = null;
+    message.success("批量英雄升星结束");
+  };
+
+  /**
+   * 批量图鉴升星
+   */
+  const batchBookUpgrade = async () => {
+    if (selectedTokens.value.length === 0) return;
+
+    isRunning.value = true;
+    shouldStop.value = false;
+
+    selectedTokens.value.forEach((id) => {
+      tokenStatus.value[id] = "waiting";
+    });
+
+    const taskPromises = selectedTokens.value.map(async (tokenId) => {
+      if (shouldStop.value) return;
+
+      tokenStatus.value[tokenId] = "running";
+      const token = tokens.value.find((t) => t.id === tokenId);
+
+      try {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 开始图鉴升星: ${token.name} ===`,
+          type: "info",
+        });
+
+        await ensureConnection(tokenId);
+
+        for (const heroId of heroIds) {
+          if (shouldStop.value) break;
+          
+          // 每个英雄尝试最多10次图鉴升星（只要成功就继续，失败则跳过该英雄）
+          for (let i = 1; i <= 10; i++) {
+            if (shouldStop.value) break;
+            
+            try {
+              const res = await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "book_upgrade",
+                { heroId },
+                5000,
+              );
+              const ok =
+                res &&
+                (res.code === 0 || res.success === true || res.result === 0);
+              
+              if (ok) {
+                 addLog({
+                    time: new Date().toLocaleTimeString(),
+                    message: `${token.name} 英雄ID:${heroId} 图鉴升星成功 (第${i}次)`,
+                    type: "success",
+                 });
+                 // 成功了继续尝试下一级，直到失败或达到10次
+              } else {
+                 // 失败说明无法继续图鉴升星（碎片不足或满星），跳出循环处理下一个英雄
+                 throw new Error("图鉴升星失败");
+              }
+            } catch (err) {
+               // 失败则停止当前英雄的图鉴升星尝试
+               break; 
+            }
+            await new Promise((r) => setTimeout(r, delayConfig.action));
+          }
+        }
+
+        tokenStatus.value[tokenId] = "completed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} === 图鉴升星完成 ===`,
+          type: "success",
+        });
+      } catch (error) {
+        console.error(error);
+        tokenStatus.value[tokenId] = "failed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `图鉴升星失败: ${error.message}`,
+          type: "error",
+        });
+      } finally {
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+      }
+    });
+
+    await Promise.all(taskPromises);
+    isRunning.value = false;
+    currentRunningTokenId.value = null;
+    message.success("批量图鉴升星结束");
+  };
+
+  /**
+   * 批量领取图鉴奖励
+   */
+  const batchClaimStarRewards = async () => {
+    if (selectedTokens.value.length === 0) return;
+
+    isRunning.value = true;
+    shouldStop.value = false;
+
+    selectedTokens.value.forEach((id) => {
+      tokenStatus.value[id] = "waiting";
+    });
+
+    const taskPromises = selectedTokens.value.map(async (tokenId) => {
+      if (shouldStop.value) return;
+
+      tokenStatus.value[tokenId] = "running";
+      const token = tokens.value.find((t) => t.id === tokenId);
+
+      try {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 开始领取图鉴奖励: ${token.name} ===`,
+          type: "info",
+        });
+
+        await ensureConnection(tokenId);
+
+        for (let i = 1; i <= 10; i++) {
+            if (shouldStop.value) break;
+            try {
+                const res = await tokenStore.sendMessageWithPromise(
+                  tokenId,
+                  "book_claimpointreward",
+                  {},
+                  5000,
+                );
+                const ok =
+                  res && (res.code === 0 || res.success === true || res.result === 0);
+                
+                if (ok) {
+                    addLog({
+                        time: new Date().toLocaleTimeString(),
+                        message: `${token.name} 领取图鉴奖励成功`,
+                        type: "success",
+                    });
+                } else {
+                    // 如果领取失败（比如没有奖励可领了），停止尝试
+                     throw new Error("领取奖励失败");
+                }
+            } catch (err) {
+                 // 失败则停止尝试
+                 break;
+            }
+            await new Promise((r) => setTimeout(r, delayConfig.action));
+        }
+
+        tokenStatus.value[tokenId] = "completed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} === 领取图鉴奖励完成 ===`,
+          type: "success",
+        });
+      } catch (error) {
+        console.error(error);
+        tokenStatus.value[tokenId] = "failed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `领取图鉴奖励失败: ${error.message}`,
+          type: "error",
+        });
+      } finally {
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+      }
+    });
+
+    await Promise.all(taskPromises);
+    isRunning.value = false;
+    currentRunningTokenId.value = null;
+    message.success("批量领取图鉴奖励结束");
+  };
 
   /**
    * 领取宝箱积分
@@ -431,5 +700,8 @@ export function createTasksItem(deps) {
     batchClaimBoxPointReward,
     batchFish,
     batchRecruit,
+    batchHeroUpgrade,
+    batchBookUpgrade,
+    batchClaimStarRewards,
   };
 }

@@ -232,6 +232,27 @@
             </n-button>
             <n-button
               size="small"
+              @click="batchHeroUpgrade"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键英雄升星
+            </n-button>
+            <n-button
+              size="small"
+              @click="batchBookUpgrade"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键图鉴升星
+            </n-button>
+            <n-button
+              size="small"
+              @click="batchClaimStarRewards"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键领取图鉴奖励
+            </n-button>
+            <n-button
+              size="small"
               @click="batchbaoku13"
               :disabled="
                 isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen
@@ -4115,7 +4136,15 @@ const tasksCar = createTasksCar(createTaskDeps());
 const { batchSmartSendCar, batchClaimCars } = tasksCar;
 
 const tasksItem = createTasksItem(createTaskDeps());
-const { batchOpenBox, batchClaimBoxPointReward, batchFish, batchRecruit } = tasksItem;
+const {
+  batchOpenBox,
+  batchClaimBoxPointReward,
+  batchFish,
+  batchRecruit,
+  batchHeroUpgrade,
+  batchBookUpgrade,
+  batchClaimStarRewards,
+} = tasksItem;
 
 const tasksDungeon = createTasksDungeon(createTaskDeps());
 const { batchbaoku13, batchbaoku45, batchmengjing } = tasksDungeon;

@@ -83,6 +83,20 @@
             >导出</n-button
           >
           <n-button
+            :type="isEditMode ? 'warning' : 'default'"
+            size="small"
+            :disabled="!battleRecords1 || loading1"
+            @click="toggleEditMode"
+            class="action-btn edit-btn"
+          >
+            <template #icon>
+              <n-icon>
+                <CreateOutline />
+              </n-icon>
+            </template>
+            {{ isEditMode ? "退出编辑" : "调整排名" }}
+          </n-button>
+          <n-button
             type="info"
             size="small"
             :disabled="!battleRecords1 || loading1"
@@ -194,7 +208,7 @@
         >
           <!-- 表格标题行 -->
           <div class="table-header">
-            <div class="table-cell rank">红粹排名</div>
+            <div class="table-cell rank">排名</div>
             <div class="table-cell alliance">联盟</div>
             <div class="table-cell server">服务器</div>
             <div class="table-cell avatar">头像</div>
@@ -212,30 +226,49 @@
             v-for="(member, index) in filteredLegionList"
             :key="member.id"
             class="table-row"
-            :class="getAllianceClass(allianceincludes(member.announcement))"
+            :class="getAllianceClass(getMemberAlliance(member))"
           >
             <div class="table-cell rank">
-              <div class="rank-container">
+              <div v-if="isEditMode" class="edit-rank">
+                <n-input-number
+                  :value="manualRankings[member.id]"
+                  size="small"
+                  :min="1"
+                  :max="20"
+                  style="width: 70px"
+                  :show-button="false"
+                  @update:value="(val) => handleRankChange(member, val)"
+                />
+              </div>
+              <div v-else class="rank-container">
                 <span
-                  v-if="redQuenchRankings[member.id] === 1"
+                  v-if="getMemberRank(member) === 1"
                   class="rank-medal gold"
                 ></span>
                 <span
-                  v-else-if="redQuenchRankings[member.id] === 2"
+                  v-else-if="getMemberRank(member) === 2"
                   class="rank-medal silver"
                 ></span>
                 <span
-                  v-else-if="redQuenchRankings[member.id] === 3"
+                  v-else-if="getMemberRank(member) === 3"
                   class="rank-medal bronze"
                 ></span>
                 <span v-else class="rank-number">{{
-                  redQuenchRankings[member.id]
+                  getMemberRank(member)
                 }}</span>
               </div>
             </div>
             <div class="table-cell alliance">
-              <span class="alliance-tag">{{
-                allianceincludes(member.announcement) || "未知联盟"
+              <div v-if="isEditMode" class="edit-alliance">
+                <n-select
+                  v-model:value="manualAlliances[member.id]"
+                  :options="allianceOptions"
+                  size="small"
+                  style="width: 110px"
+                />
+              </div>
+              <span v-else class="alliance-tag">{{
+                getMemberAlliance(member)
               }}</span>
             </div>
             <div class="table-cell server">{{ member.serverId || 0 }}</div>
@@ -788,6 +821,9 @@ import {
   NCheckbox,
   NModal,
   NAvatar,
+  NInput,
+  NInputNumber,
+  NSelect,
 } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
 import html2canvas from "html2canvas";
@@ -798,6 +834,7 @@ import {
   ChevronDown,
   ChevronUp,
   DocumentText,
+  CreateOutline,
 } from "@vicons/ionicons5";
 import {
   getLastSaturday,
@@ -848,6 +885,104 @@ const inputDate1 = ref(getLastSaturday());
 
 // 新增联盟筛选功能
 const activeAlliance = ref("all");
+// 排序模式：manual-手动/默认，redQuench-红淬，score-积分
+const currentSortType = ref("manual");
+
+// 手动调整功能
+const isEditMode = ref(false);
+const manualRankings = ref({});
+const manualAlliances = ref({});
+const editingSortOrder = ref([]); // 编辑模式下的固定排序顺序
+
+const allianceOptions = [
+  { label: "大联盟", value: "大联盟" },
+  { label: "梦盟", value: "梦盟" },
+  { label: "正义联盟", value: "正义联盟" },
+  { label: "龙盟", value: "龙盟" },
+  { label: "未知联盟", value: "未知联盟" },
+];
+
+const toggleEditMode = () => {
+  if (!isEditMode.value) {
+    // 进入编辑模式
+    if (battleRecords1.value?.legionRankList) {
+      // 1. 初始化手动数据（如果未初始化）
+      battleRecords1.value.legionRankList.forEach((member) => {
+        if (manualRankings.value[member.id] === undefined) {
+          manualRankings.value[member.id] = redQuenchRankings.value[member.id];
+        }
+        if (manualAlliances.value[member.id] === undefined) {
+          manualAlliances.value[member.id] =
+            allianceincludes(member.announcement) || "未知联盟";
+        }
+      });
+
+      // 2. 锁定当前排序顺序
+      // 获取当前完整列表并按当前规则排序
+      const currentList = [...battleRecords1.value.legionRankList].sort(
+        (a, b) => {
+          if (currentSortType.value === "manual") {
+            return getMemberRank(a) - getMemberRank(b);
+          } else if (currentSortType.value === "redQuench") {
+            return (b.redQuench || 0) - (a.redQuench || 0);
+          } else if (currentSortType.value === "score") {
+            return (b.sRScore || 0) - (a.sRScore || 0);
+          }
+          return 0;
+        },
+      );
+      // 保存 ID 顺序
+      editingSortOrder.value = currentList.map((m) => m.id);
+    }
+  } else {
+    // 退出编辑模式
+    // 可以在这里执行额外的清理或确认逻辑
+    message.success("已保存调整");
+    // 强制刷新列表排序（通过 filteredLegionList 的响应式依赖）
+  }
+  isEditMode.value = !isEditMode.value;
+};
+
+const handleRankChange = (currentMember, newRank) => {
+  if (!newRank) return;
+  if (newRank < 1 || newRank > 20) {
+    message.warning("排名必须在 1-20 之间");
+    return;
+  }
+  const oldRank = manualRankings.value[currentMember.id];
+  if (oldRank === newRank) return;
+
+  // 查找占用新排名的俱乐部
+  const targetMemberId = Object.keys(manualRankings.value).find(
+    (id) => manualRankings.value[id] === newRank,
+  );
+
+  if (targetMemberId) {
+    // 交换排名
+    manualRankings.value[targetMemberId] = oldRank;
+    manualRankings.value[currentMember.id] = newRank;
+    message.success(`已与 ${targetMemberId} 交换排名`);
+  } else {
+    // 如果没有冲突，直接更新
+    manualRankings.value[currentMember.id] = newRank;
+  }
+  // 只要手动调整了排名，就切换回 manual 排序模式
+  currentSortType.value = "manual";
+};
+
+const getMemberAlliance = (member) => {
+  if (manualAlliances.value[member.id] !== undefined) {
+    return manualAlliances.value[member.id];
+  }
+  return allianceincludes(member.announcement) || "未知联盟";
+};
+
+const getMemberRank = (member) => {
+  if (manualRankings.value[member.id] !== undefined) {
+    return manualRankings.value[member.id];
+  }
+  return redQuenchRankings.value[member.id];
+};
 
 // 新增查询对手相关状态
 const queryLoading = ref(false);
@@ -1373,11 +1508,27 @@ const filteredLegionList = computed(() => {
   }
 
   if (activeAlliance.value === "all") {
-    return battleRecords1.value.legionRankList;
+    return [...battleRecords1.value.legionRankList].sort((a, b) => {
+      if (isEditMode.value) {
+        // 编辑模式下，按照快照顺序排序
+        return (
+          editingSortOrder.value.indexOf(a.id) -
+          editingSortOrder.value.indexOf(b.id)
+        );
+      }
+      if (currentSortType.value === "manual") {
+        return getMemberRank(a) - getMemberRank(b);
+      } else if (currentSortType.value === "redQuench") {
+        return (b.redQuench || 0) - (a.redQuench || 0);
+      } else if (currentSortType.value === "score") {
+        return (b.sRScore || 0) - (a.sRScore || 0);
+      }
+      return 0;
+    });
   }
 
-  return battleRecords1.value.legionRankList.filter((member) => {
-    const memberAlliance = allianceincludes(member.announcement);
+  const filtered = battleRecords1.value.legionRankList.filter((member) => {
+    const memberAlliance = getMemberAlliance(member);
     if (activeAlliance.value === "空白") {
       return (
         !member.announcement ||
@@ -1386,6 +1537,24 @@ const filteredLegionList = computed(() => {
       );
     }
     return memberAlliance === activeAlliance.value;
+  });
+
+  return filtered.sort((a, b) => {
+    if (isEditMode.value) {
+      // 编辑模式下，按照快照顺序排序
+      return (
+        editingSortOrder.value.indexOf(a.id) -
+        editingSortOrder.value.indexOf(b.id)
+      );
+    }
+    if (currentSortType.value === "manual") {
+      return getMemberRank(a) - getMemberRank(b);
+    } else if (currentSortType.value === "redQuench") {
+      return (b.redQuench || 0) - (a.redQuench || 0);
+    } else if (currentSortType.value === "score") {
+      return (b.sRScore || 0) - (a.sRScore || 0);
+    }
+    return 0;
   });
 });
 
@@ -1419,7 +1588,7 @@ const getActiveAllianceCount = (alliance) => {
   }
 
   return battleRecords1.value.legionRankList.filter((member) => {
-    const memberAlliance = allianceincludes(member.announcement);
+    const memberAlliance = getMemberAlliance(member);
     if (alliance === "空白") {
       return (
         !member.announcement ||
@@ -1921,13 +2090,51 @@ const handleRefresh1 = () => {
 };
 
 const hcSort = async () => {
-  // battleRecords1.legionRankList 按照 redQuench 降序
-  battleRecords1.value.legionRankList.sort((a, b) => b.redQuench - a.redQuench);
+  if (!battleRecords1.value?.legionRankList) return;
+
+  // 1. 按红淬数量排序
+  const sortedList = [...battleRecords1.value.legionRankList].sort(
+    (a, b) => (b.redQuench || 0) - (a.redQuench || 0),
+  );
+
+  // 2. 更新排名数据
+  sortedList.forEach((member, index) => {
+    manualRankings.value[member.id] = index + 1;
+  });
+
+  // 3. 切换到手动排序模式（使用更新后的排名）
+  currentSortType.value = "manual";
+
+  // 4. 如果在编辑模式，更新快照顺序以立即刷新视图
+  if (isEditMode.value) {
+    editingSortOrder.value = sortedList.map((m) => m.id);
+  }
+
+  message.success("已按红淬数量重置排名");
 };
 
 const scoreSort = async () => {
-  // battleRecords1.legionRankList 按照 sRScore 降序
-  battleRecords1.value.legionRankList.sort((a, b) => b.sRScore - a.sRScore);
+  if (!battleRecords1.value?.legionRankList) return;
+
+  // 1. 按积分排序
+  const sortedList = [...battleRecords1.value.legionRankList].sort(
+    (a, b) => (b.sRScore || 0) - (a.sRScore || 0),
+  );
+
+  // 2. 更新排名数据
+  sortedList.forEach((member, index) => {
+    manualRankings.value[member.id] = index + 1;
+  });
+
+  // 3. 切换到手动排序模式（使用更新后的排名）
+  currentSortType.value = "manual";
+
+  // 4. 如果在编辑模式，更新快照顺序以立即刷新视图
+  if (isEditMode.value) {
+    editingSortOrder.value = sortedList.map((m) => m.id);
+  }
+
+  message.success("已按积分重置排名");
 };
 // 导出战绩
 const handleExport1 = async () => {

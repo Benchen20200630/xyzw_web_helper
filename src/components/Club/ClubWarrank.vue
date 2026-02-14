@@ -231,13 +231,15 @@
             <div class="table-cell rank">
               <div v-if="isEditMode" class="edit-rank">
                 <n-input-number
-                  :value="manualRankings[member.id]"
+                  v-model:value="manualRankings[member.id]"
                   size="small"
                   :min="1"
                   :max="20"
                   style="width: 70px"
                   :show-button="false"
-                  @update:value="(val) => handleRankChange(member, val)"
+                  @focus="handleRankFocus(member)"
+                  @blur="handleRankBlur(member)"
+                  @keydown.enter="$event.target.blur()"
                 />
               </div>
               <div v-else class="rank-container">
@@ -893,6 +895,7 @@ const isEditMode = ref(false);
 const manualRankings = ref({});
 const manualAlliances = ref({});
 const editingSortOrder = ref([]); // 编辑模式下的固定排序顺序
+const tempOldRanks = ref({}); // 暂存编辑前的排名
 
 const allianceOptions = [
   { label: "大联盟", value: "大联盟" },
@@ -943,31 +946,51 @@ const toggleEditMode = () => {
   isEditMode.value = !isEditMode.value;
 };
 
-const handleRankChange = (currentMember, newRank) => {
-  if (!newRank) return;
-  if (newRank < 1 || newRank > 20) {
-    message.warning("排名必须在 1-20 之间");
+const handleRankFocus = (member) => {
+  tempOldRanks.value[member.id] = manualRankings.value[member.id];
+};
+
+const handleRankBlur = (member) => {
+  const newRank = manualRankings.value[member.id];
+  const oldRank = tempOldRanks.value[member.id];
+
+  // 清理暂存
+  delete tempOldRanks.value[member.id];
+
+  // 验证有效性，如果无效则恢复
+  if (!newRank || newRank < 1 || newRank > 20) {
+    manualRankings.value[member.id] = oldRank;
+    if (newRank !== null && newRank !== undefined) {
+      // 只有当用户输入了无效值时才提示，清空不提示（虽然 NInputNumber min=1 通常不会清空）
+      message.warning("排名必须在 1-20 之间");
+    }
     return;
   }
-  const oldRank = manualRankings.value[currentMember.id];
-  if (oldRank === newRank) return;
+
+  if (newRank === oldRank) return;
 
   // 查找占用新排名的俱乐部
   const targetMemberId = Object.keys(manualRankings.value).find(
-    (id) => manualRankings.value[id] === newRank,
+    (id) => String(id) !== String(member.id) && manualRankings.value[id] === newRank
   );
 
   if (targetMemberId) {
-    // 交换排名
+    // 交换排名: 把占用者的排名设为我的旧排名
     manualRankings.value[targetMemberId] = oldRank;
-    manualRankings.value[currentMember.id] = newRank;
-    message.success(`已与 ${targetMemberId} 交换排名`);
-  } else {
-    // 如果没有冲突，直接更新
-    manualRankings.value[currentMember.id] = newRank;
+    const targetName = getMemberName(targetMemberId);
+    message.success(`排名已交换：${member.name} ↔ ${targetName}`);
   }
+
   // 只要手动调整了排名，就切换回 manual 排序模式
   currentSortType.value = "manual";
+};
+
+// 获取成员名称辅助函数
+const getMemberName = (id) => {
+  const member = battleRecords1.value?.legionRankList.find(
+    (m) => String(m.id) === String(id)
+  );
+  return member ? member.name : "未知俱乐部";
 };
 
 const getMemberAlliance = (member) => {

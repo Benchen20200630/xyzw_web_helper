@@ -21,6 +21,7 @@
       <n-tab-pane name="warrank" tab="盐场" />
       <n-tab-pane name="monthBattle" tab="本月盐场战绩" />
       <n-tab-pane name="peach" tab="蟠桃园" />
+      <n-tab-pane name="serverrank" tab="区服榜" />
       <n-tab-pane name="toprank" tab="巅峰榜" />
       <n-tab-pane name="topclubrank" tab="俱乐部榜" />
       <n-tab-pane name="goldclubrank" tab="黄金积分榜" />
@@ -172,6 +173,11 @@
       <ClubMonthBattleRecords />
     </div>
 
+    <!-- 区服榜（提取组件） -->
+    <div class="warrank-full-container" v-if="activeSection === 'serverrank'">
+      <ServerRankList />
+    </div>
+
     <!-- 巅峰榜（提取组件） -->
     <div class="warrank-full-container" v-if="activeSection === 'toprank'">
       <TopRankList />
@@ -227,6 +233,7 @@ import TowerStatus from "./Tower/TowerStatus.vue";
 import WeirdTowerStatus from "./Tower/WeirdTowerStatus.vue";
 import BossTower from "./Tower/BossTower.vue";
 import PeachInfo from "./Club/PeachInfo.vue";
+import ServerRankList from "./cards/ServerRankListPageCard.vue";
 const tokenStore = useTokenStore();
 const message = useMessage();
 

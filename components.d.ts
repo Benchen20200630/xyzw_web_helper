@@ -58,6 +58,7 @@ declare module 'vue' {
     RoleProfileCard: typeof import('./src/components/Setting/RoleProfileCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ServerRankListPageCard: typeof import('./src/components/cards/ServerRankListPageCard.vue')['default']
     Signin: typeof import('./src/components/Club/Signin.vue')['default']
     SkinChallengeCard: typeof import('./src/components/cards/SkinChallengeCard.vue')['default']
     StarUpgradeCard: typeof import('./src/components/cards/StarUpgradeCard.vue')['default']

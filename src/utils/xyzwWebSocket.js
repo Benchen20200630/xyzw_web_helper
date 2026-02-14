@@ -167,6 +167,7 @@ export function registerDefaultCommands(reg) {
     .register("item_openbox", { itemId: 2001, number: 10 })
     .register("item_batchclaimboxpointreward")
     .register("item_openpack")
+    .register("rank_getserverrank")
 
     // 竞技场
     .register("arena_startarea")
@@ -1035,6 +1036,7 @@ export class XyzwWebSocketClient {
       mergebox_claimfreeenergyresp: "mergebox_claimfreeenergy",
       item_openpackresp: "item_openpack",
       equipment_quenchresp: "equipment_quench",
+      rank_getserverrankresp: "rank_getserverrank",
       // 咸王宝库
       matchteam_getroleteaminforesp: "matchteam_getroleteaminfo",
       bosstower_getinforesp: "bosstower_getinfo",

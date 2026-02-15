@@ -19,8 +19,10 @@
       <n-tab-pane name="activity" tab="活动" />
       <n-tab-pane v-if="ENABLE_TOOLS_TAB" name="tools" tab="工具" />
       <n-tab-pane name="warrank" tab="盐场" />
+      <n-tab-pane name="weekBattle" tab="本周盐场战绩" />
       <n-tab-pane name="monthBattle" tab="本月盐场战绩" />
       <n-tab-pane name="peach" tab="蟠桃园" />
+      <n-tab-pane name="serverrank" tab="区服榜" />
       <n-tab-pane name="toprank" tab="巅峰榜" />
       <n-tab-pane name="topclubrank" tab="俱乐部榜" />
       <n-tab-pane name="goldclubrank" tab="黄金积分榜" />
@@ -159,6 +161,14 @@
     <!-- 咸鱼大冲关（提取组件） -->
     <StudyChallengeCard v-show="activeSection === 'activity'" />
 
+    <!-- 换皮闯关 -->
+    <SkinChallengeCard v-show="activeSection === 'activity'" />
+
+    <!-- 周盐场战绩（提取组件） -->
+    <div class="warrank-full-container" v-if="activeSection === 'weekBattle'">
+      <ClubBattleRecords />
+    </div>
+
     <!-- 盐场（提取组件） -->
     <div class="warrank-full-container" v-if="activeSection === 'warrank'">
       <ClubWarrank />
@@ -169,14 +179,25 @@
       <ClubMonthBattleRecords />
     </div>
 
+    <!-- 区服榜（提取组件） -->
+    <div class="warrank-full-container" v-if="activeSection === 'serverrank'">
+      <ServerRankList />
+    </div>
+
     <!-- 巅峰榜（提取组件） -->
-    <TopRankList v-if="activeSection === 'toprank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'toprank'">
+      <TopRankList />
+    </div>
 
     <!-- 百服俱乐部（提取组件） -->
-    <TopClubList v-if="activeSection === 'topclubrank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'topclubrank'">
+      <TopClubList />
+    </div>
 
     <!-- 黄金积分（提取组件） -->
-    <GoldClubList v-if="activeSection === 'goldclubrank'" />
+    <div class="warrank-full-container" v-if="activeSection === 'goldclubrank'">
+      <GoldClubList />
+    </div>
 
     <!-- 切磋（提取组件） -->
     <FightPvp v-if="activeSection === 'fightPvp'" />
@@ -202,8 +223,10 @@ import StarUpgradeCard from "./cards/StarUpgradeCard.vue";
 import HangUpStatusCard from "./cards/HangUpStatusCard.vue";
 import MonthlyTasksCard from "./cards/MonthlyTasksCard.vue";
 import StudyChallengeCard from "./cards/StudyChallengeCard.vue";
+import SkinChallengeCard from "./cards/SkinChallengeCard.vue";
 import ClubWarrank from "./Club/ClubWarrank.vue";
 import ClubMonthBattleRecords from "./Club/ClubMonthBattleRecords.vue";
+import ClubBattleRecords from "./Club/ClubBattleRecords.vue";
 import TopRankList from "./cards/TopRankListPageCard.vue";
 import TopClubList from "./cards/TopClubListPageCard.vue";
 import GoldClubList from "./cards/GoldRankListPageCard.vue";
@@ -217,6 +240,7 @@ import TowerStatus from "./Tower/TowerStatus.vue";
 import WeirdTowerStatus from "./Tower/WeirdTowerStatus.vue";
 import BossTower from "./Tower/BossTower.vue";
 import PeachInfo from "./Club/PeachInfo.vue";
+import ServerRankList from "./cards/ServerRankListPageCard.vue";
 const tokenStore = useTokenStore();
 const message = useMessage();
 

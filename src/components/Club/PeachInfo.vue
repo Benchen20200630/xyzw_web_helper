@@ -25,18 +25,18 @@
     </div>
 
     <!-- Header Section -->
+    <h2 class="main-title" v-if="battleInfo">{{ queryDate }} 蟠桃大会对战</h2>
     <div class="header-section" v-if="battleInfo">
-      <h2>{{ queryDate }} {{ battleInfo.ownClub.name }} VS {{ battleInfo.opponentClub.name }} 蟠桃大会对战</h2>
       <div class="club-vs-container">
         <!-- Own Club (Left) -->
         <div class="club-info own">
-          <n-avatar :size="64" :src="battleInfo.ownClub?.logo || '/icons/xiaoyugan.png'" class="club-logo" />
+          <n-avatar round :size="80" :src="battleInfo.ownClub?.logo || '/icons/xiaoyugan.png'" class="club-logo" />
           <div class="club-details">
             <div class="club-name">{{ battleInfo.ownClub.serverId }}服 {{ battleInfo.ownClub?.name || "未知" }}</div>
             <div class="club-stats">ID: {{ battleInfo.ownClub.id }}</div>
             <div class="club-stats">{{ battleInfo.ownClub.memberCount }}人 | {{ battleInfo.ownClub.quenchNum }}红 | {{
               formatPower(battleInfo.ownClub.power) }}</div>
-            <div class="club-stats">{{ battleInfo.ownClub.announcement }}</div>
+            <div class="club-stats announcement">{{ battleInfo.ownClub.announcement }}</div>
           </div>
         </div>
 
@@ -47,7 +47,7 @@
 
         <!-- Opponent Club (Right) -->
         <div class="club-info opponent">
-          <n-avatar :size="64" :src="battleInfo.opponentClub?.logo || '/icons/xiaoyugan.png'" class="club-logo" />
+          <n-avatar round :size="80" :src="battleInfo.opponentClub?.logo || '/icons/xiaoyugan.png'" class="club-logo" />
           <div class="club-details">
             <div class="club-name">{{ battleInfo.opponentClub.serverId }}服 {{ battleInfo.opponentClub?.name || "未知" }}
             </div>
@@ -56,7 +56,7 @@
               {{ battleInfo.opponentClub.memberCount }}人 | {{ battleInfo.opponentClub.quenchNum }}红 | {{
                 formatPower(battleInfo.opponentClub.power) }}
             </div>
-            <div class="club-stats">{{ battleInfo.opponentClub.announcement }}</div>
+            <div class="club-stats announcement">{{ battleInfo.opponentClub.announcement }}</div>
           </div>
         </div>
       </div>
@@ -1001,6 +1001,28 @@ const columns = [
     render: (_, index) => index + 1,
   },
   {
+    title: "头像",
+    key: "headImg",
+    width: 60,
+    align: "center",
+    render: (row) => {
+      if (row.headImg) {
+        return h("img", {
+          src: row.headImg,
+          class: "member-avatar-cell",
+          alt: row.name,
+        });
+      }
+      return h(
+        "div",
+        {
+          class: "member-avatar-placeholder-cell",
+        },
+        row.name?.charAt(0) || "?"
+      );
+    },
+  },
+  {
     title: "角色名称",
     key: "name",
     width: 150,
@@ -1117,10 +1139,11 @@ const fetchBattleInfo = async () => {
     let ownLegionId;
     let memberIds = [];
     let killRes;
+    const shortDate = formatDateToShort(queryDate.value);
 
     // Time-based Logic
     // If selected date is today AND it is currently battle time, fetch live data
-    if (isToday(queryDate.value) && isSundayBattleTime()) {
+    if (queryDate.value === getLastSunday() && isSundayBattleTime()) {
       // Sunday 18:00-20:30: Use legion_getpayloadbf
       const res = await tokenStore.sendMessageWithPromise(
         tokenId,
@@ -1142,18 +1165,6 @@ const fetchBattleInfo = async () => {
         message.error("未获取到对战俱乐部ID");
         return;
       }
-      /*
-            killRes = await tokenStore.sendMessageWithPromise(
-              tokenId,
-              "legion_getpayloadkillrecord",
-              { date: ownLegionId },
-              10000
-            );
-      
-            if (killRes && killRes.recordsMap && killRes.recordsMap[opponentLegionId]) {
-              const records = killRes.recordsMap[opponentLegionId];
-              memberIds = records.map(r => r.roleInfo.roleId);
-            }*/
     } else {
       // Other times: Use legion_getpayloadrecord + legion_getpayloadkillrecord
       // 1. Get Task (for own ID reference, though not strictly needed if we trust the map)
@@ -1177,7 +1188,6 @@ const fetchBattleInfo = async () => {
         loading.value = false;
         return;
       }
-      const shortDate = formatDateToShort(queryDate.value);
       const record = res.enemyLegionMap[shortDate];
       if (record) {
         opponentLegionId = record.id;
@@ -1186,27 +1196,25 @@ const fetchBattleInfo = async () => {
         loading.value = false;
         return;
       }
-      // 3. Get Kill Record to get FULL member list
-      if (opponentLegionId) {
-        killRes = await tokenStore.sendMessageWithPromise(
-          tokenId,
-          "legion_getpayloadkillrecord",
-          { date: shortDate },
-          10000
-        );
-
-        if (killRes && killRes.recordsMap && killRes.recordsMap[opponentLegionId]) {
-          const records = killRes.recordsMap[opponentLegionId];
-          memberIds = records.map(r => r.roleInfo.roleId);
-        }
+      if (!opponentLegionId) {
+        message.error("未获取到对战俱乐部ID");
+        return;
       }
     }
 
-    if (!opponentLegionId) {
-      message.warning("未找到对手俱乐部ID");
-      loading.value = false;
-      return;
+
+    killRes = await tokenStore.sendMessageWithPromise(
+      tokenId,
+      "legion_getpayloadkillrecord",
+      { date: shortDate },
+      10000
+    );
+
+    if (killRes && killRes.recordsMap && killRes.recordsMap[opponentLegionId]) {
+      const records = killRes.recordsMap[opponentLegionId];
+      memberIds = records.map(r => r.roleInfo.roleId);
     }
+
 
     // Get Opponent Club Details (Name, Logo, etc.)
     const ownLegionIdInfo = await tokenStore.sendMessageWithPromise(
@@ -1323,6 +1331,7 @@ const fetchBattleInfo = async () => {
             return {
               id: roleRes.roleInfo.roleId,
               name: roleRes.roleInfo.name,
+              headImg: roleRes.roleInfo.headImg,
               power: roleRes.roleInfo.power,
               legacy: roleRes.roleInfo.legacy.color,
               redQuench: totalRed,
@@ -1480,22 +1489,31 @@ onMounted(() => {
   }
 }
 
+.main-title {
+  text-align: center;
+  margin: 0 0 16px 0;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+}
+
 .header-section {
   text-align: center;
   margin-bottom: 20px;
   background: linear-gradient(to bottom, #fff5f5, #fff);
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   border: 1px solid #ffccc7;
   flex-shrink: 0;
 }
 
 .club-vs-container {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 40px;
+  gap: 20px;
   margin-bottom: 10px;
+  width: 100%;
 }
 
 .club-info {
@@ -1503,6 +1521,27 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+}
+
+.club-info.own {
+  justify-self: end;
+}
+
+.club-info.opponent {
+  justify-self: start;
+}
+
+.club-logo {
+  border: 4px solid #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: default;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    border-color: #1890ff;
+  }
 }
 
 .club-details {
@@ -1518,6 +1557,13 @@ onMounted(() => {
 .club-stats {
   font-size: 14px;
   color: #ff4d4f;
+
+  &.announcement {
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-width: 300px;
+    line-height: 1.5;
+  }
 }
 
 .vs-badge {
@@ -1568,6 +1614,38 @@ onMounted(() => {
 :deep(.n-data-table .n-data-table-th) {
   background-color: #fafafa;
   font-weight: bold;
+}
+
+:deep(.member-avatar-cell) {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% !important;
+  object-fit: cover;
+  border: 2px solid #eee;
+  transition: all 0.2s;
+  display: block;
+  margin: 0 auto;
+
+  &:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: #1890ff;
+  }
+}
+
+:deep(.member-avatar-placeholder-cell) {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  border: 2px solid #eee;
+  margin: 0 auto;
 }
 
 // 模态框样式

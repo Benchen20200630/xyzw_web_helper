@@ -1333,7 +1333,7 @@ const fetchBattleInfo = async () => {
               name: roleRes.roleInfo.name,
               headImg: roleRes.roleInfo.headImg,
               power: roleRes.roleInfo.power,
-              legacy: roleRes.roleInfo.legacy.color,
+              legacy: roleRes.roleInfo.legacy?.color || 0,
               redQuench: totalRed,
               heroList: heroList,
               lineupType: getLineupType(heroList),

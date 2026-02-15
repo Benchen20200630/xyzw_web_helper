@@ -284,24 +284,26 @@
     </n-modal>
 
     <!-- 武将详情模态框 -->
-    <n-modal v-model:show="showHeroModal" preset="card" title="武将详情" :style="{ width: '600px' }" :bordered="false"
-      :segmented="{ content: 'soft', footer: 'soft' }">
+    <n-modal v-model:show="showHeroModal" class="hero-detail-modal" preset="card" title="武将详情"
+      :style="{ width: '600px' }" :bordered="false" :segmented="{ content: 'soft', footer: 'soft' }">
       <div v-if="heroModealTemp" class="hero-modal-content">
         <div class="hero-modal-header">
           <n-avatar round :size="80" :src="heroModealTemp.heroAvate" class="hero-modal-avatar" />
-          <div class="hero-modal-info">
-            <h3>{{ heroModealTemp.heroName }}</h3>
-            <div class="hero-modal-tags">
-              <n-tag type="warning" size="small">{{ heroModealTemp.star }}星</n-tag>
-              <n-tag type="error" size="small">{{ heroModealTemp.red }}红</n-tag>
-              <n-tag type="info" size="small">{{ heroModealTemp.hole }}孔</n-tag>
+          <div class="hero-modal-basic">
+            <h3 class="hero-modal-name">{{ heroModealTemp.heroName }}</h3>
+            <div class="hero-modal-stats">
+              <span class="stat-item">{{ formatPower(heroModealTemp.power) }}</span>
+              <span class="stat-item">等级: {{ heroModealTemp.level }}</span>
+              <span class="stat-item">星级: {{ heroModealTemp.star }}</span>
+              <n-tag :type="heroModealTemp.HolyBeast ? 'success' : 'warning'">
+                {{ heroModealTemp.HolyBeast ? "已激活" : "未激活" }}
+              </n-tag>
             </div>
           </div>
         </div>
 
-        <div class="hero-modal-stats">
-          <h4 class="section-title">基础属性</h4>
-          <n-descriptions bordered :column="2" size="small">
+        <div class="hero-modal-details">
+          <n-descriptions label-placement="left" column="3" bordered>
             <n-descriptions-item label="战力">
               {{ formatPower(heroModealTemp.power) }}
             </n-descriptions-item>
@@ -859,82 +861,130 @@ const handleDuel = async () => {
   }
 
   queryLoading.value = true;
+
+  // 初始化切磋进度
   fightProgress.visible = true;
   fightProgress.totalCount = totalCount;
   fightProgress.completedCount = 0;
+  fightProgress.remainingCount = totalCount;
   fightProgress.winCount = 0;
   fightProgress.lossCount = 0;
-  fightHistory.value = [];
+  fightProgress.percentage = 0;
+
+  // 重置掉将统计
   dieStats.ourDieHeroGameCount = 0;
   dieStats.enemyDieHeroGameCount = 0;
 
-  // 隐藏结果面板（如果是重新切磋）
-  fightResult.visible = false;
-
-  let winCount = 0;
-  let lossCount = 0;
-  let completedCount = 0;
-  let resultCount = [];
+  // 重置历史记录
+  fightHistory.value = [];
 
   try {
-    // 循环执行切磋
-    for (let i = 0; i < totalCount; i++) {
-      // 如果模态框关闭了，停止切磋
-      if (!showPlayerInfoModal.value) break;
+    let winCount = 0;
+    let lossCount = 0;
+    let resultCount = []; // 存储每场战斗的详细结果
 
-      // 发起切磋请求
+    // 重置掉将统计
+    dieStats.ourDieHeroGameCount = 0;
+    dieStats.enemyDieHeroGameCount = 0;
+
+    // 执行连续切磋
+    for (let i = 0; i < totalCount; i++) {
+      message.info(`正在进行第 ${i + 1}/${totalCount} 场切磋`);
+
+      // 调用实际的切磋API
       const result = await tokenStore.sendMessageWithPromise(
         tokenId,
-        "club_fight_member",
+        "fight_startpvp",
         {
-          id: playerInfo.value.id,
+          targetId: playerInfo.value.id,
         },
-        5000,
+        10000,
       );
 
-      if (result && result.report) {
-        // 解析战斗结果
-        const battleResult = parseBattleResult(result.report);
+      console.log(`第 ${i + 1} 场切磋结果:`, result);
 
-        // 统计掉将
-        if (battleResult.leftDieHero > 0) {
+      if (result && result.battleData) {
+        // 处理掉将情况
+        let leftCount = 0;
+        let rightCount = 0;
+
+        // 检查我方掉将情况
+        if (result.battleData.result?.sponsor?.teamInfo) {
+          result.battleData.result.sponsor.teamInfo.forEach((item) => {
+            if (item.hp == 0) {
+              leftCount++;
+            }
+          });
+        }
+
+        // 检查敌方掉将情况
+        if (result.battleData.result?.accept?.teamInfo) {
+          result.battleData.result.accept.teamInfo.forEach((item) => {
+            if (item.hp == 0) {
+              rightCount++;
+            }
+          });
+        }
+
+        // 构建战斗结果对象
+        const battleResult = {
+          isWin: result.battleData.result?.isWin || false,
+          leftName: result.battleData.leftTeam?.name || "未知",
+          leftheadImg: result.battleData.leftTeam?.headImg || "",
+          leftpower: formatPower(result.battleData.leftTeam?.power || 0),
+          leftDieHero: leftCount,
+          rightName: result.battleData.rightTeam?.name || "未知",
+          rightheadImg: result.battleData.rightTeam?.headImg || "",
+          rightpower: formatPower(result.battleData.rightTeam?.power || 0),
+          rightDieHero: rightCount,
+        };
+
+        // 保存到结果数组
+        resultCount.push(battleResult);
+
+        // 更新掉将统计
+        if (leftCount > 0) {
           dieStats.ourDieHeroGameCount++;
         }
-        if (battleResult.rightDieHero > 0) {
+        if (rightCount > 0) {
           dieStats.enemyDieHeroGameCount++;
         }
 
+        // 更新胜负计数
         if (battleResult.isWin) {
           winCount++;
         } else {
           lossCount++;
         }
 
-        resultCount.push(battleResult);
-        fightHistory.value.push(battleResult);
+        // 更新切磋进度
+        updateFightProgress(i + 1, winCount, lossCount);
+
+        // 短暂延迟，避免请求过于频繁
+        if (i < totalCount - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       } else {
-        // 如果没有report，可能出错了或者格式不对
+        // 单场切磋失败，继续下一场
+        message.warning(
+          `第 ${i + 1} 场切磋失败: ${result?.message || "未返回战斗数据"}`,
+        );
         lossCount++;
-        console.warn("切磋返回数据异常:", result);
-      }
-
-      completedCount++;
-      updateFightProgress(completedCount, winCount, lossCount);
-
-      // 短暂延迟，避免请求过于频繁
-      if (i < totalCount - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        updateFightProgress(i + 1, winCount, lossCount);
       }
     }
 
-    // 所有战斗结束，显示最终结果
+    // 所有切磋完成，计算最终结果
     calculateFinalResult(winCount, lossCount, resultCount);
-    message.success("切磋完成");
+
+    message.success(`连续切磋完成，共${totalCount}场`);
   } catch (error) {
-    message.error(`切磋过程中断: ${error.message}`);
-    console.error("切磋失败:", error);
+    console.error("连续切磋失败:", error);
+    message.error(`连续切磋失败: ${error.message || "网络错误"}`);
+    fightProgress.visible = false;
   } finally {
     queryLoading.value = false;
+    // 不关闭模态框，让用户可以继续查看或再次切磋
   }
 };
 

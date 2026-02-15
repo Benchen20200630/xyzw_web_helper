@@ -460,6 +460,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useMessage, NCheckboxGroup, NCheckbox, NRadioGroup, NRadioButton } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from 'html2canvas';
+import { downloadCanvasAsImage } from "@/utils/imageExport";
 import {
   Trophy,
   Refresh,
@@ -889,17 +890,10 @@ const exportToImage = async () => {
       logging: false // 关闭控制台日志
     });
 
-    // Canvas转图片链接（支持PNG/JPG）
-    const imgUrl = canvas.toDataURL('image/png'); // 若要JPG，改为'image/jpeg'
-
-    // 创建下载链接，触发浏览器下载
-    const link = document.createElement('a');
-    link.href = imgUrl;
+    // Canvas转图片链接并下载
     const monthYear = currentMonthDisplay.value.replace('年', '-').replace('月', '');
-    link.download = `${monthYear}月盐场战绩总览.png`; // 下载文件名
-    document.body.appendChild(link);
-    link.click(); // 触发点击下载
-    document.body.removeChild(link); // 下载后清理DOM
+    const filename = `${monthYear}月盐场战绩总览.png`;
+    downloadCanvasAsImage(canvas, filename);
   } catch (err) {
     console.error('DOM转图片失败：', err);
     alert('导出图片失败，请重试');

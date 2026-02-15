@@ -417,6 +417,7 @@ import {
 import { Refresh, Copy } from "@vicons/ionicons5";
 import { useTokenStore } from "@/stores/tokenStore";
 import html2canvas from "html2canvas";
+import { downloadCanvasAsImage } from "@/utils/imageExport";
 import { HERO_DICT, HeroFillInfo, legacycolor, getLineupType, LINEUP_RULES } from "@/utils/HeroList";
 import {
   getLastSaturday,
@@ -1405,16 +1406,9 @@ const handleExportImage = async () => {
       allowTaint: true, // 允许跨域图片污染画布
     });
 
-    // 6. Canvas转图片链接
-    const imgUrl = canvas.toDataURL("image/png");
-
-    // 7. 创建下载链接，触发浏览器下载
-    const link = document.createElement("a");
-    link.href = imgUrl;
-    link.download = `蟠桃园敌方信息_${queryDate.value.replace(/\//g, "-")}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 6. Canvas转图片链接并下载
+    const filename = `蟠桃园敌方信息_${queryDate.value.replace(/\//g, "-")}.png`;
+    downloadCanvasAsImage(canvas, filename);
 
     message.success("图片导出成功");
   } catch (err) {

@@ -1,7 +1,10 @@
 <template>
   <div
     class="game-status-container"
-    :class="activeSection === 'fightPvp' ? 'full-grid' : ''"
+    :class="{
+      'full-grid': activeSection === 'fightPvp',
+      'full-page-mode': activeSection === 'saltFieldGroup' || activeSection === 'peachGroup' || activeSection === 'rankGroup'
+    }"
   >
     <!-- 身份牌常驻（嵌入式，Tabs 上方） -->
     <IdentityCard embedded />
@@ -18,14 +21,9 @@
       <n-tab-pane name="club" tab="俱乐部" />
       <n-tab-pane name="activity" tab="活动" />
       <n-tab-pane v-if="ENABLE_TOOLS_TAB" name="tools" tab="工具" />
-      <n-tab-pane name="warrank" tab="盐场" />
-      <n-tab-pane name="weekBattle" tab="本周盐场战绩" />
-      <n-tab-pane name="monthBattle" tab="本月盐场战绩" />
-      <n-tab-pane name="peach" tab="蟠桃园" />
-      <n-tab-pane name="serverrank" tab="区服榜" />
-      <n-tab-pane name="toprank" tab="巅峰榜" />
-      <n-tab-pane name="topclubrank" tab="俱乐部榜" />
-      <n-tab-pane name="goldclubrank" tab="黄金积分榜" />
+      <n-tab-pane name="saltFieldGroup" tab="盐场" />
+      <n-tab-pane name="peachGroup" tab="蟠桃园" />
+      <n-tab-pane name="rankGroup" tab="排行榜" />
       <n-tab-pane name="fightPvp" tab="切磋" />
     </n-tabs>
 
@@ -164,46 +162,76 @@
     <!-- 换皮闯关 -->
     <SkinChallengeCard v-show="activeSection === 'activity'" />
 
-    <!-- 周盐场战绩（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'weekBattle'">
-      <ClubBattleRecords />
+    <!-- 盐场分组（包含盐场、周战绩、月战绩） -->
+    <div class="salt-field-group" v-if="activeSection === 'saltFieldGroup'">
+      <div class="sub-nav" style="padding: 8px; background: var(--n-color); display: flex; justify-content: center;">
+        <n-tabs type="segment" animated v-model:value="saltFieldSubTab" size="small">
+           <n-tab-pane name="warrank" tab="盐场" />
+           <n-tab-pane name="weekBattle" tab="本周盐场战绩" />
+           <n-tab-pane name="monthBattle" tab="本月盐场战绩" />
+        </n-tabs>
+      </div>
+
+      <div class="warrank-full-container" v-if="saltFieldSubTab === 'weekBattle'">
+        <ClubBattleRecords />
+      </div>
+
+      <div class="warrank-full-container" v-if="saltFieldSubTab === 'warrank'">
+        <ClubWarrank />
+      </div>
+
+      <div class="warrank-full-container" v-if="saltFieldSubTab === 'monthBattle'">
+        <ClubMonthBattleRecords />
+      </div>
     </div>
 
-    <!-- 盐场（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'warrank'">
-      <ClubWarrank />
+    <!-- 蟠桃园分组 -->
+    <div class="peach-group" v-if="activeSection === 'peachGroup'">
+      <div class="sub-nav" style="padding: 8px; background: var(--n-color); display: flex; justify-content: center;">
+        <n-tabs type="segment" animated v-model:value="peachSubTab" size="small">
+           <n-tab-pane name="peach" tab="蟠桃园信息" />
+           <n-tab-pane name="peachBattle" tab="蟠桃园战绩" />
+        </n-tabs>
+      </div>
+
+      <div class="warrank-full-container" v-if="peachSubTab === 'peachBattle'">
+        <PeachBattleRecords />
+      </div>
+
+      <div class="warrank-full-container" v-if="peachSubTab === 'peach'">
+        <PeachInfo />
+      </div>
     </div>
 
-    <!-- 俱乐部盐场月度战绩 -->
-    <div class="warrank-full-container" v-if="activeSection === 'monthBattle'">
-      <ClubMonthBattleRecords />
-    </div>
+    <!-- 排行榜分组 -->
+    <div class="rank-group" v-if="activeSection === 'rankGroup'">
+      <div class="sub-nav" style="padding: 8px; background: var(--n-color); display: flex; justify-content: center;">
+        <n-tabs type="segment" animated v-model:value="rankSubTab" size="small">
+           <n-tab-pane name="serverrank" tab="区服榜" />
+           <n-tab-pane name="toprank" tab="巅峰榜" />
+           <n-tab-pane name="topclubrank" tab="俱乐部榜" />
+           <n-tab-pane name="goldclubrank" tab="黄金积分榜" />
+        </n-tabs>
+      </div>
 
-    <!-- 区服榜（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'serverrank'">
-      <ServerRankList />
-    </div>
+      <div class="warrank-full-container" v-if="rankSubTab === 'serverrank'">
+        <ServerRankList />
+      </div>
 
-    <!-- 巅峰榜（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'toprank'">
-      <TopRankList />
-    </div>
+      <div class="warrank-full-container" v-if="rankSubTab === 'toprank'">
+        <TopRankList />
+      </div>
 
-    <!-- 百服俱乐部（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'topclubrank'">
-      <TopClubList />
-    </div>
+      <div class="warrank-full-container" v-if="rankSubTab === 'topclubrank'">
+        <TopClubList />
+      </div>
 
-    <!-- 黄金积分（提取组件） -->
-    <div class="warrank-full-container" v-if="activeSection === 'goldclubrank'">
-      <GoldClubList />
+      <div class="warrank-full-container" v-if="rankSubTab === 'goldclubrank'">
+        <GoldClubList />
+      </div>
     </div>
-
     <!-- 切磋（提取组件） -->
     <FightPvp v-if="activeSection === 'fightPvp'" />
-
-    <!-- 蟠桃园（提取组件） -->
-    <PeachInfo v-if="activeSection === 'peach'" />
   </div>
 </template>
 
@@ -227,6 +255,7 @@ import SkinChallengeCard from "./cards/SkinChallengeCard.vue";
 import ClubWarrank from "./Club/ClubWarrank.vue";
 import ClubMonthBattleRecords from "./Club/ClubMonthBattleRecords.vue";
 import ClubBattleRecords from "./Club/ClubBattleRecords.vue";
+import PeachBattleRecords from "./Club/PeachBattleRecords.vue";
 import TopRankList from "./cards/TopRankListPageCard.vue";
 import TopClubList from "./cards/TopClubListPageCard.vue";
 import GoldClubList from "./cards/GoldRankListPageCard.vue";
@@ -251,6 +280,9 @@ const legionMatch = ref({
 // 响应式数据
 const showIdentity = ref(false);
 const activeSection = ref("daily");
+const saltFieldSubTab = ref("warrank");
+const peachSubTab = ref("peach");
+const rankSubTab = ref("serverrank");
 
 // 活动开放时间：仅周一到周三可参与
 const isActivityOpen = computed(() => {
@@ -635,6 +667,16 @@ onUnmounted(() => {
   grid-template-columns: repeat(1, 1fr);
 }
 
+.game-status-container.full-page-mode {
+  max-width: 100% !important;
+  grid-template-columns: 1fr;
+  padding: var(--spacing-sm);
+  
+  @media (min-width: 1400px) {
+    max-width: 100% !important;
+  }
+}
+
 .section-header {
   grid-column: 1 / -1;
   display: flex;
@@ -675,6 +717,15 @@ onUnmounted(() => {
     height: calc(100vh - 180px);
     min-height: 500px;
   }
+}
+
+.salt-field-group,
+.peach-group,
+.rank-group {
+  grid-column: 1 / -1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .monthly-tasks .description.muted {

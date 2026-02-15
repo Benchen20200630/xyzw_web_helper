@@ -144,10 +144,10 @@
                         <th class="col-rank">排名</th>
                         <th class="col-name">成员</th>
                         <th class="col-kill">击杀</th>
-                        <th class="col-occupy">创地</th>
                         <th class="col-death">死亡</th>
+                        <th class="col-occupy">攻城</th>
                         <th class="col-revive">复活</th>
-                        <th class="col-kd">K/D比</th>
+                        <th class="col-kd">K/D</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -164,8 +164,8 @@
                             </div>
                          </td>
                          <td class="col-kill" :style="{ backgroundColor: getKillColor(player.totalWinCnt) }">{{ player.totalWinCnt || 0 }}</td>
-                         <td class="col-occupy" :style="{ backgroundColor: getOccupyColor(player.totalBuildingCnt) }">{{ player.totalBuildingCnt || 0 }}</td>
                          <td class="col-death" :style="{ backgroundColor: getDeathColor(player.totalLoseCnt) }">{{ player.totalLoseCnt || 0 }}</td>
+                         <td class="col-occupy" :style="{ backgroundColor: getOccupyColor(player.totalBuildingCnt) }">{{ player.totalBuildingCnt || 0 }}</td>       
                          <td class="col-revive" :style="{ backgroundColor: getReviveColor(player.totalResurrection) }">{{ player.totalResurrection || 0 }}</td>
                          <td class="col-kd">{{ parseFloat((player.totalWinCnt && player.totalLoseCnt ? player.totalWinCnt/player.totalLoseCnt : 0.00)).toFixed(2) }}</td>
                       </tr>
@@ -198,7 +198,7 @@
                    </div>
 
                    <div class="summary-card purple-header">
-                      <div class="summary-title">创地前3</div>
+                      <div class="summary-title">攻城前3</div>
                       <div v-for="(player, index) in monthlyOccupyRank" :key="'occupy-'+index" class="top3-item">
                          <div class="top3-rank"><div class="rank-medal-small">{{ index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉' }}</div></div>
                          <div class="top3-info">
@@ -224,7 +224,7 @@
                    </div>
 
                    <div class="summary-card purple-header">
-                      <div class="summary-title">用丹前3</div>
+                      <div class="summary-title">复活丹前3</div>
                       <div v-for="(player, index) in monthlyReviveRank" :key="'revive-'+index" class="top3-item">
                          <div class="top3-rank"><div class="rank-medal-small">{{ index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉' }}</div></div>
                          <div class="top3-info">
@@ -267,7 +267,7 @@
                          <div class="stat-value-mini">{{ monthlyStats.totalMembers }}</div>
                       </div>
                       <div class="stat-card-mini">
-                         <div class="stat-label-mini">总用丹</div>
+                         <div class="stat-label-mini">总复活丹</div>
                          <div class="stat-value-mini warning-text">{{ monthlyStats.totalResurrection }}</div>
                       </div>
                    </div>
@@ -281,7 +281,7 @@
                          <div class="stat-value-mini">{{ monthlyStats.totalDeaths }}</div>
                       </div>
                       <div class="stat-card-mini">
-                         <div class="stat-label-mini">总创地</div>
+                         <div class="stat-label-mini">总攻城</div>
                          <div class="stat-value-mini warning-text">{{ monthlyStats.totalBuilding }}</div>
                       </div>
                       <div class="stat-card-mini">
@@ -316,7 +316,7 @@
                 </div>
                 
                 <div class="rank-card-s2 orange-border">
-                   <div class="rank-card-title-s2"><span class="icon">💣</span> 创地前三</div>
+                   <div class="rank-card-title-s2"><span class="icon">💣</span> 攻城前三</div>
                    <div class="rank-list-s2">
                       <div v-for="(player, index) in monthlyOccupyRank" :key="'s2-occupy-'+index" class="rank-item-s2">
                          <div class="rank-num-s2">{{ index + 1 }}</div>
@@ -358,7 +358,7 @@
                 </div>
 
                 <div class="rank-card-s2 purple-border">
-                   <div class="rank-card-title-s2"><span class="icon">💊</span> 用丹前三</div>
+                   <div class="rank-card-title-s2"><span class="icon">💊</span> 复活丹前三</div>
                    <div class="rank-list-s2">
                       <div v-for="(player, index) in monthlyReviveRank" :key="'s2-revive-'+index" class="rank-item-s2">
                          <div class="rank-num-s2">{{ index + 1 }}</div>
@@ -394,8 +394,8 @@
                          <th>成员</th>
                          <th>击杀</th>
                          <th>死亡</th>
-                         <th>创地</th>
-                         <th>用丹</th>
+                         <th>攻城</th>
+                         <th>复活丹</th>
                          <th>K/D</th>
                       </tr>
                    </thead>
@@ -460,6 +460,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useMessage, NCheckboxGroup, NCheckbox, NRadioGroup, NRadioButton } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from 'html2canvas';
+import { downloadCanvasAsImage } from "@/utils/imageExport";
 import {
   Trophy,
   Refresh,
@@ -729,8 +730,8 @@ const getKillColor = (val) => {
 };
 
 const getOccupyColor = (val) => {
-    if (val >= 80) return 'rgba(255, 204, 128, 0.3)';
-    if (val >= 40) return 'rgba(255, 224, 178, 0.3)';
+    if (val >= 200) return 'rgba(255, 204, 128, 0.3)';
+    if (val >= 100) return 'rgba(255, 224, 178, 0.3)';
     return 'transparent';
 };
 
@@ -889,17 +890,10 @@ const exportToImage = async () => {
       logging: false // 关闭控制台日志
     });
 
-    // Canvas转图片链接（支持PNG/JPG）
-    const imgUrl = canvas.toDataURL('image/png'); // 若要JPG，改为'image/jpeg'
-
-    // 创建下载链接，触发浏览器下载
-    const link = document.createElement('a');
-    link.href = imgUrl;
+    // Canvas转图片链接并下载
     const monthYear = currentMonthDisplay.value.replace('年', '-').replace('月', '');
-    link.download = `${monthYear}月盐场战绩总览.png`; // 下载文件名
-    document.body.appendChild(link);
-    link.click(); // 触发点击下载
-    document.body.removeChild(link); // 下载后清理DOM
+    const filename = `${monthYear}月盐场战绩总览.png`;
+    downloadCanvasAsImage(canvas, filename);
   } catch (err) {
     console.error('DOM转图片失败：', err);
     alert('导出图片失败，请重试');

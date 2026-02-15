@@ -91,15 +91,7 @@
 
         <!-- 战绩列表 -->
         <div v-else-if="battleRecords && battleRecords.roleDetailsList" class="records-wrapper">
-          
-
-
-
-
-
-
-          
-          <!-- 样式一 -->
+         <!-- 样式一 -->
           <div v-if="currentStyle === 'style1'" ref="exportDom" class="records-list style-1">
              <!-- 头部信息 -->
              <div class="style1-header">
@@ -115,10 +107,10 @@
                         <th class="col-rank">排名</th>
                         <th class="col-name">成员</th>
                         <th class="col-kill">击杀</th>
-                        <th class="col-occupy">创地</th>
                         <th class="col-death">死亡</th>
-                        <th class="col-revive">复活</th>
-                        <th class="col-kd">K/D比</th>
+                        <th class="col-occupy">攻城</th>
+                        <th class="col-revive">复活丹</th>
+                        <th class="col-kd">K/D</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -135,8 +127,8 @@
                             </div>
                          </td>
                          <td class="col-kill" :style="{ backgroundColor: getKillColor(player.winCnt) }">{{ player.winCnt || 0 }}</td>
-                         <td class="col-occupy" :style="{ backgroundColor: getOccupyColor(player.buildingCnt) }">{{ player.buildingCnt || 0 }}</td>
                          <td class="col-death" :style="{ backgroundColor: getDeathColor(player.loseCnt) }">{{ player.loseCnt || 0 }}</td>
+                         <td class="col-occupy" :style="{ backgroundColor: getOccupyColor(player.buildingCnt) }">{{ player.buildingCnt || 0 }}</td>
                          <td class="col-revive" :style="{ backgroundColor: getReviveColor(Math.max((player.loseCnt || 0) - 6, 0)) }">{{ Math.max((player.loseCnt || 0) - 6, 0) }}</td>
                          <td class="col-kd">{{ parseFloat((player.winCnt && player.loseCnt ? player.winCnt/player.loseCnt : 0.00)).toFixed(2) }}</td>
                       </tr>
@@ -172,9 +164,9 @@
                       </div>
                    </div>
 
-                   <!-- 创地前3 -->
+                   <!-- 攻城前3 -->
                    <div class="summary-card purple-header">
-                      <div class="summary-title">创地前3</div>
+                      <div class="summary-title">攻城前3</div>
                       <div v-for="(player, index) in occupyRank" :key="'occupy-'+index" class="top3-item">
                          <div class="top3-rank">
                             <div class="rank-medal-small">{{ index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉' }}</div>
@@ -204,9 +196,9 @@
                       </div>
                    </div>
 
-                   <!-- 用丹前3 -->
+                   <!-- 复活丹前3 -->
                    <div class="summary-card purple-header">
-                      <div class="summary-title">用丹前3</div>
+                      <div class="summary-title">复活丹前3</div>
                       <div v-for="(player, index) in reviveRank" :key="'revive-'+index" class="top3-item">
                          <div class="top3-rank">
                             <div class="rank-medal-small">{{ index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉' }}</div>
@@ -253,7 +245,7 @@
                          <div class="stat-value-mini">{{ battleRecords.roleDetailsList.length }}</div>
                       </div>
                       <div class="stat-card-mini">
-                         <div class="stat-label-mini">总用丹</div>
+                         <div class="stat-label-mini">总复活丹</div>
                          <div class="stat-value-mini warning-text">{{ totalRevives }}</div>
                       </div>
                    </div>
@@ -267,7 +259,7 @@
                          <div class="stat-value-mini">{{ totalDeaths }}</div>
                       </div>
                       <div class="stat-card-mini">
-                         <div class="stat-label-mini">总创地</div>
+                         <div class="stat-label-mini">总攻城</div>
                          <div class="stat-value-mini warning-text">{{ totalBuilding }}</div>
                       </div>
                       <div class="stat-card-mini">
@@ -303,7 +295,7 @@
                 </div>
                 
                 <div class="rank-card-s2 orange-border">
-                   <div class="rank-card-title-s2"><span class="icon">💣</span> 创地前三</div>
+                   <div class="rank-card-title-s2"><span class="icon">💣</span> 攻城前三</div>
                    <div class="rank-list-s2">
                       <div v-for="(player, index) in occupyRank" :key="'s2-occupy-'+index" class="rank-item-s2">
                          <div class="rank-num-s2">{{ index + 1 }}</div>
@@ -345,7 +337,7 @@
                 </div>
 
                 <div class="rank-card-s2 purple-border">
-                   <div class="rank-card-title-s2"><span class="icon">💊</span> 用丹前三</div>
+                   <div class="rank-card-title-s2"><span class="icon">💊</span> 复活丹前三</div>
                    <div class="rank-list-s2">
                       <div v-for="(player, index) in reviveRank" :key="'s2-revive-'+index" class="rank-item-s2">
                          <div class="rank-num-s2">{{ index + 1 }}</div>
@@ -383,9 +375,8 @@
                          <th>成员</th>
                          <th>击杀</th>
                          <th>死亡</th>
-                         <th>创地</th>
-                         <th>用丹</th>
-                         <th>连杀</th>
+                         <th>攻城</th>
+                         <th>复活丹</th>
                          <th>K/D</th>
                       </tr>
                    </thead>
@@ -420,8 +411,7 @@
                                <div class="progress-bg"><div class="progress-fill orange" :style="{width: getPercent(player.buildingCnt, maxOccupies) + '%'}"></div></div>
                             </div>
                          </td>
-                         <td>{{ Math.max((player.loseCnt || 0) - 6, 0) }}</td>
-                         <td>{{ player.killStreak || 0 }}</td>
+                         <td>{{ Math.max((player.loseCnt || 0) - 6, 0) }}</td>  
                          <td class="kd-val">{{ parseFloat((player.winCnt && player.loseCnt ? player.winCnt/player.loseCnt : 0.00)).toFixed(2) }}</td>
                       </tr>
                    </tbody>
@@ -450,6 +440,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useMessage, NCheckboxGroup, NCheckbox, NRadioGroup, NRadioButton } from 'naive-ui'
 import { useTokenStore } from '@/stores/tokenStore'
 import html2canvas from 'html2canvas';
+import { downloadCanvasAsImage } from "@/utils/imageExport";
 import {
   Refresh,
   Copy,
@@ -539,7 +530,7 @@ const reviveRank = computed(() => {
 
 // --- 新增计算属性和方法 ---
 
-// 创地榜 Top3
+// 攻城榜 Top3
 const occupyRank = computed(() => {
   if (!battleRecords.value?.roleDetailsList) return []
   return [...battleRecords.value.roleDetailsList]
@@ -555,7 +546,7 @@ const deathRank = computed(() => {
     .slice(0, 3)
 })
 
-// 生存榜 Top3 (以死亡数少排序，且至少有1次击杀或创地)
+// 生存榜 Top3 (以死亡数少排序，且至少有1次击杀或攻城)
 const survivalRank = computed(() => {
   if (!battleRecords.value?.roleDetailsList) return []
   return [...battleRecords.value.roleDetailsList]
@@ -609,8 +600,8 @@ const getKillColor = (val) => {
 }
 
 const getOccupyColor = (val) => {
-    if (val >= 20) return 'rgba(255, 204, 128, 0.3)'
-    if (val >= 10) return 'rgba(255, 224, 178, 0.3)'
+    if (val >= 100) return 'rgba(255, 204, 128, 0.3)'
+    if (val >= 50) return 'rgba(255, 224, 178, 0.3)'
     return 'transparent'
 }
 
@@ -621,7 +612,7 @@ const getDeathColor = (val) => {
 }
 
 const getReviveColor = (val) => {
-    if (val >= 10) return 'rgba(200, 230, 201, 0.3)'
+    if (val >= 5) return 'rgba(200, 230, 201, 0.3)'
     return 'transparent'
 }
 
@@ -769,17 +760,9 @@ const exportToImage = async () => {
       element.style.overflow = overflow;
     });
 
-    // 6. Canvas转图片链接（支持PNG/JPG）
-    const imgUrl = canvas.toDataURL('image/png'); // 若要JPG，改为'image/jpeg'
-
-    // 7. 创建下载链接，触发浏览器下载
-    const link = document.createElement('a');
-    link.href = imgUrl;
-    console.log()
-    link.download = queryDate.value.replace("/",'年').replace("/",'月')+'日盐场战报.png'; // 下载文件名
-    document.body.appendChild(link);
-    link.click(); // 触发点击下载
-    document.body.removeChild(link); // 下载后清理DOM
+    // 6. Canvas转图片链接并下载
+    const filename = queryDate.value.replace("/",'年').replace("/",'月')+'日盐场战报.png';
+    downloadCanvasAsImage(canvas, filename);
   } catch (err) {
     console.error('DOM转图片失败：', err);
     alert('导出图片失败，请重试');

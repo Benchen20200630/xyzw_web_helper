@@ -829,6 +829,7 @@ import {
 } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
 import html2canvas from "html2canvas";
+import { downloadCanvasAsImage } from "@/utils/imageExport";
 import {
   Trophy,
   Refresh,
@@ -2225,19 +2226,9 @@ const exportToImage = async () => {
       allowTaint: true, // 允许跨域图片污染画布
     });
 
-    // 6. Canvas转图片链接（支持PNG/JPG）
-    const imgUrl = canvas.toDataURL("image/png");
-    // 若要JPG，改为'image/jpeg'
-
-    // 7. 创建下载链接，触发浏览器下载
-    const link = document.createElement("a");
-    link.href = imgUrl;
-    link.download =
-      queryDate.value.replace("/", "年").replace("/", "月") +
-      "日盐场匹配信息.png";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 6. Canvas转图片链接并下载
+    const filename = queryDate.value.replace("/", "年").replace("/", "月") + "日盐场匹配信息.png";
+    downloadCanvasAsImage(canvas, filename);
   } catch (err) {
     console.error("DOM转图片失败：", err);
     alert("导出图片失败，请重试");

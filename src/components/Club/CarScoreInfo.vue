@@ -319,26 +319,61 @@ const fetchWeirdTowerInfo = async () => {
       10000
     )
 
+    // 获取所有俱乐部成员
+    const clubMembers = tokenStore.gameData?.legionInfo?.info?.members || {};
+    const allMembers = Object.values(clubMembers);
+
+    let members = [];
+
+    // 创建参与者映射
+    const participantMap = new Map();
     if (result && result.list) {
-      // 转换数据格式
-      const members = result.list.map((member) => ({
+      result.list.forEach(m => {
+        participantMap.set(m.roleId, m);
+      });
+    }
+
+    if (allMembers.length > 0) {
+      // 合并数据：优先使用俱乐部成员列表，补充赛车数据
+      members = allMembers.map(member => {
+        const participant = participantMap.get(member.roleId);
+        return {
+          roleId: member.roleId,
+          name: member.name,
+          headImg: member.headImg,
+          score: participant ? participant.score : 0,
+          power: member.power,
+          rank: participant ? participant.rank : 9999,
+          serverId: member.serverId
+        };
+      });
+    } else if (result && result.list) {
+       // 如果没有俱乐部成员信息（异常情况），仅显示参与者
+       members = result.list.map((member) => ({
         roleId: member.roleId,
         name: member.name,
-        headImg: member.headImg?.replace(/`/g, '').trim(), // 移除可能的反引号和空格
+        headImg: member.headImg?.replace(/`/g, '').trim(),
         score: member.score,
         power: member.power,
         rank: member.rank,
         serverId: member.serverId
       }))
+    }
 
-      // 按积分从高到低排序
-      members.sort((a, b) => b.score - a.score)
+    // 按积分从高到低排序，积分相同按战力
+    members.sort((a, b) => {
+        if (b.score !== a.score) {
+            return b.score - a.score;
+        }
+        return (b.power || 0) - (a.power || 0);
+    });
 
-      memberScores.value = members
+    memberScores.value = members
+    
+    if (members.length > 0) {
       message.success('赛车数据加载成功，已按积分从高到低排序')
     } else {
-      memberScores.value = []
-      message.warning('未查询到赛车数据')
+      message.warning('未查询到数据')
     }
   } catch (error) {
       console.error('查询赛车数据失败:', error)

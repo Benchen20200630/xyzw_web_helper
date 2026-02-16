@@ -332,54 +332,62 @@ const fetchWeirdTowerInfo = async () => {
       10000
     )
 
+    // 获取所有俱乐部成员
+    const clubMembers = tokenStore.gameData?.legionInfo?.info?.members || {};
+    const allMembers = Object.values(clubMembers);
+
+    let members = [];
+    
+    // 转换数据格式
+    const participantMap = new Map();
     if (result && result.memberScores) {
-      // 转换数据格式
-      const members = Object.entries(result.memberScores).map(([roleId, towerCount]) => ({
-        roleId: parseInt(roleId),
-        towerCount: towerCount,
-        towerCountconvert: handleEvotower(towerCount)
-      }))
-
-      // 按爬塔数量从高到低排序
-      members.sort((a, b) => b.towerCount - a.towerCount)
-
-      // 获取每个玩家的详细信息
-      const membersWithInfo = await Promise.all(
-        members.map(async (member) => {
-          try {
-            const result = await tokenStore.sendMessageWithPromise(
-              tokenId,
-              'rank_getroleinfo',
-              {
-                bottleType: 0,
-                includeBottleTeam: false,
-                isSearch: false,
-                roleId: member.roleId
-              },
-              5000
-            )
-
-            return {
-              ...member,
-              name: result.roleInfo?.name,
-              headImg: result.roleInfo?.headImg
-            }
-          } catch (error) {
-            console.error(`获取玩家${member.roleId}信息失败:`, error)
-            return {
-              ...member,
-              name: `未知玩家${member.roleId}`
-            }
-          }
-        })
-      )
-
-      memberScores.value = membersWithInfo
-      message.success('怪异塔数据加载成功，已按怪异塔数量从高到低排序')
-    } else {
-      memberScores.value = []
-      message.warning('未查询到怪异塔数据')
+       Object.entries(result.memberScores).forEach(([roleId, towerCount]) => {
+         participantMap.set(parseInt(roleId), towerCount);
+       });
     }
+
+    if (allMembers.length > 0) {
+      // 合并数据：优先使用俱乐部成员列表
+      members = allMembers.map(member => {
+        const towerCount = participantMap.get(member.roleId) || 0;
+        return {
+          roleId: member.roleId,
+          name: member.name,
+          headImg: member.headImg,
+          towerCount: towerCount,
+          towerCountconvert: handleEvotower(towerCount),
+          power: member.power // 用于辅助排序
+        };
+      });
+    } else if (result && result.memberScores) {
+        // 如果没有俱乐部成员信息（异常情况），尝试使用参与者数据（缺少名字头像）
+        // 这里为了避免完全空白，至少显示ID和层数
+         members = Object.entries(result.memberScores).map(([roleId, towerCount]) => ({
+            roleId: parseInt(roleId),
+            towerCount: towerCount,
+            towerCountconvert: handleEvotower(towerCount),
+            name: `ID:${roleId}`, // 缺少名字
+            headImg: '', // 缺少头像
+            power: 0
+        }));
+    }
+
+    // 按爬塔数量从高到低排序，层数相同按战力
+    members.sort((a, b) => {
+        if (b.towerCount !== a.towerCount) {
+            return b.towerCount - a.towerCount;
+        }
+        return (b.power || 0) - (a.power || 0);
+    });
+
+    memberScores.value = members;
+    
+    if (members.length > 0) {
+       message.success('怪异塔数据加载成功，已按怪异塔数量从高到低排序');
+    } else {
+       message.warning('未查询到数据');
+    }
+
   } catch (error) {
     console.error('查询怪异塔数据失败:', error)
     message.error(`查询失败: ${error.message}`)

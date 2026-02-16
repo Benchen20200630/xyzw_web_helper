@@ -79,8 +79,9 @@ export function createTasksCar(deps) {
         );
         let carList = normalizeCars(res?.body ?? res);
 
-        // 2. Fetch Tickets
+        // 2. Fetch Tickets & Role Info
         let refreshTickets = 0;
+        let currentRoleId = null;
         try {
           const roleRes = await tokenStore.sendMessageWithPromise(
             tokenId,
@@ -90,12 +91,106 @@ export function createTasksCar(deps) {
           );
           const qty = roleRes?.role?.items?.[35002]?.quantity;
           refreshTickets = Number(qty || 0);
+          currentRoleId = roleRes?.role?.roleId ? String(roleRes.role.roleId) : null;
           addLog({
             time: new Date().toLocaleTimeString(),
             message: `${token.name} 剩余刷新次数: ${refreshTickets}`,
             type: "info",
           });
         } catch (_) {}
+
+        // 2.5 Fetch Helper Data (Club Members & Usage)
+        let helperUsageMap = {};
+        let sortedHelpers = [];
+        try {
+          // Fetch usage counts
+          const usageRes = await tokenStore.sendMessageWithPromise(
+            tokenId,
+            "car_getmemberhelpingcnt",
+            {},
+            5000
+          );
+          helperUsageMap =
+            usageRes?.body?.memberHelpingCntMap ||
+            usageRes?.memberHelpingCntMap ||
+            {};
+
+          // Fetch club members
+          const legionRes = await tokenStore.sendMessageWithPromise(
+            tokenId,
+            "legion_getinfo",
+            {},
+            5000
+          );
+          const membersMap =
+            legionRes?.body?.info?.members || legionRes?.info?.members || {};
+          
+          // Sort members by Red Quench (desc)
+          sortedHelpers = Object.values(membersMap)
+            .filter(
+              (m) =>
+                !currentRoleId || String(m.roleId) !== currentRoleId
+            )
+            .map((m) => ({
+              id: String(m.roleId),
+              name: m.name || m.nickname || String(m.roleId),
+              redQuench: m.custom?.red_quench_cnt || 0,
+            }))
+            .sort((a, b) => b.redQuench - a.redQuench);
+            
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 获取到 ${sortedHelpers.length} 位潜在护卫`,
+            type: "info",
+          });
+        } catch (e) {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 获取护卫数据失败: ${e.message}，将不带护卫发车`,
+            type: "warning",
+          });
+        }
+
+        // Helper function to assign guard
+        const assignHelperIfNeeded = (car) => {
+          const color = Number(car.color || 0);
+          // Only Red(5) and above need guards
+          if (color < 5) return;
+          // Skip if already has helper
+          if (car.helperId) return;
+
+          if (!sortedHelpers.length) {
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]需要护卫，但未获取到可用护卫列表`,
+              type: "warning",
+            });
+            return;
+          }
+
+          // Find best available helper
+          const bestHelper = sortedHelpers.find((h) => {
+            const used = Number(helperUsageMap[h.id] || 0);
+            return used < 4;
+          });
+
+          if (bestHelper) {
+            car.helperId = bestHelper.id;
+            // Update local usage count
+            helperUsageMap[bestHelper.id] = Number(helperUsageMap[bestHelper.id] || 0) + 1;
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]自动分配护卫: ${bestHelper.name}`,
+              type: "success",
+            });
+          } else {
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]需要护卫，但所有护卫次数已满`,
+              type: "warning",
+            });
+          }
+        };
 
         // 3. Process Cars
         for (const car of carList) {
@@ -105,6 +200,7 @@ export function createTasksCar(deps) {
 
           try {
             if (shouldSendCar(car, refreshTickets)) {
+              assignHelperIfNeeded(car);
               addLog({
                 time: new Date().toLocaleTimeString(),
                 message: `${token.name} 车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
@@ -115,7 +211,7 @@ export function createTasksCar(deps) {
                 "car_send",
                 {
                   carId: String(car.id),
-                  helperId: 0,
+                  helperId: car.helperId ? String(car.helperId) : 0,
                   text: "",
                   isUpgrade: false,
                 },
@@ -130,6 +226,7 @@ export function createTasksCar(deps) {
             if (refreshTickets >= 6) shouldRefresh = true;
             else if (free) shouldRefresh = true;
             else {
+              assignHelperIfNeeded(car);
               addLog({
                 time: new Date().toLocaleTimeString(),
                 message: `${token.name} 车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
@@ -140,7 +237,7 @@ export function createTasksCar(deps) {
                 "car_send",
                 {
                   carId: String(car.id),
-                  helperId: 0,
+                  helperId: car.helperId ? String(car.helperId) : 0,
                   text: "",
                   isUpgrade: false,
                 },
@@ -184,6 +281,7 @@ export function createTasksCar(deps) {
               } catch (_) {}
 
               if (shouldSendCar(car, refreshTickets)) {
+                assignHelperIfNeeded(car);
                 addLog({
                   time: new Date().toLocaleTimeString(),
                   message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,
@@ -194,7 +292,7 @@ export function createTasksCar(deps) {
                   "car_send",
                   {
                     carId: String(car.id),
-                    helperId: 0,
+                    helperId: car.helperId ? String(car.helperId) : 0,
                     text: "",
                     isUpgrade: false,
                   },
@@ -208,6 +306,7 @@ export function createTasksCar(deps) {
               if (refreshTickets >= 6) shouldRefresh = true;
               else if (freeNow) shouldRefresh = true;
               else {
+                assignHelperIfNeeded(car);
                 addLog({
                   time: new Date().toLocaleTimeString(),
                   message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]仍不满足条件且无刷新次数，发车`,
@@ -218,7 +317,7 @@ export function createTasksCar(deps) {
                   "car_send",
                   {
                     carId: String(car.id),
-                    helperId: 0,
+                    helperId: car.helperId ? String(car.helperId) : 0,
                     text: "",
                     isUpgrade: false,
                   },

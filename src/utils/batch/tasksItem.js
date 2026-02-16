@@ -1,4 +1,5 @@
 import { HERO_DICT } from "@/utils/HeroList";
+import { PEACH_TASKS } from "@/utils/PeachTaskIds";
 
 /**
  * 开箱、钓鱼、招募类任务
@@ -70,11 +71,11 @@ export function createTasksItem(deps) {
 
         for (const heroId of heroIds) {
           if (shouldStop.value) break;
-          
+
           // 每个英雄尝试最多10次升星（只要成功就继续，失败则跳过该英雄）
           for (let i = 1; i <= 10; i++) {
             if (shouldStop.value) break;
-            
+
             try {
               const res = await tokenStore.sendMessageWithPromise(
                 tokenId,
@@ -85,21 +86,21 @@ export function createTasksItem(deps) {
               const ok =
                 res &&
                 (res.code === 0 || res.success === true || res.result === 0);
-              
+
               if (ok) {
-                 addLog({
-                    time: new Date().toLocaleTimeString(),
-                    message: `${token.name} 英雄ID:${heroId} 升星成功 (第${i}次)`,
-                    type: "success",
-                 });
-                 // 成功了继续尝试下一级，直到失败或达到10次
+                addLog({
+                  time: new Date().toLocaleTimeString(),
+                  message: `${token.name} 英雄ID:${heroId} 升星成功 (第${i}次)`,
+                  type: "success",
+                });
+                // 成功了继续尝试下一级，直到失败或达到10次
               } else {
-                 // 失败说明无法继续升星（碎片不足或满星），跳出循环处理下一个英雄
-                 throw new Error("升星失败");
+                // 失败说明无法继续升星（碎片不足或满星），跳出循环处理下一个英雄
+                throw new Error("升星失败");
               }
             } catch (err) {
               // 失败则停止当前英雄的升星尝试
-              break; 
+              break;
             }
             await new Promise((r) => setTimeout(r, delayConfig.action));
           }
@@ -161,11 +162,11 @@ export function createTasksItem(deps) {
 
         for (const heroId of heroIds) {
           if (shouldStop.value) break;
-          
+
           // 每个英雄尝试最多10次图鉴升星（只要成功就继续，失败则跳过该英雄）
           for (let i = 1; i <= 10; i++) {
             if (shouldStop.value) break;
-            
+
             try {
               const res = await tokenStore.sendMessageWithPromise(
                 tokenId,
@@ -176,21 +177,21 @@ export function createTasksItem(deps) {
               const ok =
                 res &&
                 (res.code === 0 || res.success === true || res.result === 0);
-              
+
               if (ok) {
-                 addLog({
-                    time: new Date().toLocaleTimeString(),
-                    message: `${token.name} 英雄ID:${heroId} 图鉴升星成功 (第${i}次)`,
-                    type: "success",
-                 });
-                 // 成功了继续尝试下一级，直到失败或达到10次
+                addLog({
+                  time: new Date().toLocaleTimeString(),
+                  message: `${token.name} 英雄ID:${heroId} 图鉴升星成功 (第${i}次)`,
+                  type: "success",
+                });
+                // 成功了继续尝试下一级，直到失败或达到10次
               } else {
-                 // 失败说明无法继续图鉴升星（碎片不足或满星），跳出循环处理下一个英雄
-                 throw new Error("图鉴升星失败");
+                // 失败说明无法继续图鉴升星（碎片不足或满星），跳出循环处理下一个英雄
+                throw new Error("图鉴升星失败");
               }
             } catch (err) {
-               // 失败则停止当前英雄的图鉴升星尝试
-               break; 
+              // 失败则停止当前英雄的图鉴升星尝试
+              break;
             }
             await new Promise((r) => setTimeout(r, delayConfig.action));
           }
@@ -251,32 +252,32 @@ export function createTasksItem(deps) {
         await ensureConnection(tokenId);
 
         for (let i = 1; i <= 10; i++) {
-            if (shouldStop.value) break;
-            try {
-                const res = await tokenStore.sendMessageWithPromise(
-                  tokenId,
-                  "book_claimpointreward",
-                  {},
-                  5000,
-                );
-                const ok =
-                  res && (res.code === 0 || res.success === true || res.result === 0);
-                
-                if (ok) {
-                    addLog({
-                        time: new Date().toLocaleTimeString(),
-                        message: `${token.name} 领取图鉴奖励成功`,
-                        type: "success",
-                    });
-                } else {
-                    // 如果领取失败（比如没有奖励可领了），停止尝试
-                     throw new Error("领取奖励失败");
-                }
-            } catch (err) {
-                 // 失败则停止尝试
-                 break;
+          if (shouldStop.value) break;
+          try {
+            const res = await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "book_claimpointreward",
+              {},
+              5000,
+            );
+            const ok =
+              res && (res.code === 0 || res.success === true || res.result === 0);
+
+            if (ok) {
+              addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 领取图鉴奖励成功`,
+                type: "success",
+              });
+            } else {
+              // 如果领取失败（比如没有奖励可领了），停止尝试
+              throw new Error("领取奖励失败");
             }
-            await new Promise((r) => setTimeout(r, delayConfig.action));
+          } catch (err) {
+            // 失败则停止尝试
+            break;
+          }
+          await new Promise((r) => setTimeout(r, delayConfig.action));
         }
 
         tokenStatus.value[tokenId] = "completed";
@@ -377,6 +378,212 @@ export function createTasksItem(deps) {
     isRunning.value = false;
     currentRunningTokenId.value = null;
     message.success("批量领取宝箱积分结束");
+  };
+
+  /**
+   * 批量领取蟠桃园任务
+   */
+  const batchClaimPeachTasks = async () => {
+    if (selectedTokens.value.length === 0) return;
+
+    isRunning.value = true;
+    shouldStop.value = false;
+
+    selectedTokens.value.forEach((id) => {
+      tokenStatus.value[id] = "waiting";
+    });
+
+    const taskPromises = selectedTokens.value.map(async (tokenId) => {
+      if (shouldStop.value) return;
+
+      tokenStatus.value[tokenId] = "running";
+      const token = tokens.value.find((t) => t.id === tokenId);
+
+      try {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 开始领取蟠桃园任务奖励: ${token.name} ===`,
+          type: "info",
+        });
+
+        await ensureConnection(tokenId);
+
+        const res = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "legion_getpayloadtask",
+          {},
+          5000
+        );
+
+        const payloadTask = res?.payloadTask || res?.data?.payloadTask;
+
+        if (payloadTask && payloadTask.taskMap) {
+          const taskMap = payloadTask.taskMap;
+          const tasks = [];
+          Object.values(taskMap).forEach((item) => {
+            const availableTasks = PEACH_TASKS.filter(
+              (t) =>
+                t.type === item.typ &&
+                item.progress >= t.target &&
+                item.claimedProgress < t.target,
+            );
+            tasks.push(...availableTasks);
+          });
+
+          let claimedCount = 0;
+
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 获取到 ${tasks.length} 个任务奖励`,
+            type: "info",
+          });
+
+          for (const task of tasks) {
+            if (shouldStop.value) break;
+            // status not reliable or not present, try claim all
+            try {
+              const claimRes = await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "legion_claimpayloadtask",
+                { taskId: task.id },
+                5000
+              );
+              const ok = claimRes && claimRes.payloadTask;
+              if (ok) {
+                claimedCount++;
+                addLog({
+                  time: new Date().toLocaleTimeString(),
+                  message: `${token.name} 领取${task.desc}任务奖励成功`,
+                  type: "success",
+                });
+              }
+
+            } catch (err) {
+              // ignore
+            }
+            await new Promise((r) => setTimeout(r, delayConfig.action));
+          }
+
+          // Check and claim point rewards (Moved out of loop to ensure execution)
+          try {
+            const progressMapres = await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "legion_getpayloadtask",
+              {},
+              5000
+            );
+            
+            if (progressMapres && progressMapres.payloadTask) {
+                const legionPoint = progressMapres.payloadTask.legionPoint || 0;
+                const selfPoint = progressMapres.payloadTask.selfPoint || 0;
+                // progressMap key might be string or number, handle both safely
+                const progressMap = progressMapres.payloadTask.progressMap || {};
+                const taskGroupprogressMap = progressMap[1] || progressMap["1"] || 0;
+                const selfPointprogressMap = progressMap[2] || progressMap["2"] || 0;
+
+                // Club Rewards - Claim all if progress is greater than claimed progress
+                if (legionPoint > taskGroupprogressMap && taskGroupprogressMap < 25) {
+                  try {
+                    await tokenStore.sendMessageWithPromise(
+                      tokenId,
+                      "legion_claimpayloadtaskprogress",
+                      { taskGroup: 1 },
+                      5000
+                    );
+                    addLog({
+                      time: new Date().toLocaleTimeString(),
+                      message: `${token.name} 领取俱乐部任务奖励 (当前积分: ${legionPoint})`,
+                      type: "success",
+                    });
+                    await new Promise((r) => setTimeout(r, 1000));
+                  } catch (e) {
+                    addLog({
+                      time: new Date().toLocaleTimeString(),
+                      message: `${token.name} 领取俱乐部任务奖励失败: ${e.message}`,
+                      type: "error",
+                    });
+                  }
+                }
+
+                // Personal Rewards - Claim all if progress is greater than claimed progress
+                if (selfPoint > selfPointprogressMap && selfPointprogressMap < 25) {
+                  try {
+                    await tokenStore.sendMessageWithPromise(
+                      tokenId,
+                      "legion_claimpayloadtaskprogress",
+                      { taskGroup: 2 },
+                      5000
+                    );
+                    addLog({
+                      time: new Date().toLocaleTimeString(),
+                      message: `${token.name} 领取个人任务奖励 (当前积分: ${selfPoint})`,
+                      type: "success",
+                    });
+                    await new Promise((r) => setTimeout(r, 1000));
+                  } catch (e) {
+                    addLog({
+                      time: new Date().toLocaleTimeString(),
+                      message: `${token.name} 领取个人任务奖励失败: ${e.message}`,
+                      type: "error",
+                    });
+                  }
+                }
+            }
+          } catch (err) {
+             console.error("领取蟠桃园积分奖励异常:", err);
+             addLog({
+               time: new Date().toLocaleTimeString(),
+               message: `${token.name} 领取积分奖励异常: ${err.message}`,
+               type: "error",
+             });
+          }
+
+          if (claimedCount === 0) {
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 没有可领取的任务奖励`,
+              type: "info",
+            });
+          }
+
+        } else {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 未获取到任务奖励列表`,
+            type: "warning",
+          });
+        }
+
+        tokenStatus.value[tokenId] = "completed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} === 领取蟠桃园任务奖励完成 ===`,
+          type: "success",
+        });
+      } catch (error) {
+        console.error(error);
+        tokenStatus.value[tokenId] = "failed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 领取蟠桃园任务奖励失败: ${error.message}`,
+          type: "error",
+        });
+      } finally {
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 连接已关闭  (队列: ${connectionQueue.active}/${batchSettings.maxActive})`,
+          type: "info",
+        });
+      }
+    });
+
+    await Promise.all(taskPromises);
+
+    isRunning.value = false;
+    currentRunningTokenId.value = null;
+    message.success("批量领取蟠桃园任务奖励结束");
   };
 
   /**
@@ -703,5 +910,6 @@ export function createTasksItem(deps) {
     batchHeroUpgrade,
     batchBookUpgrade,
     batchClaimStarRewards,
+    batchClaimPeachTasks,
   };
 }

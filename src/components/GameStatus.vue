@@ -3,7 +3,8 @@
     class="game-status-container"
     :class="{
       'full-grid': activeSection === 'fightPvp',
-      'full-page-mode': activeSection === 'saltFieldGroup' || activeSection === 'peachGroup' || activeSection === 'rankGroup'
+      'full-page-mode': activeSection === 'saltFieldGroup' || activeSection === 'peachGroup' || activeSection === 'rankGroup',
+      'club-mode': activeSection === 'club'
     }"
   >
     <!-- 身份牌常驻（嵌入式，Tabs 上方） -->
@@ -673,6 +674,13 @@ onUnmounted(() => {
   padding: var(--spacing-sm);
   
   @media (min-width: 1400px) {
+    max-width: 100% !important;
+  }
+}
+
+.game-status-container.club-mode {
+  @media (min-width: 1400px) {
+    grid-template-columns: repeat(2, 1fr);
     max-width: 100% !important;
   }
 }

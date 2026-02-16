@@ -1,5 +1,5 @@
 <template>
-  <div class="status-card club-car-king" style="min-width: 400px">
+  <div class="status-card club-car-king">
     <div class="card-header">
       <img class="status-icon" src="/icons/疯狂赛车.png" alt="疯狂赛车" />
       <div class="status-info">
@@ -90,13 +90,11 @@
                 Number(c.sendAt || 0) === 0 ? "未发车" : "已发车"
               }}</span>
             </div>
-            <div class="kv">
+            <div class="kv" :class="{ 'hidden-placeholder': !(Number(c.color || 0) >= 5 || c.helperId) }">
               <span class="k">帮手</span
-              ><span class="v">{{
-                Number(c.color || 0) >= 5 ? "可携带" : "—"
-              }}</span>
+              ><span class="v">{{ getCarHelperStatus(c) }}</span>
             </div>
-            <div class="kv" v-if="isBigPrize(c.rewards)">
+            <div class="kv" :class="{ 'hidden-placeholder': !isBigPrize(c.rewards) }">
               <span class="k">奖励</span
               ><span class="v" style="color: #f59e0b">包含大奖</span>
             </div>
@@ -569,15 +567,37 @@ const refreshCar = async (car) => {
       if (data.color != null) {
         car.color = Number(data.color);
       }
+      if (data.rewards != null) {
+        car.rewards = data.rewards;
+      }
       if (data.refreshCount != null) {
         // 优先按车级别的免费刷新次数
         car.refreshCount = Number(data.refreshCount);
-        // 若服务端用全局刷新次数，也尽量同步到元信息
-        const root = carRaw.value?.body || carRaw.value || {};
-        if (root.roleCar && root.roleCar.refreshCount != null) {
-          root.roleCar.refreshCount = Number(data.refreshCount);
-        }
       }
+
+      // 同步更新底层 carRaw 数据源，确保后续计算一致
+      const root = carRaw.value?.body || carRaw.value || {};
+      if (
+        root.roleCar &&
+        root.roleCar.carDataMap &&
+        root.roleCar.carDataMap[car.id]
+      ) {
+        // 合并更新
+        root.roleCar.carDataMap[car.id] = {
+          ...root.roleCar.carDataMap[car.id],
+          ...data,
+        };
+      }
+
+      // 若服务端用全局刷新次数，也尽量同步到元信息
+      if (
+        data.refreshCount != null &&
+        root.roleCar &&
+        root.roleCar.refreshCount != null
+      ) {
+        root.roleCar.refreshCount = Number(data.refreshCount);
+      }
+
       // 弹出奖励与结果摘要（可按需扩展）
       const newGrade = gradeLabel(car.color);
       message.success(`刷新完成：${newGrade}`);
@@ -789,10 +809,64 @@ const smartSendCar = async () => {
     return message.warning("请先选择 Token 并建立连接");
   try {
     await fetchCarInfo();
+
+    // 预加载护卫数据
+    let helperUsageMap = {};
+    let sortedHelpers = [];
+    try {
+      const resp = await tokenStore.sendMessageWithPromise(
+        token.id,
+        "car_getmemberhelpingcnt",
+        {},
+        5000,
+      );
+      helperUsageMap =
+        resp?.body?.memberHelpingCntMap || resp?.memberHelpingCntMap || {};
+      // 预先按红淬排序成员
+      sortedHelpers = (legionMembers.value || [])
+        .filter(
+          (m) =>
+            !currentRoleId.value || String(m.roleId) !== currentRoleId.value,
+        )
+        .map((m) => ({
+          id: String(m.roleId),
+          redQuench: m.custom?.red_quench_cnt || 0,
+        }))
+        .sort((a, b) => b.redQuench - a.redQuench);
+    } catch (_) {
+      // 忽略护卫获取失败，降级为不带护卫发车
+    }
+
+    // 自动分配护卫函数
+    const assignHelperIfNeeded = (car) => {
+      const color = Number(car.color || 0);
+      // 仅红(5)及以上需要护卫
+      if (color < 5) return;
+      // 已有护卫则跳过
+      if (car.helperId) return;
+
+      // 寻找可用护卫
+      const bestHelper = sortedHelpers.find((h) => {
+        const used = Number(helperUsageMap[h.id] || 0);
+        return used < 4;
+      });
+
+      if (bestHelper) {
+        car.helperId = bestHelper.id;
+        // 更新本地计数
+        helperUsageMap[bestHelper.id] =
+          Number(helperUsageMap[bestHelper.id] || 0) + 1;
+        message.success(
+          `已自动分配护卫：${getHelperName(bestHelper.id)}`,
+        );
+      }
+    };
+
     let tickets = Number(refreshTickets.value || 0);
     for (const car of carList.value) {
       if (Number(car.sendAt || 0) !== 0) continue;
       if (shouldSendCar(car, tickets)) {
+        assignHelperIfNeeded(car);
         await sendCar(car);
         await new Promise((r) => setTimeout(r, 500));
         continue;
@@ -802,6 +876,7 @@ const smartSendCar = async () => {
       if (tickets >= 6) shouldRefresh = true;
       else if (free) shouldRefresh = true;
       else {
+        assignHelperIfNeeded(car);
         await sendCar(car);
         await new Promise((r) => setTimeout(r, 500));
         continue;
@@ -810,6 +885,7 @@ const smartSendCar = async () => {
         await refreshCar(car);
         tickets = Number(refreshTickets.value || 0);
         if (shouldSendCar(car, tickets)) {
+          assignHelperIfNeeded(car);
           await sendCar(car);
           await new Promise((r) => setTimeout(r, 500));
           break;
@@ -818,6 +894,7 @@ const smartSendCar = async () => {
         if (tickets >= 6) shouldRefresh = true;
         else if (freeNow) shouldRefresh = true;
         else {
+          assignHelperIfNeeded(car);
           await sendCar(car);
           await new Promise((r) => setTimeout(r, 500));
           break;
@@ -845,6 +922,36 @@ const legionMembers = computed(() =>
   Object.values(legionMembersMap.value || {}),
 );
 
+const currentRoleId = computed(() => {
+  const info = tokenStore.gameData?.roleInfo;
+  return info?.role?.roleId ? String(info.role.roleId) : null;
+});
+
+const getHelperName = (helperId) => {
+  if (!helperId) return "";
+  const members = legionMembers.value || [];
+  const m = members.find((m) => String(m.roleId) === String(helperId));
+  return m ? m.name || m.nickname || helperId : helperId;
+};
+
+const getCarHelperStatus = (c) => {
+  // 1. Check for explicit helper objects
+  if (c.helperBattleTeam) {
+    const name = c.helperBattleTeam.name || c.helperBattleTeam.nickname;
+    if (name) return name;
+    if (c.helperBattleTeam.roleId) return getHelperName(c.helperBattleTeam.roleId);
+  }
+
+  // 2. Check for ID fields
+  const id = c.helperId || c.guardId;
+  if (id) return getHelperName(id);
+
+  // 3. Fallback logic
+  if (Number(c.sendAt || 0) !== 0) return "未携带";
+  if (Number(c.color || 0) >= 5) return "可携带";
+  return "—";
+};
+
 const openHelperDialog = async (car) => {
   const token = tokenStore.selectedToken;
   if (!token || !isConnected.value)
@@ -871,17 +978,24 @@ const openHelperDialog = async (car) => {
       resp?.body?.memberHelpingCntMap || resp?.memberHelpingCntMap || {};
 
     // 生成候选列表（v<4 可选）
-    const opts = legionMembers.value.map((m) => {
-      const mid = String(m.roleId);
-      const cnt = Number(map[mid] ?? 0);
-      const power = formatNumber(m.power || m.custom?.s_power || 0);
-      const redQuench = m.custom?.red_quench_cnt || 0;
-      return {
-        label: `${m.name || m.nickname || mid}（战力: ${power} | 红粹: ${redQuench} | 已护卫 ${cnt}/4）`,
-        value: mid,
-        disabled: cnt >= 4,
-      };
-    });
+    const opts = legionMembers.value
+      .filter(
+        (m) => !currentRoleId.value || String(m.roleId) !== currentRoleId.value,
+      )
+      .map((m) => {
+        const mid = String(m.roleId);
+        const cnt = Number(map[mid] ?? 0);
+        const power = formatNumber(m.power || m.custom?.s_power || 0);
+        const redQuench = m.custom?.red_quench_cnt || 0;
+        return {
+          label: `${m.name || m.nickname || mid}（战力: ${power} | 红粹: ${redQuench} | 已护卫 ${cnt}/4）`,
+          value: mid,
+          disabled: cnt >= 4,
+          redQuench, // 暂存用于排序
+        };
+      })
+      .sort((a, b) => b.redQuench - a.redQuench); // 按红淬降序排序
+
     helperOptions.value = opts;
   } catch (e) {
     message.error("获取护卫数据失败：" + (e.message || "未知错误"));
@@ -992,6 +1106,7 @@ const cancelHelper = () => {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
   }
 
   .car-header {
@@ -1012,10 +1127,16 @@ const cancelHelper = () => {
     padding: 2px 8px;
     border-radius: 999px;
     color: #fff;
+    white-space: nowrap; /* 防止文字换行 */
+    flex-shrink: 0; /* 防止宽度被压缩 */
   }
 
   .car-name {
     font-weight: var(--font-weight-medium);
+    white-space: nowrap; /* 防止文字换行 */
+    overflow: hidden; /* 超出部分隐藏 */
+    text-overflow: ellipsis; /* 显示省略号 */
+    min-width: 0; /* 允许在flex容器中缩小 */
   }
 
   .car-meta {
@@ -1032,6 +1153,11 @@ const cancelHelper = () => {
     background: var(--bg-primary);
     border-radius: var(--border-radius-medium);
     padding: 6px 8px;
+  }
+
+  .kv.hidden-placeholder {
+    visibility: hidden;
+    background: transparent;
   }
 
   .k {
@@ -1090,13 +1216,13 @@ const cancelHelper = () => {
   .car-actions {
     display: flex;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: auto;
     flex-wrap: wrap;
   }
 
   .car-actions > * {
-    flex: 1;
-    min-width: 80px;
+    flex: auto;
+    min-width: auto;
   }
 
   :deep(.n-button) {

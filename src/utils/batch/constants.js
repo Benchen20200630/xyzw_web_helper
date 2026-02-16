@@ -60,6 +60,7 @@ export const availableTasks = [
   { label: "批量赠送功法残卷", value: "batchLegacyGiftSendEnhanced" },
   { label: "一键合成怪异塔道具", value: "batchMergeItems" },
   { label: "一键怪异塔合成", value: "batchMergeWeirdItems" },
+  { label: "一键领取蟠桃园任务", value: "batchClaimPeachTasks" },
 ];
 
 // 车辆研究消耗表

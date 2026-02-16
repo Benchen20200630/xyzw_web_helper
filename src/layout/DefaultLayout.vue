@@ -41,16 +41,6 @@
             <span>Token管理</span>
           </router-link>
           <router-link
-            to="/admin/daily-tasks"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon>
-              <Settings />
-            </n-icon>
-            <span>任务管理</span>
-          </router-link>
-          <router-link
             to="/admin/batch-daily-tasks"
             class="nav-item"
             active-class="active"
@@ -75,16 +65,6 @@
               <LockOpen />
             </n-icon>
             <span>实时盐场</span>
-          </router-link>
-          <router-link
-            to="/admin/profile"
-            class="nav-item"
-            active-class="active"
-          >
-            <n-icon>
-              <Settings />
-            </n-icon>
-            <span>个人设置</span>
           </router-link>
         </div>
 
@@ -232,18 +212,7 @@ const isMobileMenuOpen = ref(false);
 
 const userMenuOptions = [
   {
-    label: "个人资料",
-    key: "profile",
-  },
-  {
-    label: "账户设置",
-    key: "settings",
-  },
-  {
-    type: "divider",
-  },
-  {
-    label: "退出登录",
+    label: "清除所有Token并退出",
     key: "logout",
   },
 ];
@@ -251,12 +220,6 @@ const userMenuOptions = [
 // 方法
 const handleUserAction = (key) => {
   switch (key) {
-    case "profile":
-      router.push("/admin/profile");
-      break;
-    case "settings":
-      router.push("/settings");
-      break;
     case "logout":
       tokenStore.clearAllTokens();
       message.success("已清除所有Token");

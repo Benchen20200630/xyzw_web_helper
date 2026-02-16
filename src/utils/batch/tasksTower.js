@@ -770,9 +770,15 @@ export function createTasksTower(deps) {
       } catch (error) {
         console.error(error);
         tokenStatus.value[tokenId] = "failed";
+
+        let errorMessage = error.message;
+        if (errorMessage && errorMessage.includes("200330")) {
+           errorMessage = "存在未完成的挑战，需要手动处理";
+        }
+
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `${token.name} 换皮闯关失败: ${error.message}`,
+          message: `${token.name} 换皮闯关失败: ${errorMessage}`,
           type: "error",
         });
       } finally {

@@ -117,6 +117,11 @@ export const LINEUP_RULES = [
     required: [120, 104, 110],
     colorProps: { color: "#722ed1", textColor: "#fff" }, // 紫
   },
+  {
+    name: "控制吴",
+    required: [105, 104, 110],
+    colorProps: { color: "#f5222d", textColor: "#fff" }, // 紫
+  },
 ];
 
 export const getLineupType = (heroList) => {

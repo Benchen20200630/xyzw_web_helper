@@ -372,6 +372,13 @@
             >
               一键换皮闯关
             </n-button>
+            <n-button
+              size="small"
+              @click="batchClaimPeachTasks"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键领取蟠桃园任务
+            </n-button>
           </n-space>
           <!-- 排序按钮组 -->
           <div class="sort-buttons" style="margin-bottom: 12px">
@@ -4178,6 +4185,7 @@ const {
   batchHeroUpgrade,
   batchBookUpgrade,
   batchClaimStarRewards,
+  batchClaimPeachTasks,
 } = tasksItem;
 
 const tasksDungeon = createTasksDungeon(createTaskDeps());

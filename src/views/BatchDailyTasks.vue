@@ -2906,7 +2906,6 @@ onBeforeUnmount(() => {
 });
 
 // Task scheduler - ensure it runs properly
-// 删除旧的scheduleTaskExecution函数，使用组件级别的实现
 const scheduleTaskExecution = () => {
   // Log the start of the scheduler
   addLog({
@@ -2915,223 +2914,17 @@ const scheduleTaskExecution = () => {
     type: "info",
   });
 
-  // Store interval ID for cleanup using ref to persist across component lifecycle
-  let lastTaskExecution = null;
-
-  // Health check for the scheduler
-  const healthCheck = () => {
-    // If interval is not running, restart it
-    if (!intervalId.value) {
-      console.error(
-        `[${new Date().toISOString()}] Task scheduler interval is not running, restarting...`,
-      );
-      startScheduler();
-    }
-
-    // Add a safety mechanism to prevent isRunning from being stuck
-    if (isRunning.value) {
-      const now = Date.now();
-      const tenMinutesAgo = now - 10 * 60 * 1000; // 10 minutes ago
-      if (lastTaskExecution && lastTaskExecution < tenMinutesAgo) {
-        console.error(
-          `[${new Date().toISOString()}] isRunning has been true for more than 10 minutes, resetting to false`,
-        );
-        isRunning.value = false;
-        addLog({
-          time: new Date().toLocaleTimeString(),
-          message: "=== 检测到任务执行超时，已重置isRunning状态 ===",
-          type: "warning",
-        });
-      }
-    }
-  };
-
-  // Start the scheduler
-  const startScheduler = () => {
-    // Clear any existing interval first
-    if (intervalId.value) {
-      clearInterval(intervalId.value);
-    }
-
-    // Check every 10 seconds instead of 60 seconds for more timely task execution
-    intervalId.value = setInterval(() => {
-      try {
-        const now = new Date();
-        const currentTime = now.toLocaleTimeString("zh-CN", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-
-        // Log the current check time for debugging
-
-        // Add detailed log about scheduler status (commented out for cleaner logs)
-        // addLog({
-        //   time: currentTime,
-        //   message: `=== 定时任务调度服务检查中，isRunning: ${isRunning.value}，任务数量: ${scheduledTasks.value.length} ===`,
-        //   type: "info",
-        // });
-
-        // Don't skip all tasks if isRunning is true, just skip individual task execution if already running
-        const tasksToRun = scheduledTasks.value.filter((task) => task.enabled);
-
-        if (tasksToRun.length === 0) {
-          return;
-        }
-
-        tasksToRun.forEach((task) => {
-          let shouldRun = false;
-          let reason = "";
-
-          if (task.runType === "daily") {
-            // Check if current time matches the scheduled time
-            const taskTime = task.runTime;
-            const nowTime = now.toLocaleTimeString("zh-CN", {
-              hour12: false,
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            shouldRun = nowTime === taskTime;
-            reason = `currentTime=${nowTime}, taskTime=${taskTime}, match=${shouldRun}`;
-          } else if (task.runType === "cron") {
-            // Improved cron expression parsing
-            try {
-              const cronParts = task.cronExpression.split(" ").filter(Boolean);
-
-              if (cronParts.length < 5) {
-                console.error(
-                  `[${new Date().toISOString()}] Invalid cron expression: ${task.cronExpression}, must have at least 5 parts`,
-                );
-                addLog({
-                  time: currentTime,
-                  message: `=== 定时任务 ${task.name} 的Cron表达式无效: ${task.cronExpression}，必须包含至少5个字段 ===`,
-                  type: "error",
-                });
-                return;
-              }
-
-              const [
-                minuteField,
-                hourField,
-                dayOfMonthField,
-                monthField,
-                dayOfWeekField,
-              ] = cronParts;
-
-              // 使用之前定义的parseCronField函数解析cron字段
-              const possibleMinutes = parseCronField(minuteField, 0, 59);
-              const possibleHours = parseCronField(hourField, 0, 23);
-              const possibleDaysOfMonth = parseCronField(
-                dayOfMonthField,
-                1,
-                31,
-              );
-              const possibleMonths = parseCronField(monthField, 1, 12);
-              const possibleDaysOfWeek = parseCronField(dayOfWeekField, 0, 7);
-
-              // 检查当前时间是否匹配cron表达式
-              const matchesMinute = possibleMinutes.includes(now.getMinutes());
-              const matchesHour = possibleHours.includes(now.getHours());
-              const matchesDayOfMonth = possibleDaysOfMonth.includes(
-                now.getDate(),
-              );
-              const matchesMonth = possibleMonths.includes(now.getMonth() + 1); // months are 0-based in JS
-              const matchesDayOfWeek = possibleDaysOfWeek.includes(
-                now.getDay(),
-              ); // 0是周日
-
-              shouldRun =
-                matchesMinute &&
-                matchesHour &&
-                matchesDayOfMonth &&
-                matchesMonth &&
-                matchesDayOfWeek;
-              reason = `minute=${matchesMinute}, hour=${matchesHour}, dayOfMonth=${matchesDayOfMonth}, month=${matchesMonth}, dayOfWeek=${matchesDayOfWeek}`;
-            } catch (error) {
-              console.error(
-                `[${new Date().toISOString()}] Error parsing cron expression ${task.cronExpression}:`,
-                error,
-              );
-              addLog({
-                time: currentTime,
-                message: `=== 解析定时任务 ${task.name} 的Cron表达式失败: ${error.message} ===`,
-                type: "error",
-              });
-              return;
-            }
-          }
-
-          // Add detailed log about task check result (commented out for cleaner logs)
-
-          // addLog({
-          //   time: currentTime,
-          //   message: `=== 检查任务 ${task.name}: 应该执行=${shouldRun}，原因=${reason} ===`,
-          //   type: shouldRun ? "success" : "info",
-          // });
-
-          if (shouldRun) {
-            // Check if the task was already executed in the last minute to avoid duplicate execution
-            const taskExecutionKey = `${task.id}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}`;
-            const lastExecutionKey = localStorage.getItem(
-              `lastTaskExecution_${task.id}`,
-            );
-
-            if (lastExecutionKey !== taskExecutionKey) {
-              // Update last execution time
-              localStorage.setItem(
-                `lastTaskExecution_${task.id}`,
-                taskExecutionKey,
-              );
-
-              // Execute the task
-
-              lastTaskExecution = Date.now();
-              executeScheduledTask(task);
-            } else {
-              addLog({
-                time: currentTime,
-                message: `=== 任务 ${task.name} 本分钟内已执行，跳过 ===`,
-                type: "info",
-              });
-            }
-          }
-        });
-      } catch (error) {
-        console.error(
-          `[${new Date().toISOString()}] Error in task scheduler:`,
-          error,
-        );
-        addLog({
-          time: new Date().toLocaleTimeString(),
-          message: `=== 定时任务调度服务发生错误: ${error.message} ===`,
-          type: "error",
-        });
-      }
-    }, 10000); // Check every 10 seconds
-  };
-
   // Start the scheduler
   startScheduler();
 
   // Health check every 5 minutes instead of 1 hour for more frequent safety checks
-  setInterval(healthCheck, 5 * 60 * 1000);
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+  }
+  healthCheckInterval = setInterval(healthCheck, 5 * 60 * 1000);
 
   // Initial health check
   healthCheck();
-
-  // Cleanup on component unmount
-  onBeforeUnmount(() => {
-    if (intervalId.value) {
-      clearInterval(intervalId.value);
-      intervalId.value = null;
-    }
-    addLog({
-      time: new Date().toLocaleTimeString(),
-      message: "=== 定时任务调度服务已停止 ===",
-      type: "info",
-    });
-  });
 };
 
 // Verify task dependencies - 只验证基础依赖，WebSocket连接由具体任务函数处理

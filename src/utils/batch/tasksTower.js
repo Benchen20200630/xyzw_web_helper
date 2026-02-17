@@ -991,6 +991,20 @@ export function createTasksTower(deps) {
             const taskMap = infoRes.mergeBox.taskMap;
             const taskClaimMap = infoRes.mergeBox.taskClaimMap || {};
 
+            const rewardMapping = {
+              2: { name: "短裙手套", reward: "10随机红色碎片" },
+              3: { name: "拽拽菜篮", reward: "2黄金鱼竿" },
+              4: { name: "狂野菜板", reward: "2招募令" },
+              5: { name: "大胃锅", reward: "2珍珠" },
+              6: { name: "幽影茶壶", reward: "5皮肤币" },
+              7: { name: "愤怒面包机", reward: "2珍珠" },
+              8: { name: "惊讶榨汁机", reward: "1四圣宝珠碎片" },
+              9: { name: "动感电饭锅", reward: "5000白玉" },
+              10: { name: "迅捷烤炉", reward: "12珍珠" },
+              11: { name: "至尊打蛋机", reward: "15彩玉" },
+              12: { name: "完美烤炉", reward: "24珍珠" }
+            };
+
             for (const taskId in taskMap) {
               if (shouldStop.value) break;
               if (taskMap[taskId] !== 0 && !taskClaimMap[taskId]) {
@@ -1000,9 +1014,17 @@ export function createTasksTower(deps) {
                    { actType: 1, taskId: parseInt(taskId) },
                    2000
                  ).catch(() => {});
+
+                 const idStr = String(taskId);
+                 const lastTwo = parseInt(idStr.slice(-2));
+                 const taskInfo = rewardMapping[lastTwo];
+                 const taskDesc = taskInfo 
+                    ? `${lastTwo}级 ${taskInfo.reward ? " 奖励" + taskInfo.reward : ""}` 
+                    : `任务${taskId}`;
+                 
                  addLog({
                    time: new Date().toLocaleTimeString(),
-                   message: `${token.name} 领取合成奖励: ${taskId}`,
+                   message: `${token.name} 领取合成奖励: ${taskDesc}`,
                    type: "success",
                  });
                  await new Promise((res) => setTimeout(res, 500));

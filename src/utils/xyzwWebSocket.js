@@ -248,8 +248,9 @@ export function registerDefaultCommands(reg) {
     .register("legionmatch_rolesignup")
     .register("legion_signin")
 
-    // 神器抽奖
+    // 钓鱼
     .register("artifact_lottery", { lotteryNumber: 1, newFree: true, type: 1 })
+    .register("artifact_exchange")
 
     // 灯神相关
     .register("genie_sweep", { genieId: 1 })
@@ -1108,6 +1109,7 @@ export class XyzwWebSocketClient {
         "genie_buysweep",
         "system_signinreward",
         "dungeon_selecthero",
+        "artifact_exchange",
       ],
     };
 

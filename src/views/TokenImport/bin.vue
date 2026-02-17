@@ -20,7 +20,7 @@
     </n-form-item>
 
     <n-card v-if="serverListData && serverListData.length > 0" title="服务器角色列表" style="margin-bottom: 16px;">
-      <n-data-table :columns="columns" :data="serverListData" :pagination="{ pageSize: 5 }" />
+      <n-data-table :columns="columns" :data="serverListData" :pagination="{ pageSize: 5 }" :scroll-x="600" />
     </n-card>
 
     <a-list>

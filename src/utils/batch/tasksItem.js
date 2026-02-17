@@ -899,13 +899,49 @@ export function createTasksItem(deps) {
           message: `=== 开始批量钓鱼: ${token.name} ===`,
           type: "info",
         });
+        
+        await ensureConnection(tokenId);
+
+        // 检查鱼竿数量
+        let role = tokenStore.gameData?.roleInfo?.role;
+        if (!role) {
+           try {
+             const roleInfo = await tokenStore.sendGetRoleInfo(tokenId);
+             role = roleInfo?.role;
+           } catch {}
+        }
+        // 普通鱼竿: 1011, 黄金鱼竿: 1012
+        const rodId = fishType === 1 ? 1011 : 1012;
+        const rodCount = role?.items?.[rodId]?.quantity || 0;
+
         addLog({
           time: new Date().toLocaleTimeString(),
-          message: `${token.name} 鱼竿类型: ${fishNames[fishType]}, 数量: ${totalCount}`,
+          message: `${token.name} 鱼竿类型: ${fishNames[fishType]}, 目标数量: ${totalCount}, 当前库存: ${rodCount}`,
           type: "info",
         });
 
-        await ensureConnection(tokenId);
+        let availableCount = totalCount;
+        if (rodCount < totalCount) {
+             addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 库存不足 (${rodCount} < ${totalCount})，将仅消耗现有库存`,
+                type: "warning",
+             });
+             availableCount = rodCount;
+        }
+
+        if (availableCount <= 0) {
+            addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 没有可用的鱼竿，停止任务`,
+                type: "warning",
+            });
+            tokenStatus.value[tokenId] = "completed";
+            return;
+        }
+
+        const batches = Math.floor(availableCount / 10);
+        const remainder = availableCount % 10;
 
         for (let i = 0; i < batches && !shouldStop.value; i++) {
           await tokenStore.sendMessageWithPromise(
@@ -916,9 +952,43 @@ export function createTasksItem(deps) {
           );
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `${token.name} 钓鱼进度: ${(i + 1) * 10}/${totalCount}`,
+            message: `${token.name} 钓鱼进度: ${(i + 1) * 10}/${availableCount}`,
             type: "info",
           });
+
+          // 每5轮（50次）后，重新校验鱼竿数量
+          if ((i + 1) % 5 === 0 && i < batches - 1) {
+             try {
+                const roleRes = await tokenStore.sendMessageWithPromise(
+                  tokenId,
+                  "role_getroleinfo",
+                  {},
+                  5000,
+                );
+                const currentRole = roleRes?.role || roleRes?.data?.role;
+                if (currentRole) {
+                    const currentRodCount = currentRole.items?.[rodId]?.quantity || 0;
+                    
+                    // 剩余需要的次数 (不包括当前这轮，因为i已经执行完了，所以剩余次数是 (batches - 1 - i) * 10 + remainder)
+                    // 但实际上我们只需要知道下一轮是否有足够的鱼竿
+                    // 如果当前库存少于10，说明下一轮可能不够，或者整个任务不够
+                    // 重新计算 availableCount 可能会比较复杂，因为循环是基于 batches
+                    
+                    if (currentRodCount < 10) {
+                        addLog({
+                            time: new Date().toLocaleTimeString(),
+                            message: `${token.name} 同步后发现鱼竿不足 (${currentRodCount} < 10)，停止后续批量任务`,
+                            type: "warning",
+                        });
+                        // 强制停止
+                        break; 
+                    }
+                }
+             } catch (e) {
+                 // ignore
+             }
+          }
+
           await new Promise((r) => setTimeout(r, delayConfig.action));
         }
 
@@ -931,12 +1001,64 @@ export function createTasksItem(deps) {
           );
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `${token.name} 钓鱼进度: ${totalCount}/${totalCount}`,
+            message: `${token.name} 钓鱼进度: ${availableCount}/${availableCount}`,
             type: "info",
           });
         }
+        // 自动领取鱼竿累计奖励
+        try {
+           const roleRes = await tokenStore.sendMessageWithPromise(
+             tokenId,
+             "role_getroleinfo",
+             {},
+             5000,
+           );
+           const currentRole = roleRes?.role || roleRes?.data?.role;
+           if (currentRole) {
+              const points = currentRole.statistics?.["artifact:point"] || 0;
+              const exchangeCount = Math.floor(points / 20);
+              
+              if (exchangeCount > 0) {
+                 addLog({
+                    time: new Date().toLocaleTimeString(),
+                    message: `${token.name} 检测到鱼竿累计使用 ${points}，开始领取 ${exchangeCount} 次累计奖励`,
+                    type: "info",
+                 });
+                 
+                 for (let k = 0; k < exchangeCount && !shouldStop.value; k++) {
+                    try {
+                       await tokenStore.sendMessageWithPromise(
+                         tokenId,
+                         "artifact_exchange",
+                         {},
+                         3000
+                       );
+                       // 稍微延迟，避免请求过快
+                       await new Promise((r) => setTimeout(r, 500)); 
+                    } catch (err) {
+                       addLog({
+                          time: new Date().toLocaleTimeString(),
+                          message: `${token.name} 领取累计奖励失败 (第${k+1}次): ${err.message}`,
+                          type: "warning",
+                       });
+                       break; // 如果出错可能是不满足条件，停止领取
+                    }
+                 }
+                 addLog({
+                    time: new Date().toLocaleTimeString(),
+                    message: `${token.name} 累计奖励领取结束`,
+                    type: "success",
+                 });
+              }
+           }
+        } catch (e) {
+           addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 检查累计奖励失败: ${e.message}`,
+              type: "warning",
+           });
+        }
 
-        await tokenStore.sendMessage(tokenId, "role_getroleinfo");
         tokenStatus.value[tokenId] = "completed";
         addLog({
           time: new Date().toLocaleTimeString(),

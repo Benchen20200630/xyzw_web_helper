@@ -134,6 +134,7 @@ export const defaultBatchSettings = {
   receiverId: "",
   password: "",
   hideScheduledTasksModule: false,
+  useGoldRefreshFallback: false,
   tokenListColumns: 2,
   commandDelay: 500,
   taskDelay: 500,

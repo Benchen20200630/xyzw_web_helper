@@ -27,7 +27,7 @@ export const HERO_DICT = {
   204: { name: "张飞", type: "蜀国", avatar: "/team/zhangfei.png" },
   205: { name: "赵云", type: "蜀国", avatar: "/team/xiaozhaoyun.png" },
   206: { name: "庞统", type: "蜀国", avatar: "/team/pangtong.png" },
-  207: { name: "鲁肃", type: "吴国", avatar: "/team/lusu.png" },
+  207: { name: "鲁肃", type: "吴国", avatar: "/team/xiaolusu.png" },
   208: { name: "陆逊", type: "吴国", avatar: "/team/luxun.png" },
   209: { name: "甘宁", type: "吴国", avatar: "/team/ganning.png" },
   210: { name: "貂蝉", type: "群雄", avatar: "/team/diaochan.png" },

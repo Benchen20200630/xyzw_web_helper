@@ -123,88 +123,148 @@
         <n-tabs v-model:value="activeTab" type="line" animated>
           <n-tab-pane name="overview" tab="概览" display-directive="show:lazy">
             <div class="overview">
-              <div class="club-header">
-                <n-avatar
-                  :size="48"
-                  :src="club.logo || '/icons/xiaoyugan.png'"
-                />
-                <div class="meta">
-                  <div class="name">{{ club.name }}</div>
-                  <div class="sub">
-                    ID {{ club.id }} · Lv.{{ club.level }} · 服务器
-                    {{ club.serverId - 27 }}
-                  </div>
-                </div>
-              </div>
-              <div class="overview-actions">
-                <n-space size="small">
-                  <n-button
-                    size="small"
-                    :disabled="legionSignedIn"
-                    type="primary"
-                    @click="signInLegion"
-                  >
-                    {{ legionSignedIn ? "已签到" : "俱乐部签到" }}
-                  </n-button>
-                </n-space>
-              </div>
-              <div class="grid">
-                <div class="item">
-                  <div class="label">战力</div>
-                  <div class="value">
-                    {{ formatNumber(clubOverview.power) }}
-                  </div>
-                </div>
-                <div class="item">
-                  <div class="label">成员数</div>
-                  <div class="value">{{ memberCount }}</div>
-                </div>
-                <div class="item">
-                  <div class="label">红粹</div>
-                  <div class="value">{{ clubOverview.redQuench }}</div>
-                </div>
-                <div class="item">
-                  <div class="label">Boss血量</div>
-                  <div class="value">{{ clubOverview.currentHP }}</div>
-                </div>
-                <div
-                  class="item"
-                  v-if="
-                    clubOverview.unfoughtBosses &&
-                    clubOverview.unfoughtBosses.length > 0
-                  "
-                  style="grid-column: 1 / -1"
-                >
-                  <div class="label">
-                    已击杀Boss({{ 150 - clubOverview.unfoughtBosses.length }}) 遗漏Boss ({{ clubOverview.unfoughtBosses.length }})
-                  </div>
-                  <div
-                    class="value"
-                    style="
-                      font-size: 12px;
-                      word-wrap: break-word;
-                      white-space: pre-wrap;
-                      line-height: 1.5;
-                    "
-                  >
-                    {{ clubOverview.unfoughtBosses.join(", ") }}
-                  </div>
-                </div>
-              </div>
-              <div v-if="club.announcement" class="announcement">
-                <div class="label">公告</div>
-                <div class="text">{{ club.announcement }}</div>
-              </div>
-              <div class="leader" v-if="leader">
-                <div class="label">会长</div>
-                <div class="leader-info">
-                  <n-avatar
-                    :size="32"
-                    :src="leader.headImg || '/icons/xiaoyugan.png'"
-                  />
-                  <span class="leader-name">{{ leader.name }}</span>
-                </div>
-              </div>
+              <n-grid x-gap="12" y-gap="12" cols="2" item-responsive>
+                <!-- 头部信息 -->
+                <n-gi span="2">
+                  <n-card embedded :bordered="false" content-style="padding: 16px;">
+                    <n-thing>
+                      <template #avatar>
+                        <n-avatar
+                          :size="64"
+                          :src="club.logo || '/icons/xiaoyugan.png'"
+                          style="box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                        />
+                      </template>
+                      <template #header>
+                        <span style="font-size: 18px; font-weight: bold;">{{ club.name }}</span>
+                      </template>
+                      <template #description>
+                        <n-space size="small" style="margin-top: 4px;">
+                          <n-tag size="small" :bordered="false" type="warning">ID: {{ club.id }}</n-tag>
+                          <n-tag size="small" :bordered="false" type="info">服务器: {{ club.serverId - 27 }}</n-tag>
+                          <n-tag size="small" :bordered="false" type="success">成员: {{ memberCount }}</n-tag>
+                        </n-space>
+                      </template>
+                      <template #header-extra>
+                        <n-button
+                          size="small"
+                          :type="legionSignedIn ? 'success' : 'primary'"
+                          :secondary="legionSignedIn"
+                          @click="signInLegion"
+                          :disabled="legionSignedIn"
+                        >
+                          <template #icon>
+                            <n-icon><ShieldCheckmark /></n-icon>
+                          </template>
+                          {{ legionSignedIn ? "已签到" : "俱乐部签到" }}
+                        </n-button>
+                      </template>
+                    </n-thing>
+                  </n-card>
+                </n-gi>
+
+                <!-- 统计数据 -->
+                <n-gi>
+                  <n-card size="small" embedded :bordered="false" style="height: 100%;">
+                    <n-statistic label="战力">
+                      <template #prefix>
+                        <n-icon color="#18a058"><BarChart /></n-icon>
+                      </template>
+                      {{ formatNumber(clubOverview.power) }}
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded :bordered="false" style="height: 100%;">
+                    <n-statistic label="红粹">
+                      <template #prefix>
+                        <n-icon color="#d03050"><Flame /></n-icon>
+                      </template>
+                      {{ clubOverview.redQuench }}
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded :bordered="false" style="height: 100%;">
+                    <n-statistic label="当前BossId">
+                      <template #prefix>
+                        <n-icon color="#8a2be2"><Skull /></n-icon>
+                      </template>
+                      {{ clubOverview.currentBossId }}
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded :bordered="false" style="height: 100%;">
+                    <n-statistic label="Boss剩余血量">
+                      <template #prefix>
+                        <n-icon color="#f0a020"><Skull /></n-icon>
+                      </template>
+                      {{ clubOverview.currentHP }}
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+
+                <!-- Boss 击杀情况 -->
+                <n-gi span="2" v-if="clubOverview.unfoughtBosses && clubOverview.unfoughtBosses.length > 0">
+                  <n-alert type="warning" :bordered="false">
+                    <template #icon>
+                      <n-icon><Skull /></n-icon>
+                    </template>
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                      <div>
+                        <span style="font-weight: bold;">Boss 击杀情况</span>
+                        <div style="margin-top: 4px; font-size: 12px;">
+                          已击杀: {{ 150 - clubOverview.unfoughtBosses.length }} / 150
+                          <span style="margin-left: 12px; color: #d03050;">遗漏: {{ clubOverview.unfoughtBosses.length }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <n-collapse arrow-placement="right" style="margin-top: 8px;">
+                      <n-collapse-item title="展开查看遗漏Boss列表" name="1">
+                        <n-space size="small" style="margin-top: 8px;">
+                          <n-tag v-for="boss in clubOverview.unfoughtBosses" :key="boss" type="error" size="small" :bordered="false">
+                            {{ boss }}
+                          </n-tag>
+                        </n-space>
+                      </n-collapse-item>
+                    </n-collapse>
+                  </n-alert>
+                </n-gi>
+
+                <!-- 公告 -->
+                <n-gi span="2" v-if="club.announcement">
+                  <n-card size="small" title="公告" embedded :bordered="false">
+                    <template #header-extra>
+                      <n-icon size="18" color="#f0a020"><Megaphone /></n-icon>
+                    </template>
+                    <div style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #666;">
+                      {{ club.announcement }}
+                    </div>
+                  </n-card>
+                </n-gi>
+
+                <!-- 会长 -->
+                <n-gi span="2" v-if="leader">
+                  <n-card size="small" title="会长" embedded :bordered="false">
+                    <template #header-extra>
+                      <n-icon size="18" color="#2080f0"><Person /></n-icon>
+                    </template>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <n-avatar
+                        round
+                        :size="40"
+                        :src="leader.headImg || '/icons/xiaoyugan.png'"
+                        style="border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                      />
+                      <div>
+                        <div style="font-weight: bold; font-size: 14px;">{{ leader.name }}</div>
+                        <div style="font-size: 12px; color: #999;">ID: {{ leader.roleId }}</div>
+                      </div>
+                    </div>
+                  </n-card>
+                </n-gi>
+              </n-grid>
             </div>
           </n-tab-pane>
 
@@ -533,9 +593,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, h, reactive, watch, nextTick } from "vue";
-import { useMessage, useDialog, NDataTable, NModal, NAvatar, NTag, NDescriptions, NDescriptionsItem, NButton, NSpace, NIcon } from "naive-ui";
+import { useMessage, useDialog, NDataTable, NModal, NAvatar, NTag, NDescriptions, NDescriptionsItem, NButton, NSpace, NIcon, NGrid, NGi, NStatistic, NThing, NAlert, NCollapse, NCollapseItem, NCard } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
-import { Copy, Refresh } from "@vicons/ionicons5";
+import { Copy, Refresh, People, BarChart, Flame, Skull, Megaphone, Person, ShieldCheckmark } from "@vicons/ionicons5";
 import ClubHistoryRecords from "./ClubHistoryRecords.vue";
 import ClubWeirdTowerInfo from "./ClubWeirdTowerInfo.vue";
 import CarScoreInfo from "./CarScoreInfo.vue";
@@ -1513,6 +1573,7 @@ const clubOverview = computed(() => {
   const noApply = Boolean(base.noApply ?? i.noApply);
 
   const currentHP = formatNumber(boss.currentHP || 0);
+  const currentBossId = boss.bossId || 0;
   const unfoughtBosses = [];
   for (let k = 1; k <= 150; k++) {
     if (!tokenStore.gameData?.roleInfo?.role?.statistics[`lb:${k}`]) {
@@ -1527,6 +1588,7 @@ const clubOverview = computed(() => {
     lastWarRank,
     noApply,
     currentHP,
+    currentBossId,
     unfoughtBosses,
   };
 });
@@ -1570,90 +1632,7 @@ const formatNumber = (num) => {
   }
 
   .overview {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .overview-actions {
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .club-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-  }
-
-  .meta {
-    .name {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-    }
-
-    .sub {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
-    }
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: var(--spacing-md);
-  }
-
-  @media (max-width: 768px) {
-    .grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--spacing-sm);
-    }
-
-    .member-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-    }
-
-    .member-row .right {
-      width: 100%;
-      justify-content: space-between;
-      font-size: 12px;
-    }
-  }
-
-  .item {
-    background: var(--bg-tertiary);
-    border-radius: var(--border-radius-medium);
-    padding: var(--spacing-sm);
-
-    .label {
-      color: var(--text-secondary);
-      font-size: var(--font-size-xs);
-      margin-bottom: 2px;
-    }
-
-    .value {
-      font-weight: var(--font-weight-medium);
-    }
-  }
-
-  .announcement .label,
-  .leader .label {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    margin-bottom: 4px;
-  }
-
-  .announcement .text {
-    white-space: pre-wrap;
-  }
-
-  .leader .leader-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+    /* No specific styles needed for grid layout */
   }
 
   .members-list {

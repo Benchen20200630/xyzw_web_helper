@@ -73,7 +73,7 @@ const message = useMessage();
 const tokenStore = useTokenStore();
 
 // 响应式数据
-const recentActivities = ref([]);
+// const recentActivities = ref([]);
 
 // 计算属性
 const currentDate = computed(() => {
@@ -156,6 +156,7 @@ const handleQuickAction = (action) => {
   }
 };
 
+/*
 const getActivityIcon = (type) => {
   switch (type) {
     case "success":
@@ -184,6 +185,7 @@ const formatTime = (timestamp) => {
     return "刚刚";
   }
 };
+*/
 
 // 生命周期
 onMounted(async () => {
@@ -195,7 +197,6 @@ onMounted(async () => {
 
   // 初始化Token数据
   tokenStore.initTokenStore();
-  refreshActivity();
 });
 </script>
 

@@ -587,8 +587,177 @@ export function createTasksItem(deps) {
   };
 
   /**
-   * 批量开箱
+   * 一键灯神扫荡
    */
+  const batchGenieSweep = async () => {
+    if (selectedTokens.value.length === 0) return;
+
+    isRunning.value = true;
+    shouldStop.value = false;
+
+    selectedTokens.value.forEach((id) => {
+      tokenStatus.value[id] = "waiting";
+    });
+
+    const taskPromises = selectedTokens.value.map(async (tokenId) => {
+      if (shouldStop.value) return;
+
+      tokenStatus.value[tokenId] = "running";
+      const token = tokens.value.find((t) => t.id === tokenId);
+
+      try {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `=== 开始灯神扫荡: ${token.name} ===`,
+          type: "info",
+        });
+
+        await ensureConnection(tokenId);
+
+        // 获取最新角色信息
+        const roleInfoRes = await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "role_getroleinfo",
+          {},
+          5000
+        );
+        
+        // 解析灯神进度和扫荡券
+        const role = roleInfoRes?.role || roleInfoRes?.data?.role || {};
+        const genieData = role.genie || {};
+        // 扫荡券 ID 1021
+        const sweepTicketCount = role.items?.[1021]?.quantity || 0;
+
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 当前扫荡券数量: ${sweepTicketCount}`,
+          type: "info",
+        });
+
+        if (sweepTicketCount <= 0) {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 扫荡券不足，停止扫荡`,
+            type: "warning",
+          });
+          tokenStatus.value[tokenId] = "completed";
+          return;
+        }
+
+        // 计算最高层数
+        // 1-4: 魏蜀吴群 (0-16 -> 1-17层)
+        // 5: 深海 (0-9 -> 1-10层)
+        let maxLayer = -1;
+        let bestGenieId = -1;
+
+        // 检查魏蜀吴群 (1-4)
+        for (let i = 1; i <= 4; i++) {
+          if (genieData[i] !== undefined) {
+            // 数据值 0 代表 1 层? 用户说 0-16 代表 1-17 层
+            // 假设 genieData[i] 是已通过的层数索引
+            const currentLayer = genieData[i] + 1;
+            if (currentLayer > maxLayer) {
+              maxLayer = currentLayer;
+              bestGenieId = i;
+            }
+          }
+        }
+
+        if (bestGenieId === -1) {
+          addLog({
+            time: new Date().toLocaleTimeString(),
+            message: `${token.name} 未找到可扫荡的灯神关卡`,
+            type: "warning",
+          });
+          tokenStatus.value[tokenId] = "completed";
+          return;
+        }
+
+        const genieNames = { 1: "魏国", 2: "蜀国", 3: "吴国", 4: "群雄", 5: "深海" };
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 扫荡: ${genieNames[bestGenieId]}灯神 (第${maxLayer}层)`,
+          type: "info",
+        });
+
+        // 开始扫荡
+        let remainingTickets = sweepTicketCount;
+        
+        while (remainingTickets > 0 && !shouldStop.value) {
+          const sweepCnt = Math.min(remainingTickets, 20);
+          
+          try {
+            const res = await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "genie_sweep",
+              { 
+                genieId: bestGenieId,
+                sweepCnt: sweepCnt 
+              },
+              5000
+            );
+
+            const ok = res && (res.role || res.role.items);
+            
+            if (ok) {
+               addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 扫荡成功 ${sweepCnt} 次`,
+                type: "success",
+              });
+              remainingTickets = res.role.items?.[1021]?.quantity || 0;
+            } else {
+               addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 扫荡失败: ${res.hint || "未知错误"}`,
+                type: "error",
+              });
+              break; // 失败则停止
+            }
+          } catch (err) {
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 扫荡请求异常: ${err.message}`,
+              type: "error",
+            });
+            break;
+          }
+
+          if (remainingTickets > 0) {
+             await new Promise((r) => setTimeout(r, delayConfig.action));
+          }
+        }
+
+        // 刷新信息
+        await tokenStore.sendMessage(tokenId, "role_getroleinfo");
+        tokenStatus.value[tokenId] = "completed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} === 灯神扫荡完成 ===`,
+          type: "success",
+        });
+
+      } catch (error) {
+        console.error(error);
+        tokenStatus.value[tokenId] = "failed";
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `灯神扫荡失败: ${error.message}`,
+          type: "error",
+        });
+      } finally {
+        tokenStore.closeWebSocketConnection(tokenId);
+        releaseConnectionSlot();
+      }
+    });
+
+    await Promise.all(taskPromises);
+
+    isRunning.value = false;
+    currentRunningTokenId.value = null;
+    message.success("一键灯神扫荡结束");
+  };
+
   const batchOpenBox = async (isScheduledTask = false) => {
     if (selectedTokens.value.length === 0) return;
 
@@ -911,5 +1080,6 @@ export function createTasksItem(deps) {
     batchBookUpgrade,
     batchClaimStarRewards,
     batchClaimPeachTasks,
+    batchGenieSweep,
   };
 }

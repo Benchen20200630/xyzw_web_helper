@@ -813,15 +813,25 @@ const smartSendCar = async () => {
     // 预加载护卫数据
     let helperUsageMap = {};
     let sortedHelpers = [];
+
+    // 封装获取护卫使用情况的方法
+    const updateHelperUsage = async () => {
+      try {
+        const resp = await tokenStore.sendMessageWithPromise(
+          token.id,
+          "car_getmemberhelpingcnt",
+          {},
+          5000,
+        );
+        helperUsageMap =
+          resp?.body?.memberHelpingCntMap || resp?.memberHelpingCntMap || {};
+      } catch (_) {
+        // 忽略失败
+      }
+    };
+
     try {
-      const resp = await tokenStore.sendMessageWithPromise(
-        token.id,
-        "car_getmemberhelpingcnt",
-        {},
-        5000,
-      );
-      helperUsageMap =
-        resp?.body?.memberHelpingCntMap || resp?.memberHelpingCntMap || {};
+      await updateHelperUsage();
       // 预先按红淬排序成员
       sortedHelpers = (legionMembers.value || [])
         .filter(
@@ -830,6 +840,7 @@ const smartSendCar = async () => {
         )
         .map((m) => ({
           id: String(m.roleId),
+          name: m.name || m.nickname || String(m.roleId),
           redQuench: m.custom?.red_quench_cnt || 0,
         }))
         .sort((a, b) => b.redQuench - a.redQuench);
@@ -838,12 +849,15 @@ const smartSendCar = async () => {
     }
 
     // 自动分配护卫函数
-    const assignHelperIfNeeded = (car) => {
+    const assignHelperIfNeeded = async (car) => {
       const color = Number(car.color || 0);
       // 仅红(5)及以上需要护卫
       if (color < 5) return;
       // 已有护卫则跳过
       if (car.helperId) return;
+
+      // 每次分配前刷新护卫状态，避免并发导致的使用次数超标
+      await updateHelperUsage();
 
       // 寻找可用护卫
       const bestHelper = sortedHelpers.find((h) => {
@@ -853,12 +867,14 @@ const smartSendCar = async () => {
 
       if (bestHelper) {
         car.helperId = bestHelper.id;
-        // 更新本地计数
+        // 更新本地计数 (乐观更新)
         helperUsageMap[bestHelper.id] =
           Number(helperUsageMap[bestHelper.id] || 0) + 1;
         message.success(
-          `已自动分配护卫：${getHelperName(bestHelper.id)}`,
+          `已自动分配护卫：${bestHelper.name} (已助战: ${helperUsageMap[bestHelper.id]}/4)`,
         );
+      } else {
+        message.warning(`车辆[${gradeLabel(car.color)}]需要护卫，但所有护卫次数已满`);
       }
     };
 
@@ -866,7 +882,7 @@ const smartSendCar = async () => {
     for (const car of carList.value) {
       if (Number(car.sendAt || 0) !== 0) continue;
       if (shouldSendCar(car, tickets)) {
-        assignHelperIfNeeded(car);
+        await assignHelperIfNeeded(car);
         await sendCar(car);
         await new Promise((r) => setTimeout(r, 500));
         continue;
@@ -876,7 +892,7 @@ const smartSendCar = async () => {
       if (tickets >= 6) shouldRefresh = true;
       else if (free) shouldRefresh = true;
       else {
-        assignHelperIfNeeded(car);
+        await assignHelperIfNeeded(car);
         await sendCar(car);
         await new Promise((r) => setTimeout(r, 500));
         continue;
@@ -885,7 +901,7 @@ const smartSendCar = async () => {
         await refreshCar(car);
         tickets = Number(refreshTickets.value || 0);
         if (shouldSendCar(car, tickets)) {
-          assignHelperIfNeeded(car);
+          await assignHelperIfNeeded(car);
           await sendCar(car);
           await new Promise((r) => setTimeout(r, 500));
           break;
@@ -894,7 +910,7 @@ const smartSendCar = async () => {
         if (tickets >= 6) shouldRefresh = true;
         else if (freeNow) shouldRefresh = true;
         else {
-          assignHelperIfNeeded(car);
+          await assignHelperIfNeeded(car);
           await sendCar(car);
           await new Promise((r) => setTimeout(r, 500));
           break;

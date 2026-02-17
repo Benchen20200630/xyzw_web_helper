@@ -61,6 +61,7 @@ export const availableTasks = [
   { label: "一键合成怪异塔道具", value: "batchMergeItems" },
   { label: "一键怪异塔合成", value: "batchMergeWeirdItems" },
   { label: "一键领取蟠桃园任务", value: "batchClaimPeachTasks" },
+  { label: "一键扫荡灯神", value: "batchGenieSweep" },
 ];
 
 // 车辆研究消耗表

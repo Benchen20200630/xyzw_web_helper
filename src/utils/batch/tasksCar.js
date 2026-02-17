@@ -102,18 +102,28 @@ export function createTasksCar(deps) {
         // 2.5 Fetch Helper Data (Club Members & Usage)
         let helperUsageMap = {};
         let sortedHelpers = [];
+
+        // 封装获取护卫使用情况的方法
+        const updateHelperUsage = async () => {
+          try {
+            const usageRes = await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "car_getmemberhelpingcnt",
+              {},
+              5000
+            );
+            helperUsageMap =
+              usageRes?.body?.memberHelpingCntMap ||
+              usageRes?.memberHelpingCntMap ||
+              {};
+          } catch (e) {
+            // 忽略更新失败，使用旧数据或空数据
+          }
+        };
+
         try {
-          // Fetch usage counts
-          const usageRes = await tokenStore.sendMessageWithPromise(
-            tokenId,
-            "car_getmemberhelpingcnt",
-            {},
-            5000
-          );
-          helperUsageMap =
-            usageRes?.body?.memberHelpingCntMap ||
-            usageRes?.memberHelpingCntMap ||
-            {};
+          // Initial fetch of usage
+          await updateHelperUsage();
 
           // Fetch club members
           const legionRes = await tokenStore.sendMessageWithPromise(
@@ -148,16 +158,20 @@ export function createTasksCar(deps) {
             time: new Date().toLocaleTimeString(),
             message: `${token.name} 获取护卫数据失败: ${e.message}，将不带护卫发车`,
             type: "warning",
+            code: e.code // Log code if available
           });
         }
 
         // Helper function to assign guard
-        const assignHelperIfNeeded = (car) => {
+        const assignHelperIfNeeded = async (car) => {
           const color = Number(car.color || 0);
           // Only Red(5) and above need guards
           if (color < 5) return;
           // Skip if already has helper
           if (car.helperId) return;
+
+          // 每次分配前刷新护卫状态，避免并发导致的使用次数超标
+          await updateHelperUsage();
 
           if (!sortedHelpers.length) {
             addLog({
@@ -176,11 +190,11 @@ export function createTasksCar(deps) {
 
           if (bestHelper) {
             car.helperId = bestHelper.id;
-            // Update local usage count
+            // Update local usage count (optimistic update)
             helperUsageMap[bestHelper.id] = Number(helperUsageMap[bestHelper.id] || 0) + 1;
             addLog({
               time: new Date().toLocaleTimeString(),
-              message: `${token.name} 车辆[${gradeLabel(car.color)}]自动分配护卫: ${bestHelper.name}`,
+              message: `${token.name} 车辆[${gradeLabel(car.color)}]自动分配护卫: ${bestHelper.name} (已助战: ${helperUsageMap[bestHelper.id]}/4)`,
               type: "success",
             });
           } else {
@@ -199,8 +213,11 @@ export function createTasksCar(deps) {
           if (Number(car.sendAt || 0) !== 0) continue;
 
           try {
-            if (shouldSendCar(car, refreshTickets)) {
-              assignHelperIfNeeded(car);
+            // 当启用金砖保底时，强制使用高票数的判断逻辑（严格模式），避免因票数不足而提前发车
+            const effectiveTickets = batchSettings.useGoldRefreshFallback ? 999 : refreshTickets;
+
+            if (shouldSendCar(car, effectiveTickets, batchSettings.carMinColor)) {
+              await assignHelperIfNeeded(car);
               addLog({
                 time: new Date().toLocaleTimeString(),
                 message: `${token.name} 车辆[${gradeLabel(car.color)}]满足条件，直接发车`,
@@ -223,10 +240,21 @@ export function createTasksCar(deps) {
 
             let shouldRefresh = false;
             const free = Number(car.refreshCount ?? 0) === 0;
+            // 启用金砖刷新保底：当且仅当设置了保底且无免费次数、无刷新券时，允许继续刷新
+            const useGoldFallback = batchSettings.useGoldRefreshFallback && !free && refreshTickets < 6;
+            
             if (refreshTickets >= 6) shouldRefresh = true;
             else if (free) shouldRefresh = true;
+            else if (useGoldFallback) {
+              shouldRefresh = true;
+              addLog({
+                time: new Date().toLocaleTimeString(),
+                message: `${token.name} 车辆[${gradeLabel(car.color)}]启用金砖刷新保底`,
+                type: "warning",
+              });
+            }
             else {
-              assignHelperIfNeeded(car);
+              await assignHelperIfNeeded(car);
               addLog({
                 time: new Date().toLocaleTimeString(),
                 message: `${token.name} 车辆[${gradeLabel(car.color)}]不满足条件且无刷新次数，直接发车`,
@@ -280,8 +308,8 @@ export function createTasksCar(deps) {
                 );
               } catch (_) {}
 
-              if (shouldSendCar(car, refreshTickets)) {
-                assignHelperIfNeeded(car);
+              if (shouldSendCar(car, batchSettings.useGoldRefreshFallback ? 999 : refreshTickets, batchSettings.carMinColor)) {
+                await assignHelperIfNeeded(car);
                 addLog({
                   time: new Date().toLocaleTimeString(),
                   message: `${token.name} 刷新后车辆[${gradeLabel(car.color)}]满足条件，发车`,

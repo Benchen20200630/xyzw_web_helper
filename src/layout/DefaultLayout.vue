@@ -75,7 +75,7 @@
           <n-dropdown :options="userMenuOptions" @select="handleUserAction">
             <div class="user-info">
               <n-avatar
-                src=""
+                :src="selectedToken?.avatar || '/icons/xiaoyugan.png'"
                 size="medium"
                 fallback-src="/icons/xiaoyugan.png"
               />

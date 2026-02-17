@@ -379,6 +379,13 @@
             >
               一键领取蟠桃园任务
             </n-button>
+            <n-button
+              size="small"
+              @click="batchGenieSweep"
+              :disabled="isRunning || selectedTokens.length === 0"
+            >
+              一键灯神扫荡
+            </n-button>
           </n-space>
           <!-- 排序按钮组 -->
           <div class="sort-buttons" style="margin-bottom: 12px">
@@ -1614,6 +1621,10 @@
                   style="width: 100px"
                 />
               </div>
+              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                <label class="setting-label">车辆强制刷新保底</label>
+                <n-switch v-model:value="batchSettings.useGoldRefreshFallback" size="small" />
+              </div>
             </div>
             <n-divider title-placement="left" style="margin: 12px 0 8px 0"
               >功法赠送设置</n-divider
@@ -2021,6 +2032,7 @@ const batchSettings = reactive({
   password: "",
   hideScheduledTasksModule: false,
   tokenListColumns: 2,
+  useGoldRefreshFallback: false,
   // 延迟配置（毫秒）
   commandDelay: 500,        // 命令间延迟
   taskDelay: 500,           // 任务间延迟
@@ -2449,6 +2461,7 @@ const exportConfig = () => {
         longDelay: batchSettings.longDelay,
         maxActive: batchSettings.maxActive,
         tokenListColumns: batchSettings.tokenListColumns,
+        useGoldRefreshFallback: batchSettings.useGoldRefreshFallback,
       },
       tokenSettings: tokenSettings,
     };
@@ -4186,6 +4199,7 @@ const {
   batchBookUpgrade,
   batchClaimStarRewards,
   batchClaimPeachTasks,
+  batchGenieSweep,
 } = tasksItem;
 
 const tasksDungeon = createTasksDungeon(createTaskDeps());

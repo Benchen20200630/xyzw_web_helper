@@ -3967,6 +3967,8 @@ const createTaskDeps = () => ({
   getTodayStartSec,
   isTodayAvailable,
   calculateMonthProgress,
+  // 配置加载函数
+  loadSettings,
 });
 
 // 初始化任务模块

@@ -24,6 +24,7 @@ export function createTasksTower(deps) {
     message,
     currentRunningTokenId,
     currentSettings,
+    loadSettings,
   } = deps;
 
   /**
@@ -45,6 +46,8 @@ export function createTasksTower(deps) {
       tokenStatus.value[tokenId] = "running";
 
       const token = tokens.value.find((t) => t.id === tokenId);
+      // 加载该Token的独立配置，如果未找到则回退到currentSettings
+      const tokenSettings = loadSettings ? (loadSettings(tokenId) || currentSettings) : currentSettings;
 
       try {
         addLog({
@@ -71,23 +74,23 @@ export function createTasksTower(deps) {
 
         const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
         let Isswitching = false;
-        if (currentFormation === currentSettings.towerFormation) {
+        if (currentFormation === tokenSettings.towerFormation) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `当前已是阵容${currentSettings.towerFormation}，无需切换`,
+            message: `当前已是阵容${tokenSettings.towerFormation}，无需切换`,
             type: "info",
           });
         } else {
           await tokenStore.sendMessageWithPromise(
             tokenId,
             "presetteam_saveteam",
-            { teamId: currentSettings.towerFormation },
+            { teamId: tokenSettings.towerFormation },
             5000,
           );
           Isswitching = true;
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `成功切换到阵容${currentSettings.towerFormation}`,
+            message: `成功切换到阵容${tokenSettings.towerFormation}`,
             type: "info",
           });
         }
@@ -230,6 +233,8 @@ export function createTasksTower(deps) {
       tokenStatus.value[tokenId] = "running";
 
       const token = tokens.value.find((t) => t.id === tokenId);
+      // 加载该Token的独立配置，如果未找到则回退到currentSettings
+      const tokenSettings = loadSettings ? (loadSettings(tokenId) || currentSettings) : currentSettings;
 
       try {
         addLog({
@@ -256,23 +261,23 @@ export function createTasksTower(deps) {
 
         const currentFormation = teamInfo?.presetTeamInfo?.useTeamId;
         let Isswitching = false;
-        if (currentFormation === currentSettings.towerFormation) {
+        if (currentFormation === tokenSettings.towerFormation) {
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `当前已是阵容${currentSettings.towerFormation}，无需切换`,
+            message: `当前已是阵容${tokenSettings.towerFormation}，无需切换`,
             type: "info",
           });
         } else {
           await tokenStore.sendMessageWithPromise(
             tokenId,
             "presetteam_saveteam",
-            { teamId: currentSettings.towerFormation },
+            { teamId: tokenSettings.towerFormation },
             5000,
           );
           Isswitching = true;
           addLog({
             time: new Date().toLocaleTimeString(),
-            message: `成功切换到阵容${currentSettings.towerFormation}`,
+            message: `成功切换到阵容${tokenSettings.towerFormation}`,
             type: "info",
           });
         }

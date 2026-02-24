@@ -23,6 +23,7 @@ declare interface TokenData {
   remark?: string; // 备注信息
   importMethod?: "manual" | "bin" | "url" | "wxQrcode"; // 导入方式：manual（手动）、bin文件或url链接
   sourceUrl?: string; // 当importMethod为url时，存储url链接
+  avatar?: string; // 用户头像URL
   upgradedToPermanent?: boolean; // 是否升级为长期有效
   upgradedAt?: string; // 升级时间
   updatedAt?: string; // 更新时间
@@ -202,6 +203,7 @@ export const useTokenStore = defineStore("tokens", () => {
       // URL获取相关信息
       sourceUrl: tokenData.sourceUrl || null, // Token来源URL（用于刷新）
       importMethod: tokenData.importMethod || "manual", // 导入方式：manual 或 url
+      avatar: tokenData.avatar || "", // 用户头像
     };
 
     gameTokens.value.push(newToken);
@@ -398,6 +400,15 @@ export const useTokenStore = defineStore("tokens", () => {
 
       if (cmd === "role_getroleinforesp") {
         syncRandomSeedFromStatistics(tokenId, body, client);
+        
+        // 更新头像
+        if (body?.role?.headImg) {
+          const token = gameTokens.value.find(t => t.id === tokenId);
+          if (token && token.avatar !== body.role.headImg) {
+            updateToken(tokenId, { avatar: body.role.headImg });
+            wsLogger.debug(`更新头像 [${tokenId}]: ${body.role.headImg}`);
+          }
+        }
       }
 
       emitPlus(cmd, {

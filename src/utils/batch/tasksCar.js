@@ -525,6 +525,25 @@ export function createTasksCar(deps) {
                   break;
                 }
               }
+
+              // 尝试领取改装升级累计奖励
+              try {
+                const rewardRes = await tokenStore.sendMessageWithPromise(
+                  tokenId,
+                  "car_claimpartconsumereward",
+                  {},
+                  5000,
+                );
+                if (rewardRes && rewardRes.reward) {
+                  addLog({
+                    time: new Date().toLocaleTimeString(),
+                    message: `${token.name} 领取改装升级累计奖励成功`,
+                    type: "success",
+                  });
+                }
+              } catch (e) {
+                // 忽略错误
+              }
             } catch (e) {
               addLog({
                 time: new Date().toLocaleTimeString(),

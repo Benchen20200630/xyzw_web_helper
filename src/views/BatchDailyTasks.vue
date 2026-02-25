@@ -131,7 +131,7 @@
                     text
                     @click="clearAllGroupSelection"
                   >
-                    一键清除所有分组
+                    一键清除所有分组选择
                   </n-button>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap">
@@ -1792,6 +1792,19 @@
                 <n-input-number v-model:value="batchSettings.tokenListColumns" :min="1" :max="10" :step="1" size="small" style="width: 100px" />
               </div>
             </div>
+            <n-divider title-placement="left" style="margin: 12px 0 8px 0"
+              >系统维护设置</n-divider
+            >
+            <div class="settings-grid">
+              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                <label class="setting-label">定时刷新页面</label>
+                <n-switch v-model:value="batchSettings.enableRefresh" />
+              </div>
+              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;" v-if="batchSettings.enableRefresh">
+                <label class="setting-label">刷新间隔(分钟)</label>
+                <n-input-number v-model:value="batchSettings.refreshInterval" :min="10" :max="1440" :step="30" size="small" style="width: 100px" />
+              </div>
+            </div>
           </n-grid-item>
           <!-- 右列：延迟与连接设置 -->
           <n-grid-item>
@@ -2447,6 +2460,9 @@ const batchSettings = reactive({
   connectionTimeout: 10000,
   reconnectDelay: 1000,
   maxLogEntries: 1000,
+  // 页面刷新配置
+  enableRefresh: false,
+  refreshInterval: 360, // 分钟
 });
 
 // Load batch settings from localStorage
@@ -3096,6 +3112,7 @@ watch(
 const intervalId = ref(null);
 let lastTaskExecution = null;
 let healthCheckInterval = null;
+const pageLoadTime = Date.now();
 
 // Health check for the scheduler
 const healthCheck = () => {
@@ -3121,6 +3138,19 @@ const healthCheck = () => {
         message: "=== 检测到任务执行超时，已重置isRunning状态 ===",
         type: "warning",
       });
+    }
+  }
+
+  // Check for page refresh
+  if (batchSettings.enableRefresh && batchSettings.refreshInterval > 0) {
+    const elapsedMinutes = (Date.now() - pageLoadTime) / 1000 / 60;
+    if (elapsedMinutes >= batchSettings.refreshInterval) {
+      if (!isRunning.value) {
+        console.log(`[${new Date().toISOString()}] Refreshing page as scheduled (Interval: ${batchSettings.refreshInterval}m, Elapsed: ${elapsedMinutes.toFixed(1)}m)`);
+        window.location.reload();
+      } else {
+         console.log(`[${new Date().toISOString()}] Scheduled refresh postponed due to running task`);
+      }
     }
   }
 };

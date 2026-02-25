@@ -154,6 +154,15 @@ pnpm run lint     # 代码检查和修复
 pnpm run format   # 代码格式化
 ```
 
+### 部署代理服务 (Cloudflare Workers)
+
+为了在生产环境中解决跨域(CORS)和Referer限制问题，本项目提供了 `worker.js` 脚本。
+
+1. **创建 Worker**: 在 Cloudflare Dashboard 创建一个新的 Worker。
+2. **部署代码**: 将项目根目录下的 `worker.js` 内容复制到 Worker 编辑器中并保存部署。
+3. **配置域名**: 将 Worker 绑定到自定义域名（可选），或直接使用 Cloudflare 提供的 `*.workers.dev` 域名。
+4. **更新配置**: 修改生产环境配置（如 `.env.production`），将接口基础路径指向你的 Worker 域名。
+
 ---
 
 ## 📖 使用指南

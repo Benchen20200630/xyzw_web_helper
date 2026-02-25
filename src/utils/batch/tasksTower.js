@@ -127,10 +127,11 @@ export function createTasksTower(deps) {
               type: "info",
             });
 
-            await new Promise((r) => setTimeout(r, 2000));
+            await new Promise((r) => setTimeout(r, 1000));
 
             // Refresh energy
             tokenStore.sendMessage(tokenId, "tower_getinfo");
+            await new Promise((r) => setTimeout(r, 1000));
             roleInfo = await tokenStore.sendGetRoleInfo(tokenId);
 
             const storeRoleInfo = tokenStore.gameData?.roleInfo;
@@ -142,10 +143,11 @@ export function createTasksTower(deps) {
             if (err.message && err.message.includes("200400")) {
               addLog({
                 time: new Date().toLocaleTimeString(),
-                message: `${token.name} 爬塔次数已用完 (200400)`,
-                type: "info",
+                message: `${token.name} 操作过快 (200400)，等待5秒后重试...`,
+                type: "warning",
               });
-              break;
+              await new Promise((r) => setTimeout(r, 5000));
+              continue;
             }
 
             consecutiveFailures++;

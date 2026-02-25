@@ -423,6 +423,17 @@
                 >
                   一键领取蟠桃园任务
                 </n-button>
+                <n-button
+                  size="small"
+                  @click="batchBuyDreamItems"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !ismengjingActivityOpen
+                  "
+                >
+                  一键购买梦境商品
+                </n-button>
               </n-space>
             </n-tab-pane>
             <n-tab-pane name="baoku" tab="宝库">
@@ -597,6 +608,15 @@
                   "
                 >
                   一键竞技场补齐
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchBuyDreamItems"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !ismengjingActivityOpen
+                  "
+                >
+                  一键梦境购买
                 </n-button>
               </n-space>
             </n-tab-pane>
@@ -1393,6 +1413,53 @@
       </div>
     </n-modal>
 
+    <!-- Dream Buy Modal -->
+    <n-modal
+      v-model:show="showDreamBuyModal"
+      preset="card"
+      title="梦境商品购买配置"
+      style="width: 90%; max-width: 600px"
+    >
+      <div class="settings-content">
+        <div class="settings-grid">
+          <n-alert type="info" show-icon style="margin-bottom: 12px">
+            请勾选需要购买的商品。只会购买列表中存在的商品。
+          </n-alert>
+          
+          <div style="display: flex; gap: 12px; margin-bottom: 12px">
+            <n-button size="small" type="warning" @click="selectGoldItems">
+              一键勾选金币商品
+            </n-button>
+            <n-button size="small" @click="selectAllItems">
+              全选所有
+            </n-button>
+            <n-button size="small" @click="clearAllItems">
+              清空选择
+            </n-button>
+          </div>
+
+          <div v-for="(merchant, id) in merchantConfig" :key="id" style="margin-bottom: 16px">
+            <div style="font-weight: bold; margin-bottom: 8px">{{ merchant.name }}</div>
+            <n-grid :cols="3" :x-gap="12" :y-gap="8">
+              <n-grid-item v-for="(item, index) in merchant.items" :key="index">
+                <n-checkbox
+                  :value="`${id}-${index}`"
+                  :checked="dreamBuyList.includes(`${id}-${index}`)"
+                  @update:checked="(checked) => toggleDreamItem(`${id}-${index}`, checked)"
+                >
+                  {{ item }}
+                </n-checkbox>
+              </n-grid-item>
+            </n-grid>
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showDreamBuyModal = false" style="margin-right: 12px">取消</n-button>
+          <n-button type="primary" @click="saveDreamBuyConfig">保存配置</n-button>
+        </div>
+      </div>
+    </n-modal>
+
     <!-- Tasks List Modal -->
     <n-modal
       v-model:show="showTasksModal"
@@ -1690,6 +1757,11 @@
                 <label class="setting-label">默认鱼竿类型</label>
                 <n-select v-model:value="batchSettings.defaultFishType" :options="fishTypeOptions" size="small" style="width: 100px" />
               </div>
+              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                <label class="setting-label">梦境商品购买配置</label>
+                <n-button size="small" @click="openDreamBuyModal">点击配置</n-button>
+              </div>
+            </div>
             <n-divider title-placement="left" style="margin: 12px 0 8px 0"
               >智能发车条件设置(0为不限制)</n-divider
             >
@@ -1715,7 +1787,7 @@
                 <n-switch v-model:value="batchSettings.useGoldRefreshFallback"/>
               </div>
             </div>
-            <div class="settings-grid" v-if="batchSettings.useGoldRefreshFallback">
+            <div class="settings-grid" v-if="batchSettings.useGoldRefreshFallback" style="margin-top: 12px">
               <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
                 <label class="setting-label">需同时满足所有条件</label>
                 <n-switch v-model:value="batchSettings.smartDepartureMatchAll"/>
@@ -1736,7 +1808,6 @@
                 <label class="setting-label">刷新卷 >=</label>
                 <n-input-number v-model:value="batchSettings.smartDepartureTicketThreshold" :min="0" :step="1" size="small" style="width: 100px" />
               </div>
-            </div>
             </div>
             <n-divider title-placement="left" style="margin: 12px 0 8px 0"
               >功法赠送设置</n-divider
@@ -2148,6 +2219,8 @@ import {
   createTasksLegacy,
 } from "@/utils/batch";
 
+import { merchantConfig, goldItemsConfig } from "@/utils/dreamConstants";
+
 // Initialize token store, message service, and task runner
 const tokenStore = useTokenStore();
 const message = useMessage();
@@ -2395,7 +2468,16 @@ const helperModalTitle = computed(() => {
 
 // Batch Settings State
 const showBatchSettingsModal = ref(false);
+
+const defaultDreamPurchaseList = [];
+for (const merchantId in goldItemsConfig) {
+  goldItemsConfig[merchantId].forEach((index) => {
+    defaultDreamPurchaseList.push(`${merchantId}-${index}`);
+  });
+}
+
 const batchSettings = reactive({
+  dreamPurchaseList: defaultDreamPurchaseList,
   boxCount: 100,
   fishCount: 100,
   recruitCount: 100,
@@ -3763,6 +3845,65 @@ const executeHelper = () => {
   }
 };
 
+// Dream Buy Modal Logic
+const showDreamBuyModal = ref(false);
+const dreamBuyList = ref([]);
+
+const openDreamBuyModal = () => {
+  // Load saved settings
+  dreamBuyList.value = batchSettings.dreamPurchaseList || [];
+  showDreamBuyModal.value = true;
+};
+
+const toggleDreamItem = (itemKey, checked) => {
+  if (checked) {
+    if (!dreamBuyList.value.includes(itemKey)) {
+      dreamBuyList.value.push(itemKey);
+    }
+  } else {
+    dreamBuyList.value = dreamBuyList.value.filter(k => k !== itemKey);
+  }
+};
+
+const saveDreamBuyConfig = () => {
+  // Save settings
+  batchSettings.dreamPurchaseList = [...dreamBuyList.value];
+  saveBatchSettings();
+  
+  showDreamBuyModal.value = false;
+  message.success("梦境购买配置已保存");
+};
+
+const selectGoldItems = () => {
+  const newSelection = new Set(dreamBuyList.value);
+  
+  for (const merchantId in goldItemsConfig) {
+    const items = goldItemsConfig[merchantId];
+    items.forEach(index => {
+      newSelection.add(`${merchantId}-${index}`);
+    });
+  }
+  
+  dreamBuyList.value = Array.from(newSelection);
+};
+
+const selectAllItems = () => {
+  const newSelection = new Set(dreamBuyList.value);
+  
+  for (const merchantId in merchantConfig) {
+    const items = merchantConfig[merchantId].items;
+    items.forEach((_, index) => {
+      newSelection.add(`${merchantId}-${index}`);
+    });
+  }
+  
+  dreamBuyList.value = Array.from(newSelection);
+};
+
+const clearAllItems = () => {
+  dreamBuyList.value = [];
+};
+
 // 注: formationOptions, bossTimesOptions 已从 @/utils/batch 导入
 
 const loadSettings = (tokenId) => {
@@ -4546,7 +4687,7 @@ const {
 } = tasksItem;
 
 const tasksDungeon = createTasksDungeon(createTaskDeps());
-const { batchbaoku13, batchbaoku45, batchmengjing } = tasksDungeon;
+const { batchbaoku13, batchbaoku45, batchmengjing, batchBuyDreamItems } = tasksDungeon;
 
 const tasksArena = createTasksArena(createTaskDeps());
 const { batcharenafight, batchTopUpFish, batchTopUpArena } = tasksArena;

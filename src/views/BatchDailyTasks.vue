@@ -185,285 +185,7 @@
               </div>
             </n-space>
           </div>
-          <n-space style="margin-bottom: 12px">
-            <n-button
-              size="small"
-              @click="claimHangUpRewards"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              领取挂机
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchAddHangUpTime"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键加钟
-            </n-button>
-            <n-button
-              size="small"
-              @click="resetBottles"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              重置罐子
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchlingguanzi"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键领取罐子
-            </n-button>
-            <n-button
-              size="small"
-              @click="climbTower"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键爬塔
-            </n-button>
-            <n-button
-              size="small"
-              @click="climbWeirdTower"
-              :disabled="
-                isRunning ||
-                selectedTokens.length === 0 ||
-                !isWeirdTowerActivityOpen
-              "
-            >
-              一键爬怪异塔
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchUseItems"
-              :disabled="
-                isRunning ||
-                selectedTokens.length === 0 ||
-                !isWeirdTowerActivityOpen
-              "
-            >
-              一键使用怪异塔道具
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchMergeItems"
-              :disabled="
-                isRunning ||
-                selectedTokens.length === 0 ||
-                !isWeirdTowerActivityOpen
-              "
-            >
-              一键怪异塔合成
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchStudy"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键答题
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchSmartSendCar"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isCarActivityOpen
-              "
-            >
-              智能发车
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchClaimCars"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isCarActivityOpen
-              "
-            >
-              一键收车
-            </n-button>
-            <n-button
-              size="small"
-              @click="openHelperModal('box')"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              批量开箱
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchClaimBoxPointReward"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              领取宝箱积分
-            </n-button>
-            <n-button
-              size="small"
-              @click="openHelperModal('fish')"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              批量钓鱼
-            </n-button>
-            <n-button
-              size="small"
-              @click="openHelperModal('recruit')"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              批量招募
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchHeroUpgrade"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键英雄升星
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchBookUpgrade"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键图鉴升星
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchClaimStarRewards"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键领取图鉴奖励
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchbaoku13"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen
-              "
-            >
-              一键宝库前3层
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchbaoku45"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen
-              "
-            >
-              一键宝库4,5层
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchmengjing"
-              :disabled="
-                isRunning ||
-                selectedTokens.length === 0 ||
-                !ismengjingActivityOpen
-              "
-            >
-              一键梦境
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchclubsign"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键俱乐部签到
-            </n-button>
-            <n-button
-              size="small"
-              @click="batcharenafight"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isarenaActivityOpen
-              "
-            >
-              一键竞技场战斗3次
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchTopUpFish"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键钓鱼补齐
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchTopUpArena"
-              :disabled="
-                isRunning || selectedTokens.length === 0 || !isarenaActivityOpen
-              "
-            >
-              一键竞技场补齐
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchClaimFreeEnergy"
-              :disabled="
-                isRunning ||
-                selectedTokens.length === 0 ||
-                !isWeirdTowerActivityOpen
-              "
-            >
-              一键领取怪异塔免费道具
-            </n-button>
-            <n-button
-              size="small"
-              @click="legion_storebuygoods"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键购买四圣碎片
-            </n-button>
-            <n-button
-              size="small"
-              @click="legionStoreBuySkinCoins"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键购买俱乐部5皮肤币
-            </n-button>
-            <n-button
-              size="small"
-              @click="store_purchase"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键黑市采购
-            </n-button>
-            <n-button
-              size="small"
-              @click="collection_claimfreereward"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              免费领取珍宝阁
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchLegacyClaim"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              批量功法残卷领取
-            </n-button>
-            <n-button
-              size="small"
-              @click="showLegacyGiftModal = true"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              批量功法残卷赠送
-            </n-button>
-            <n-button
-              size="small"
-              @click="skinChallenge"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键换皮闯关
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchClaimPeachTasks"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键领取蟠桃园任务
-            </n-button>
-            <n-button
-              size="small"
-              @click="batchGenieSweep"
-              :disabled="isRunning || selectedTokens.length === 0"
-            >
-              一键灯神扫荡
-            </n-button>
-          </n-space>
+
           <!-- 排序按钮组 -->
           <div class="sort-buttons" style="margin-bottom: 12px">
             <n-space align="center">
@@ -570,92 +292,315 @@
           </n-space>
         </n-card>
 
-        <!-- Scheduled Tasks -->
-        <n-card
-          v-if="!batchSettings.hideScheduledTasksModule"
-          title="定时任务"
-          class="scheduled-tasks-card"
-          style="margin-top: 16px"
-        >
-          <n-space style="margin-bottom: 12px">
-            <n-button type="primary" size="small" @click="openTaskModal">
-              新增定时任务
-            </n-button>
-            <n-button size="small" @click="showTasksModal = true">
-              查看定时任务
-            </n-button>
-            <n-button size="small" @click="exportConfig">
-              导出配置
-            </n-button>
-            <n-upload
-              :show-file-list="false"
-              accept=".json"
-              :custom-request="importConfig"
-            >
-              <n-button size="small">导入配置</n-button>
-            </n-upload>
-          </n-space>
-
-          <!-- 任务预告区域 -->
-          <div
-            class="task-preview"
-            style="
-              margin: 16px 0;
-              padding: 16px;
-              border: 1px solid #e5e7eb;
-              border-radius: 8px;
-              background-color: #fafafa;
-            "
-          >
-            <h4 style="margin: 0 0 12px 0; color: #333">即将执行的任务</h4>
-            <div
-              v-if="shortestCountdownTask"
-              style="
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                padding: 12px;
-                background-color: white;
-                border-radius: 6px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-              "
-            >
-              <div
-                style="font-size: 16px; font-weight: bold; margin-bottom: 8px"
-              >
-                {{ shortestCountdownTask.task.name }}
-              </div>
-              <div
-                style="font-size: 24px; font-weight: bold; color: #1677ff"
-                :style="{
-                  color: shortestCountdownTask.countdown.isNearExecution
-                    ? '#ff4d4f'
-                    : '#1677ff',
-                }"
-              >
-                {{ shortestCountdownTask.countdown.formatted }}
-              </div>
-            </div>
-            <div
-              v-else
-              style="
-                text-align: center;
-                padding: 24px;
-                color: #6b7280;
-                font-style: italic;
-              "
-            >
-              暂无定时任务
-            </div>
-          </div>
-
-          <!-- 简单的任务统计 -->
-          <div class="tasks-count" v-if="scheduledTasks.length > 0">
-            <p>已保存 {{ scheduledTasks.length }} 个定时任务</p>
-          </div>
-          <div class="tasks-count" v-else>
-            <p>暂无定时任务</p>
-          </div>
+        <!-- Batch Functions -->
+        <n-card title="批量功能列表" style="margin-top: 16px">
+          <n-tabs type="line" animated>
+            <n-tab-pane name="daily" tab="日常">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="claimHangUpRewards"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  领取挂机
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchAddHangUpTime"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键加钟
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="resetBottles"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  重置罐子
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchlingguanzi"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键领取罐子
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchclubsign"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键俱乐部签到
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchStudy"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键答题
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batcharenafight"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isarenaActivityOpen
+                  "
+                >
+                  一键竞技场战斗3次
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchSmartSendCar"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isCarActivityOpen
+                  "
+                >
+                  智能发车
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchClaimCars"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isCarActivityOpen
+                  "
+                >
+                  一键收车
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="store_purchase"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键黑市采购
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="collection_claimfreereward"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键领取珍宝阁
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchGenieSweep"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键灯神扫荡
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="dungeon" tab="副本">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="climbTower"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键爬塔
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchmengjing"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !ismengjingActivityOpen
+                  "
+                >
+                  一键梦境
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="skinChallenge"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键换皮闯关
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchClaimPeachTasks"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键领取蟠桃园任务
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="baoku" tab="宝库">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="batchbaoku13"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen
+                  "
+                >
+                  一键宝库前3层
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchbaoku45"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isbaokuActivityOpen
+                  "
+                >
+                  一键宝库4,5层
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="weirdTower" tab="怪异塔">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="climbWeirdTower"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !isWeirdTowerActivityOpen
+                  "
+                >
+                  一键爬怪异塔
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchUseItems"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !isWeirdTowerActivityOpen
+                  "
+                >
+                  一键使用怪异塔道具
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchMergeItems"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !isWeirdTowerActivityOpen
+                  "
+                >
+                  一键怪异塔合成
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchClaimFreeEnergy"
+                  :disabled="
+                    isRunning ||
+                    selectedTokens.length === 0 ||
+                    !isWeirdTowerActivityOpen
+                  "
+                >
+                  一键领取怪异塔免费道具
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="resource" tab="资源">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="openHelperModal('box')"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  批量开箱
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchClaimBoxPointReward"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  领取宝箱积分
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="openHelperModal('fish')"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  批量钓鱼
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="openHelperModal('recruit')"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  批量招募
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchHeroUpgrade"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键英雄升星
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchBookUpgrade"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键图鉴升星
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchClaimStarRewards"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键领取图鉴奖励
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="legion_storebuygoods"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键购买四圣碎片
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="legionStoreBuySkinCoins"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键购买俱乐部5皮肤币
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="legacy" tab="功法">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="batchLegacyClaim"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  批量功法残卷领取
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="showLegacyGiftModal = true"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  批量功法残卷赠送
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+            <n-tab-pane name="monthly" tab="月度">
+              <n-space>
+                <n-button
+                  size="small"
+                  @click="batchTopUpFish"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  一键钓鱼补齐
+                </n-button>
+                <n-button
+                  size="small"
+                  @click="batchTopUpArena"
+                  :disabled="
+                    isRunning || selectedTokens.length === 0 || !isarenaActivityOpen
+                  "
+                >
+                  一键竞技场补齐
+                </n-button>
+              </n-space>
+            </n-tab-pane>
+          </n-tabs>
         </n-card>
       </div>
 
@@ -1128,11 +1073,11 @@
           <div class="setting-item">
             <label class="setting-label">接收者ID</label>
             <n-space>
-              <n-input
+              <n-input-number
                 v-model:value="recipientIdInput"
-                placeholder="请输入接收者ID"
-                type="number"
-                @input="clearRecipientError"
+                placeholder="ID"
+                :show-button="false"
+                @update:value="clearRecipientError"
                 style="width: 180px"
               />
               <n-input
@@ -1799,26 +1744,14 @@
             <div class="settings-grid">
               <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
                 <label class="setting-label">接收者ID</label>
-                <n-input v-model:value="batchSettings.receiverId" placeholder="ID" size="small" style="width: 100px" />
+                <n-input-number v-model:value="batchSettings.receiverId" placeholder="ID" size="small" style="width: 100px" :show-button="false" />
               </div>
               <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
                 <label class="setting-label">密码</label>
                 <n-input v-model:value="batchSettings.password" type="password" placeholder="密码" size="small" style="width: 100px" />
               </div>
             </div>
-            <n-divider title-placement="left" style="margin: 12px 0 8px 0"
-              >界面设置</n-divider
-            >
-            <div class="settings-grid">
-              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
-                <label class="setting-label">隐藏定时任务模块</label>
-                <n-switch v-model:value="batchSettings.hideScheduledTasksModule" />
-              </div>
-              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
-                <label class="setting-label">列表每行数量</label>
-                <n-input-number v-model:value="batchSettings.tokenListColumns" :min="1" :max="10" :step="1" size="small" style="width: 100px" />
-              </div>
-            </div>
+
           </n-grid-item>
           <!-- 右列：延迟与连接设置 -->
           <n-grid-item>
@@ -1869,18 +1802,17 @@
               </div>
             </div>
             <n-divider title-placement="left" style="margin: 12px 0 8px 0"
-              >日志设置</n-divider
+              >系统设置</n-divider
             >
             <div class="settings-grid">
+              <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                <label class="setting-label">列表每行数量</label>
+                <n-input-number v-model:value="batchSettings.tokenListColumns" :min="1" :max="10" :step="1" size="small" style="width: 100px" />
+              </div>
               <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
                 <label class="setting-label">最大日志条目</label>
                 <n-input-number v-model:value="batchSettings.maxLogEntries" :min="100" :max="5000" :step="100" size="small" style="width: 100px" />
               </div>
-            </div>
-            <n-divider title-placement="left" style="margin: 12px 0 8px 0"
-              >系统维护设置</n-divider
-            >
-            <div class="settings-grid">
               <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
                 <label class="setting-label">定时刷新页面</label>
                 <n-switch v-model:value="batchSettings.enableRefresh" />
@@ -2471,7 +2403,6 @@ const batchSettings = reactive({
   defaultFishType: 1,
   receiverId: "",
   password: "",
-  hideScheduledTasksModule: false,
   tokenListColumns: 2,
   useGoldRefreshFallback: false,
   // 延迟配置（毫秒）

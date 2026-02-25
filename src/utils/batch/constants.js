@@ -133,7 +133,6 @@ export const defaultBatchSettings = {
   defaultFishType: 1,
   receiverId: "",
   password: "",
-  hideScheduledTasksModule: false,
   useGoldRefreshFallback: false,
   tokenListColumns: 2,
   commandDelay: 500,

@@ -363,28 +363,36 @@ export const useTokenStore = defineStore("tokens", () => {
             ) {
               // Bin形式token刷新（兼容新旧两种key格式）
               // 优先使用新的tokenId作为key，如果失败则尝试旧的name作为key
-              let userToken: ArrayBuffer | null = await getArrayBuffer(
-                tokenId,
-              );
+              let userToken: ArrayBuffer | null = await getArrayBuffer(tokenId);
               let usedOldKey = false;
+              
               if (!userToken) {
-                userToken = await getArrayBuffer(
-                  gameToken.name,
-                );
-                usedOldKey = true;
+                const tokenByName = await getArrayBuffer(gameToken.name);
+                if (tokenByName) {
+                  userToken = tokenByName;
+                  usedOldKey = true;
+                }
               }
-              console.log("读取到的ArrayBuffer:", tokenId, userToken);
+
+              console.log("读取到的ArrayBuffer:", tokenId, userToken ? "Found" : "Null");
+              
               if (userToken) {
                 const token = await transformToken(userToken);
                 updateToken(tokenId, { ...gameToken, token });
                 // 如果使用旧的name key读取成功，则用新的tokenId key重新保存并删除旧数据
                 if (usedOldKey) {
-                  await storeArrayBuffer(tokenId, userToken);
-                  await deleteArrayBuffer(gameToken.name);
-                  console.log("已迁移IndexedDB数据:", gameToken.name, "->", tokenId);
+                  const saved = await storeArrayBuffer(tokenId, userToken);
+                  if (saved) {
+                    await deleteArrayBuffer(gameToken.name);
+                    console.log("已迁移IndexedDB数据:", gameToken.name, "->", tokenId);
+                  }
                 }
-                console.log(gameToken);
                 refreshSuccess = true;
+              } else {
+                wsLogger.error(`Token刷新失败: 未找到BIN数据 [${tokenId}]`, {
+                  name: gameToken.name,
+                  importMethod: gameToken.importMethod
+                });
               }
             }
           }

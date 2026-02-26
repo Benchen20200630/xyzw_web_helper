@@ -860,6 +860,41 @@
           </div>
           <div class="setting-item">
             <label class="setting-label">选择账号</label>
+            
+            <!-- 分组快速选择 -->
+            <div style="margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+              <div style="font-size: 12px; color: #86909c; margin-bottom: 8px">
+                快速选择分组：
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap">
+                <n-button
+                  v-for="group in tokenGroups"
+                  :key="group.id"
+                  size="small"
+                  @click="
+                    () => {
+                      const groupTokenIds = getValidGroupTokenIds(group.id);
+                      groupTokenIds.forEach((id) => {
+                        if (!selectedTokensForApply.includes(id)) {
+                          selectedTokensForApply.push(id);
+                        }
+                      });
+                    }
+                  "
+                  :style="{
+                    borderColor: group.color,
+                    color: group.color
+                  }"
+                  ghost
+                >
+                  {{ group.name }}
+                </n-button>
+                <div v-if="tokenGroups.length === 0" style="font-size: 12px; color: #ccc;">
+                  暂无分组
+                </div>
+              </div>
+            </div>
+
             <n-checkbox
               :checked="isAllSelectedForApply"
               :indeterminate="isIndeterminateForApply"
@@ -1629,9 +1664,17 @@
             </div>
 
             <!-- 分组快速选择 (仅在定时任务中显示) -->
-            <div v-if="tokenGroups.length > 0" style="margin-bottom: 12px">
-              <div style="font-size: 12px; color: #86909c; margin-bottom: 8px">
-                快速选择分组：
+            <div style="margin-bottom: 12px">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 12px; color: #86909c">
+                  快速选择分组：
+                </div>
+                <n-button type="primary" size="tiny" text @click="showGroupManageModal = true">
+                  管理分组
+                </n-button>
+              </div>
+              <div v-if="tokenGroups.length === 0" style="font-size: 12px; color: #ccc;">
+                暂无分组
               </div>
               <div style="display: flex; gap: 6px; flex-wrap: wrap">
                 <n-button
@@ -1695,12 +1738,34 @@
                 </n-button>
               </n-space>
             </div>
+            
             <n-checkbox-group v-model:value="taskForm.selectedTasks">
-              <n-grid :cols="2" :x-gap="12" :y-gap="8">
-                <n-grid-item v-for="task in availableTasks" :key="task.value">
-                  <n-checkbox :value="task.value">{{ task.label }}</n-checkbox>
-                </n-grid-item>
-              </n-grid>
+              <n-tabs type="line" animated size="small" pane-style="padding-top: 12px;" default-value="daily">
+                <n-tab-pane 
+                  v-for="group in taskGroupDefinitions" 
+                  :key="group.name" 
+                  :name="group.name" 
+                  :tab="group.label"
+                >
+                  <n-grid :cols="2" :x-gap="12" :y-gap="8">
+                    <n-grid-item v-for="task in groupedAvailableTasks[group.name]" :key="task.value">
+                      <n-checkbox :value="task.value">{{ task.label }}</n-checkbox>
+                    </n-grid-item>
+                  </n-grid>
+                </n-tab-pane>
+                
+                <n-tab-pane 
+                  v-if="groupedAvailableTasks['other'] && groupedAvailableTasks['other'].length > 0" 
+                  name="other" 
+                  tab="其他"
+                >
+                  <n-grid :cols="2" :x-gap="12" :y-gap="8">
+                    <n-grid-item v-for="task in groupedAvailableTasks['other']" :key="task.value">
+                      <n-checkbox :value="task.value">{{ task.label }}</n-checkbox>
+                    </n-grid-item>
+                  </n-grid>
+                </n-tab-pane>
+              </n-tabs>
             </n-checkbox-group>
           </div>
         </div>
@@ -1911,38 +1976,60 @@
         <n-divider title-placement="left" style="margin: 0 0 16px 0">
           创建新分组
         </n-divider>
-        <n-space style="margin-bottom: 24px">
-          <n-input
-            v-model:value="newGroupName"
-            placeholder="输入分组名称"
-            style="width: 200px"
-            size="small"
-          />
-          <div style="display: flex; gap: 8px; align-items: center">
-            <span style="font-size: 12px">选择颜色:</span>
-            <div style="display: flex; gap: 6px">
-              <div
-                v-for="color in groupColors"
-                :key="color"
-                :style="{
-                  width: '24px',
-                  height: '24px',
-                  backgroundColor: color,
-                  borderRadius: '4px',
-                  border: newGroupColor === color ? '3px solid #000' : '2px solid #ddd',
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s',
-                }"
-                @click="newGroupColor = color"
-                @mouseover="$event.target.style.transform = 'scale(1.1)'"
-                @mouseleave="$event.target.style.transform = 'scale(1)'"
-              />
+        <div style="margin-bottom: 24px">
+          <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+            <n-input
+              v-model:value="newGroupName"
+              placeholder="输入分组名称"
+              style="width: 200px"
+              size="small"
+            />
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span style="font-size: 12px">选择颜色:</span>
+              <div style="display: flex; gap: 6px">
+                <div
+                  v-for="color in groupColors"
+                  :key="color"
+                  :style="{
+                    width: '24px',
+                    height: '24px',
+                    backgroundColor: color,
+                    borderRadius: '4px',
+                    border: newGroupColor === color ? '3px solid #000' : '2px solid #ddd',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s',
+                  }"
+                  @click="newGroupColor = color"
+                  @mouseover="$event.target.style.transform = 'scale(1.1)'"
+                  @mouseleave="$event.target.style.transform = 'scale(1)'"
+                />
+              </div>
+            </div>
+            <n-button type="primary" size="small" @click="createNewGroup">
+              创建分组
+            </n-button>
+          </div>
+          
+          <!-- 选择包含的账号 -->
+          <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 13px; font-weight: bold;">包含账号 ({{ newGroupSelectedTokens.length }})</span>
+              <n-space size="small">
+                <n-button size="tiny" @click="selectAllNewGroup">全选</n-button>
+                <n-button size="tiny" @click="deselectAllNewGroup">全不选</n-button>
+              </n-space>
+            </div>
+            <div style="max-height: 150px; overflow-y: auto;">
+              <n-checkbox-group v-model:value="newGroupSelectedTokens">
+                <n-grid :cols="3" :x-gap="12" :y-gap="8">
+                  <n-grid-item v-for="token in sortedTokens" :key="token.id">
+                    <n-checkbox :value="token.id">{{ token.name }}</n-checkbox>
+                  </n-grid-item>
+                </n-grid>
+              </n-checkbox-group>
             </div>
           </div>
-          <n-button type="primary" size="small" @click="createNewGroup">
-            创建分组
-          </n-button>
-        </n-space>
+        </div>
 
         <!-- 分组列表 -->
         <n-divider title-placement="left" style="margin: 0 0 16px 0">
@@ -2361,6 +2448,7 @@ const showGroupSelectModal = ref(false);
 const selectedGroups = ref([]); // 选中的分组ID列表
 const newGroupName = ref("");
 const newGroupColor = ref("#1677ff");
+const newGroupSelectedTokens = ref([]); // 新建分组时选中的Token ID列表
 const editingGroupId = ref(null);
 const editingGroupName = ref("");
 const editingGroupColor = ref("");
@@ -2568,6 +2656,34 @@ const taskForm = reactive({
   selectedTokens: [], // Selected token IDs
   selectedTasks: [], // Selected task function names
   enabled: true, // Whether the task is enabled
+});
+
+// 任务分组定义
+const taskGroupDefinitions = [
+  { name: 'daily', label: '日常', tasks: ['startBatch', 'claimHangUpRewards', 'batchAddHangUpTime', 'resetBottles', 'batchlingguanzi', 'batchclubsign', 'batchStudy', 'batcharenafight', 'batchSmartSendCar', 'batchClaimCars', 'store_purchase', 'collection_claimfreereward', 'batchGenieSweep'] },
+  { name: 'dungeon', label: '副本', tasks: ['climbTower', 'batchmengjing', 'skinChallenge', 'batchClaimPeachTasks', 'batchBuyDreamItems'] },
+  { name: 'baoku', label: '宝库', tasks: ['batchbaoku13', 'batchbaoku45'] },
+  { name: 'weirdTower', label: '怪异塔', tasks: ['climbWeirdTower', 'batchUseItems', 'batchMergeItems', 'batchClaimFreeEnergy'] },
+  { name: 'resource', label: '资源', tasks: ['batchOpenBox', 'batchClaimBoxPointReward', 'batchFish', 'batchRecruit', 'legion_storebuygoods'] },
+  { name: 'legacy', label: '功法', tasks: ['batchLegacyClaim', 'batchLegacyGiftSendEnhanced'] },
+  { name: 'monthly', label: '月度', tasks: ['batchTopUpFish', 'batchTopUpArena'] }
+];
+
+// 计算属性，根据 taskGroupDefinitions 将 availableTasks 分组
+const groupedAvailableTasks = computed(() => {
+  const groups = {};
+  taskGroupDefinitions.forEach(group => {
+    groups[group.name] = availableTasks.filter(task => group.tasks.includes(task.value));
+  });
+  
+  // 处理未分组的任务
+  const groupedTaskValues = taskGroupDefinitions.flatMap(g => g.tasks);
+  const otherTasks = availableTasks.filter(task => !groupedTaskValues.includes(task.value));
+  if (otherTasks.length > 0) {
+    groups['other'] = otherTasks;
+  }
+  
+  return groups;
 });
 
 // Cron表达式解析相关变量
@@ -4275,10 +4391,27 @@ const createNewGroup = () => {
     return;
   }
 
-  tokenStore.createTokenGroup(newGroupName.value.trim(), newGroupColor.value);
+  const newGroup = tokenStore.createTokenGroup(newGroupName.value.trim(), newGroupColor.value);
+  
+  // 添加选中的Token到新分组
+  if (newGroupSelectedTokens.value.length > 0) {
+    newGroupSelectedTokens.value.forEach(tokenId => {
+      tokenStore.addTokenToGroup(newGroup.id, tokenId);
+    });
+  }
+
   message.success("分组创建成功");
   newGroupName.value = "";
   newGroupColor.value = "#1677ff";
+  newGroupSelectedTokens.value = [];
+};
+
+const selectAllNewGroup = () => {
+  newGroupSelectedTokens.value = sortedTokens.value.map(t => t.id);
+};
+
+const deselectAllNewGroup = () => {
+  newGroupSelectedTokens.value = [];
 };
 
 /**

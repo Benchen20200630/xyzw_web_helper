@@ -35,8 +35,6 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
-    "@iconify-json": "link:@iconify-json",
-    "@iconify-json/lucide": "^1.2.3",
     "@iconify-json/mdi": "^1.2.3",
     "@intlify/unplugin-vue-i18n": "^6.0.8",
     "@types/crypto-js": "^4.2.2",

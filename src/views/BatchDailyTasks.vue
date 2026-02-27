@@ -2395,9 +2395,11 @@ const getSortIcon = (field) => {
 
 const tokens = computed(() => tokenStore.gameTokens);
 const isCarActivityOpen = computed(() => {
-  const day = new Date().getDay();
-  // 1=Mon, 2=Tue, 3=Wed
-  return day >= 1 && day <= 3;
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  // 1=Mon, 2=Tue, 3=Wed; 6点之后
+  return day >= 1 && day <= 3 && hour >= 6;
 });
 const ismengjingActivityOpen = computed(() => {
   const day = new Date().getDay();
@@ -2432,7 +2434,16 @@ const getCurrentActivityWeek = computed(() => {
 });
 
 const isWeirdTowerActivityOpen = computed(() => {
-  return getCurrentActivityWeek.value === "黑市周";
+  if (getCurrentActivityWeek.value !== "黑市周") return false;
+
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  // 如果是周五，必须在12点之后
+  if (day === 5) {
+    return hour >= 12;
+  }
+  return true;
 });
 
 const selectedTokens = ref([]);
@@ -3648,6 +3659,71 @@ const executeScheduledTask = async (task) => {
     // Execute selected tasks in parallel
     const taskPromises = task.selectedTasks.map(async (taskName) => {
       if (shouldStop.value) return;
+
+      if (
+        ["batchbaoku45", "batchbaoku13"].includes(taskName) &&
+        !isbaokuActivityOpen.value
+      ) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `跳过任务: ${availableTasks.find((t) => t.value === taskName)?.label || taskName} (不在宝库开放时间)`,
+          type: "warning",
+        });
+        return;
+      }
+
+      if (
+        ["batchmengjing", "batchBuyDreamItems"].includes(taskName) &&
+        !ismengjingActivityOpen.value
+      ) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `跳过任务: ${availableTasks.find((t) => t.value === taskName)?.label || taskName} (不在梦境开放时间)`,
+          type: "warning",
+        });
+        return;
+      }
+
+      if (
+        ["batchSmartSendCar", "batchClaimCars"].includes(taskName) &&
+        !isCarActivityOpen.value
+      ) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `跳过任务: ${availableTasks.find((t) => t.value === taskName)?.label || taskName} (不在发车开放时间)`,
+          type: "warning",
+        });
+        return;
+      }
+
+      if (
+        ["batchTopUpArena", "batcharenafight"].includes(taskName) &&
+        !isarenaActivityOpen.value
+      ) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `跳过任务: ${availableTasks.find((t) => t.value === taskName)?.label || taskName} (不在竞技场开放时间)`,
+          type: "warning",
+        });
+        return;
+      }
+
+      if (
+        [
+          "climbWeirdTower",
+          "batchUseItems",
+          "batchMergeItems",
+          "batchClaimFreeEnergy",
+        ].includes(taskName) &&
+        !isWeirdTowerActivityOpen.value
+      ) {
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `跳过任务: ${availableTasks.find((t) => t.value === taskName)?.label || taskName} (不在怪异塔开放时间)`,
+          type: "warning",
+        });
+        return;
+      }
 
       addLog({
         time: new Date().toLocaleTimeString(),

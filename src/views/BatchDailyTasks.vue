@@ -609,6 +609,13 @@
                 >
                   一键竞技场补齐
                 </n-button>
+                <n-button
+                  size="small"
+                  @click="openWarGuessModal"
+                  :disabled="isRunning || selectedTokens.length === 0"
+                >
+                  月赛助威
+                </n-button>
               </n-space>
             </n-tab-pane>
           </n-tabs>
@@ -1964,6 +1971,45 @@
       </div>
     </n-modal>
 
+    <!-- War Guess Modal -->
+    <n-modal
+      v-model:show="showWarGuessModal"
+      preset="card"
+      title="月赛助威"
+      style="width: 90%; max-width: 800px"
+    >
+      <div class="settings-content">
+        <div class="settings-grid" style="display: block;">
+          <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 16px">拍手器:</span>
+             <n-input-number v-model:value="warGuessCoin" placeholder="拍手器" :min="1" :max="20" style="width: 120px" >
+             </n-input-number>
+             <n-button type="primary" @click="handleWarGuessCheer" :disabled="!selectedWarGuessLegionId || isRunning">
+               助威
+             </n-button>
+             <n-button @click="fetchWarGuessRank" :loading="warGuessLoading">
+               刷新数据
+             </n-button>
+          </div>
+          
+          <n-data-table
+            :columns="warGuessColumns"
+            :data="warGuessList"
+            :loading="warGuessLoading"
+            :row-key="row => row.id"
+            :checked-row-keys="selectedWarGuessLegionId ? [selectedWarGuessLegionId] : []"
+            @update:checked-row-keys="(keys) => selectedWarGuessLegionId = keys[0]"
+            :row-props="warGuessRowProps"
+            style="height: 400px; flex: 1;"
+            flex-height
+          />
+        </div>
+        <div class="modal-actions" style="margin-top: 20px; text-align: right">
+          <n-button @click="showWarGuessModal = false">关闭</n-button>
+        </div>
+      </div>
+    </n-modal>
+
     <!-- Token Group Management Modal -->
     <n-modal
       v-model:show="showGroupManageModal"
@@ -2236,6 +2282,7 @@ import {
   watch,
   onMounted,
   onBeforeUnmount,
+  h,
 } from "vue";
 import { useTokenStore, gameTokens, tokenGroups } from "@/stores/tokenStore";
 import { DailyTaskRunner } from "@/utils/dailyTaskRunner";
@@ -2474,6 +2521,136 @@ const groupColors = [
   "#eb2f96", // 粉色
   "#fa8c16", // 赤红色
 ];
+
+// ======================
+// War Guess Feature
+// ======================
+const showWarGuessModal = ref(false);
+const warGuessList = ref([]);
+const warGuessLoading = ref(false);
+const warGuessCoin = ref(20);
+const selectedWarGuessLegionId = ref(null);
+const currentGuessCount = ref(0);
+
+const formatPower = (power) => {
+  if (!power) return "0";
+  if (power >= 100000000) {
+    return (power / 100000000).toFixed(2) + "亿";
+  }
+  if (power >= 10000) {
+    return (power / 10000).toFixed(2) + "万";
+  }
+  return power.toString();
+};
+
+const warGuessColumns = [
+  {
+    type: 'selection',
+    multiple: false,
+  },
+  { title: 'ID', key: 'id', width: 100 },
+  { title: '头像', key: 'logo', render(row) {
+      return h('img', { src: row.logo, style: { width: '30px', height: '30px', borderRadius: '50%' } });
+  }, width: 60 },
+  { title: '区服', key: 'serverId', width: 80 },
+  { title: '俱乐部', key: 'name', width: 120 },
+  { title: '战力', key: 'power', render(row) {
+    return formatPower(row.power);
+  }, width: 100 },
+  { title: '红淬', key: 'quenchNum' },
+  { title: '已助威', key: 'guessNum' },
+  { title: '总热度', key: 'totalNum',render(row) {
+    return formatPower(row.totalNum || 0);
+  }, width: 100 },
+];
+
+const warGuessRowProps = (row) => {
+  return {
+    style: "cursor: pointer",
+    onClick: () => {
+      selectedWarGuessLegionId.value = row.id;
+    },
+  };
+};
+
+const openWarGuessModal = () => {
+  showWarGuessModal.value = true;
+  // Reset selection
+  selectedWarGuessLegionId.value = null;
+  warGuessList.value = [];
+  
+  // Auto fetch if tokens selected
+  if (selectedTokens.value.length > 0) {
+      fetchWarGuessRank();
+  }
+};
+
+const fetchWarGuessRank = async () => {
+  if (selectedTokens.value.length === 0) {
+    message.warning("请先选择一个账号用于获取月赛助威数据");
+    return;
+  }
+  
+  const tokenId = selectedTokens.value[0];
+  const token = tokens.value.find(t => t.id === tokenId);
+  
+  warGuessLoading.value = true;
+  try {
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `正在使用 ${token.name} 获取月赛助威数据...`,
+      type: "info",
+    });
+    
+    // Ensure connection
+    const status = tokenStore.getWebSocketStatus(tokenId);
+    if (status !== "connected") {
+        tokenStore.createWebSocketConnection(tokenId, token.token, token.wsUrl);
+        await new Promise(r => setTimeout(r, 2000)); // Wait for connection
+    }
+    
+    // Fetch rank
+    const res = await tokenStore.sendMessageWithPromise(tokenId, "warguess_getrank", { bfId: '' }, 5000);
+    
+    if (res && res.list) {
+      let list = [];
+      if (Array.isArray(res.list)) {
+        list = res.list;
+      } else {
+        list = Object.values(res.list);
+      }
+      
+      // Sort by totalNum desc
+      warGuessList.value = list.sort((a, b) => (b.totalNum || 0) - (a.totalNum || 0)).slice(0, 20);
+    } else {
+      message.warning("获取月赛助威数据为空");
+    }
+    
+  } catch (error) {
+    console.error("Fetch rank error:", error);
+    message.error("获取月赛助威数据失败: " + error.message);
+    addLog({
+      time: new Date().toLocaleTimeString(),
+      message: `获取月赛助威数据失败: ${error.message}`,
+      type: "error",
+    });
+  } finally {
+    warGuessLoading.value = false;
+  }
+};
+
+const handleWarGuessCheer = async () => {
+    if (!selectedWarGuessLegionId.value) {
+        message.warning("请先选择一个俱乐部");
+        return;
+    }
+    // Close modal
+    showWarGuessModal.value = false;
+    // Call the batch function
+    await batchWarGuessCheer(selectedWarGuessLegionId.value, warGuessCoin.value);
+    
+    
+};
 
 // Settings Modal State
 const showSettingsModal = ref(false);
@@ -4807,7 +4984,7 @@ const createTaskDeps = () => ({
 
 // 初始化任务模块
 const tasksHangUp = createTasksHangUp(createTaskDeps());
-const { claimHangUpRewards, batchAddHangUpTime, batchStudy, batchclubsign } = tasksHangUp;
+const { claimHangUpRewards, batchAddHangUpTime, batchStudy, batchclubsign, batchWarGuessCheer } = tasksHangUp;
 
 const tasksBottle = createTasksBottle(createTaskDeps());
 const { resetBottles, batchlingguanzi } = tasksBottle;

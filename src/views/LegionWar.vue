@@ -47,6 +47,11 @@
           </div>
         </div>
         <div class="legion-war-operation-item">
+          <n-button type="primary" @click="getBattlefieldInfo" :disabled="!isEntireBattlefield" style="padding:12px">
+            拉取数据(需进入战场后)
+          </n-button>
+        </div>
+        <div class="legion-war-operation-item">
           <n-button type="primary" @click="sendMessageToLegion" style="padding:12px">
             发送各战队免费复活到战队频道
           </n-button>
@@ -216,6 +221,7 @@ const drawCanvasLeft = (mouseX=0,mouseY=0,type='') => {
   graph.removeAllNode();
   //提取result.value中的数据
   validData.value = extractValidData(result.value,isOccupyOrDistribution.value)
+  console.log(2)
   if(validData.value){
     graph.addNodeList(Object.values(validData.value.buildingData).map(
       item=> {

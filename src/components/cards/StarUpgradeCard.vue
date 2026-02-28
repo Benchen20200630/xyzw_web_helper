@@ -76,6 +76,7 @@ import { ref, computed } from "vue";
 import { useMessage } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
 import MyCard from "../Common/MyCard.vue";
+import { HERO_DICT } from "@/utils/HeroList";
 
 const tokenStore = useTokenStore();
 const message = useMessage();
@@ -91,11 +92,7 @@ const state = ref({
   done: 0,
 });
 
-const heroIds = computed(() => [
-  ...Array.from({ length: 20 }, (_, i) => 101 + i),
-  ...Array.from({ length: 28 }, (_, i) => 201 + i),
-  ...Array.from({ length: 14 }, (_, i) => 301 + i),
-]);
+const heroIds = computed(() => Object.keys(HERO_DICT).map(Number));
 
 const percent = computed(() =>
   state.value.total > 0
@@ -232,9 +229,9 @@ const runHeroUpgrade = async (mod) => {
         } catch (err) {
           addLog(`英雄ID:${heroId} 升星第${i}/10次失败，跳过剩余次数`, "error");
           skip = true;
-          break;
         }
         await sleep(mod.delay);
+        if (skip) break;
       }
       state.value.done++;
     }
@@ -290,9 +287,9 @@ const runBookUpgrade = async (mod) => {
             "error",
           );
           skip = true;
-          break;
         }
         await sleep(mod.delay);
+        if (skip) break;
       }
       state.value.done++;
     }
@@ -322,6 +319,7 @@ const runClaimRewards = async (mod) => {
     state.value.isRunning = true;
     for (let i = 1; i <= 10; i++) {
       if (state.value.stopRequested) break;
+      let success = true;
       try {
         const res = await tokenStore.sendMessageWithPromise(
           tokenId,
@@ -337,9 +335,10 @@ const runClaimRewards = async (mod) => {
       } catch (err) {
         addLog(`领取图鉴奖励第${i}/10次失败，跳过剩余次数`, "error");
         state.value.done++;
-        break;
+        success = false;
       }
       await sleep(mod.delay);
+      if (!success) break;
     }
     message.success(state.value.stopRequested ? "已停止" : "领取奖励完成");
   } finally {

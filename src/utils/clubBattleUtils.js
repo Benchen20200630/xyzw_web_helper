@@ -127,9 +127,13 @@ export function isLegionWarAccessible() {
     return minutesCount >= start && minutesCount <= end;
   };
 
-  // 特殊修正：2026年3月1日 (周日)
-  if (year === 2026 && month === 2 && date === 1) {
-    return isTimeAllowed(true);
+  // 特殊修正：2026年3月特殊日期
+  // 1, 6, 9, 11, 13, 17, 19, 21, 24, 26, 29
+  if (year === 2026 && month === 2) {
+    const specialDates = [1, 6, 9, 11, 13, 17, 19, 21, 24, 26, 29];
+    if (specialDates.includes(date)) {
+      return isTimeAllowed(dayOfWeek === 0);
+    }
   }
 
   // 辅助函数：获取某个月的所有特定星期几的日期列表

@@ -2806,7 +2806,7 @@ const colorArray = [
       "name": item.name, //俱乐部名称
       "color": colorArray[item.color], //俱乐部颜色
       "id": item.id, //俱乐部序号
-      "memberCount": Object.keys(item.members).length,
+      "memberCount": Object.keys(item.membersV2).length,
       "point": item.point, //老版的分
       "position": item.position, //大本营坐标
       "strongholdId": item.strongholdId,//大本营坐标字符串
@@ -2816,7 +2816,8 @@ const colorArray = [
       "OnlineCount": 0,//在线人数
       "participantsCount": 0,//在线人数
       "danCount": 0,//总复活丹
-      "reviveCount": 0  //免费复活次数
+      "reviveCount": 0,  //免费复活次数
+      "serverId": item.serverId, //服务器ID
     }]
   }))
   //统计具体信息
@@ -2837,7 +2838,7 @@ const colorArray = [
       "revive": item.revive, //五次复活,使用了几次
       "die": item.d, //死亡次数
       "dan": item.d - 6 > 0 ? item.d - 6 : 0,
-      "score": result.battlefield.roleIds[item.key]
+      "score": item.point
     }
   })
   return {

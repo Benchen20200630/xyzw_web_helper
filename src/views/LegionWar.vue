@@ -706,7 +706,7 @@ const fetchBattleRecords1 = async (getbattlefield) => {
       connectWebSocket();
       return;
     }
-    const baseWsUrl = getbattlefield?.info.domainName+`?p=${encodeURIComponent(tokenStore.selectedToken.token)}&e=x&sid2=${getbattlefield?.info.sid}&lang=chinese&sid2=${getbattlefield?.info.sid}`
+    const baseWsUrl = 'wss://xxz-xyzw-new.hortorgames.com/agent' +`?p=${encodeURIComponent(tokenStore.selectedToken.token)}&e=x&sid2=${getbattlefield?.info.sid}&lang=chinese&sid2=${getbattlefield?.info.sid}`
     hint.value = getbattlefield?.info.battlefieldId;
     legionWarWebSocket =  new XyzwLegionWarWebSocketClient({
       url: baseWsUrl,

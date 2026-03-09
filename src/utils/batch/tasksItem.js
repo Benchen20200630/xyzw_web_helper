@@ -1349,11 +1349,6 @@ export function createTasksItem(deps) {
           }
         }
 
-        await tokenStore.sendMessageWithPromise(
-          tokenId,
-          "item_batchclaimboxpointreward",
-        );
-        await new Promise((r) => setTimeout(r, delayConfig.action));
         await tokenStore.sendMessage(tokenId, "role_getroleinfo");
         tokenStatus.value[tokenId] = "completed";
         addLog({

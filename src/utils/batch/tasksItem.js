@@ -1293,7 +1293,12 @@ export function createTasksItem(deps) {
           const pointsNeeded = Math.min(maxPointsFromThisBox, remainingPoints);
           const boxesNeeded = Math.ceil(pointsNeeded / box.points);
 
-          const actualBoxes = Math.min(boxesNeeded, available);
+          let actualBoxes = Math.min(boxesNeeded, available);
+          
+          if (actualBoxes > 0 && actualBoxes < 10 && available >= 10) {
+            actualBoxes = 10;
+          }
+          
           boxToOpen[box.id] = actualBoxes;
           remainingPoints -= actualBoxes * box.points;
 
@@ -1302,6 +1307,21 @@ export function createTasksItem(deps) {
             message: `${token.name} 计划开 ${box.name}: ${actualBoxes} 个 (积分: ${actualBoxes * box.points})`,
             type: "info",
           });
+        }
+
+        if (remainingPoints > 0) {
+          const woodenAvailable = boxInventory[2001] - 200;
+          if (woodenAvailable > 0) {
+            const woodenNeeded = Math.min(remainingPoints, woodenAvailable);
+            boxToOpen[2001] = (boxToOpen[2001] || 0) + woodenNeeded;
+            remainingPoints -= woodenNeeded;
+            
+            addLog({
+              time: new Date().toLocaleTimeString(),
+              message: `${token.name} 用木质宝箱凑零碎积分: ${woodenNeeded} 个`,
+              type: "info",
+            });
+          }
         }
 
         for (const box of boxPriority) {

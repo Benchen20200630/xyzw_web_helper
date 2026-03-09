@@ -1203,13 +1203,6 @@ export function createTasksItem(deps) {
       ? batchSettings.targetBoxPoints
       : helperSettings.targetPoints;
 
-    const boxPoints = {
-      2001: 1,
-      2002: 10,
-      2003: 20,
-      2004: 50,
-    };
-
     const boxPriority = [
       { id: 2001, name: "木质宝箱", points: 1, reserve: 200 },
       { id: 2002, name: "青铜宝箱", points: 10, reserve: 0 },
@@ -1332,7 +1325,7 @@ export function createTasksItem(deps) {
                 let wooden = 0;
                 if (afterPlatinum > 0) {
                   wooden = Math.ceil(afterPlatinum / 10) * 10;
-                  if (wooden > woodenTotal) continue;
+                  if (wooden > woodenTotal || wooden > 100) continue;
                 }
                 
                 const totalPoints = bronzePoints + goldPoints + platinumPoints + wooden;

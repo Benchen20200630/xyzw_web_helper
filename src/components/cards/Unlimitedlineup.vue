@@ -196,7 +196,10 @@
                   }}</span>
                 </div>
                 <div class="lineup-quick-actions">
-                  <n-button size="tiny" @click.stop="renameLineup(index)">
+                  <n-button
+                    size="tiny"
+                    @click.stop="renameLineup(savedLineups.indexOf(lineup))"
+                  >
                     重命名
                   </n-button>
                   <n-button
@@ -212,7 +215,7 @@
                   <n-button
                     type="error"
                     size="tiny"
-                    @click.stop="deleteLineup(index)"
+                    @click.stop="deleteLineup(savedLineups.indexOf(lineup))"
                   >
                     删除
                   </n-button>

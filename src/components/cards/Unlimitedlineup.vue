@@ -102,24 +102,45 @@
                 </div>
                 <div class="hero-fish" v-if="getFishInfo(hero.artifactId)">
                   {{ getFishInfo(hero.artifactId).name }}
+                  <span
+                    v-if="getPearlSkillNameByArtifactId(hero.artifactId)"
+                    class="hero-fish-skill-inline"
+                  >
+                    {{ getPearlSkillNameByArtifactId(hero.artifactId) }}
+                  </span>
+                  <span
+                    v-if="getSlotColorsByArtifactId(hero.artifactId)"
+                    class="hero-fish-slots-inline"
+                  >
+                    <span
+                      v-for="(color, idx) in getSlotColorsByArtifactId(
+                        hero.artifactId,
+                      )"
+                      :key="idx"
+                      class="slot-dot-small"
+                      :style="{ backgroundColor: color }"
+                    ></span>
+                  </span>
                 </div>
               </div>
-              <n-button
-                class="exchange-btn"
-                size="tiny"
-                type="warning"
-                @click.stop="openExchangeModal(hero)"
-              >
-                更换
-              </n-button>
-              <n-button
-                class="remove-btn"
-                size="tiny"
-                type="error"
-                @click.stop="removeHero(hero)"
-              >
-                下阵
-              </n-button>
+              <div class="hero-actions">
+                <n-button
+                  class="exchange-btn"
+                  size="tiny"
+                  type="warning"
+                  @click.stop="openExchangeModal(hero)"
+                >
+                  更换
+                </n-button>
+                <n-button
+                  class="remove-btn"
+                  size="tiny"
+                  type="error"
+                  @click.stop="removeHero(hero)"
+                >
+                  下阵
+                </n-button>
+              </div>
             </div>
           </div>
         </div>
@@ -129,7 +150,7 @@
         v-model:show="savedLineupsModalVisible"
         preset="card"
         title="已保存的阵容"
-        style="width: 800px; max-width: 90vw"
+        style="width: 600px; max-width: 90vw"
         :bordered="false"
       >
         <div v-if="savedLineups.length === 0" class="empty-tip">
@@ -210,16 +231,42 @@
                 </div>
               </div>
               <div v-if="expandedLineup === lineup" class="lineup-detail">
-                <div class="lineup-heroes-detail">
+                <div class="lineup-heroes-row">
                   <div
                     v-for="(hero, hIdx) in lineup.heroes"
                     :key="hIdx"
-                    class="lineup-hero-item"
+                    class="lineup-hero-card"
                   >
-                    <span class="hero-pos">{{ hero.position + 1 }}.</span>
-                    <span class="hero-name">{{
-                      getHeroName(hero.heroId) || `武将${hero.heroId}`
-                    }}</span>
+                    <img
+                      v-if="getHeroAvatar(hero.heroId)"
+                      :src="getHeroAvatar(hero.heroId)"
+                      class="hero-avatar"
+                    />
+                    <div v-else class="hero-avatar-placeholder">
+                      {{ getHeroName(hero.heroId)?.[0] || "?" }}
+                    </div>
+                    <div class="hero-name-small">
+                      {{ getHeroName(hero.heroId) || `武将${hero.heroId}` }}
+                    </div>
+                    <div v-if="hero.fishId" class="hero-fish-info">
+                      <span class="hero-fish-name">
+                        {{ getFishNameById(hero.fishId) }}
+                        <span v-if="hero.skillId" class="hero-fish-skill-name">
+                          {{ getPearlSkillNameById(hero.skillId) }}
+                        </span>
+                      </span>
+                      <div
+                        v-if="getSlotColors(hero.slotMap)"
+                        class="hero-fish-slots"
+                      >
+                        <span
+                          v-for="(color, idx) in getSlotColors(hero.slotMap)"
+                          :key="idx"
+                          class="slot-dot"
+                          :style="{ backgroundColor: color }"
+                        ></span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -452,12 +499,14 @@ import MyCard from "../Common/MyCard.vue";
 import {
   HERO_DICT,
   FishMap,
+  PearlMap,
   LEGION_TECH_MAX_LEVEL,
   LEGION_TECH_TYPE_MAP,
   LEGION_TECH_TYPE_NAME,
   LEGION_TECH_NAME,
   getTechType,
   weapon,
+  color,
 } from "@/utils/HeroList.js";
 
 const tokenStore = useTokenStore();
@@ -666,6 +715,60 @@ const getFishInfo = (artifactId) => {
 const getFishNameByArtifactId = (artifactId) => {
   const fishInfo = getFishInfo(artifactId);
   return fishInfo ? fishInfo.name : null;
+};
+
+const getFishNameById = (fishId) => {
+  if (!fishId) return null;
+  const fishData = FishMap[fishId];
+  return fishData ? fishData.name : `鱼灵${fishId}`;
+};
+
+const getPearlSkillNameById = (skillId) => {
+  if (!skillId) return null;
+  const skillData = PearlMap[skillId];
+  return skillData ? skillData.name : null;
+};
+
+const getSlotColors = (slotMap) => {
+  if (!slotMap) return null;
+  const colors = [];
+  for (const slot of Object.values(slotMap)) {
+    if (slot.colorId) {
+      const colorData = color[slot.colorId];
+      colors.push(colorData ? colorData.value : "white");
+    }
+  }
+  return colors.length > 0 ? colors : null;
+};
+
+const getPearlDataByArtifactId = (artifactId) => {
+  if (!artifactId || artifactId === -1) return null;
+  for (const [pearlId, pearlData] of Object.entries(pearlMap.value)) {
+    if (pearlData.artifactId === artifactId) {
+      return pearlData;
+    }
+  }
+  return null;
+};
+
+const getPearlSkillNameByArtifactId = (artifactId) => {
+  const pearlData = getPearlDataByArtifactId(artifactId);
+  if (!pearlData || !pearlData.skillId) return null;
+  const skillData = PearlMap[pearlData.skillId];
+  return skillData ? skillData.name : null;
+};
+
+const getSlotColorsByArtifactId = (artifactId) => {
+  const pearlData = getPearlDataByArtifactId(artifactId);
+  if (!pearlData || !pearlData.slotMap) return null;
+  const colors = [];
+  for (const slot of Object.values(pearlData.slotMap)) {
+    if (slot.colorId) {
+      const colorData = color[slot.colorId];
+      colors.push(colorData ? colorData.value : "white");
+    }
+  }
+  return colors.length > 0 ? colors : null;
 };
 
 const allHeroList = computed(() => {
@@ -1092,15 +1195,25 @@ const refreshTeamInfo = async () => {
 
   loading.value = true;
   try {
-    const availableTeamIds =
-      availableTeams.value.length > 0
-        ? availableTeams.value
-        : [1, 2, 3, 4, 5, 6];
+    let presetTeamResult = await tokenStore.sendMessageWithPromise(
+      tokenId,
+      "presetteam_getinfo",
+      {},
+    );
 
-    let targetTeamId = currentTeamId.value;
+    const teamsFromGame =
+      presetTeamResult?.presetTeamInfo?.presetTeamInfo || {};
+    const gameTeamIds = Object.keys(teamsFromGame)
+      .filter((k) => /^\d+$/.test(k))
+      .map(Number)
+      .sort((a, b) => a - b);
+    const availableTeamIds = gameTeamIds.length
+      ? gameTeamIds
+      : [1, 2, 3, 4, 5, 6];
+
+    let targetTeamId = presetTeamResult?.presetTeamInfo?.useTeamId || 1;
     if (!availableTeamIds.includes(targetTeamId)) {
       targetTeamId = availableTeamIds[0];
-      currentTeamId.value = targetTeamId;
     }
 
     const currentIndex = availableTeamIds.indexOf(targetTeamId);
@@ -1108,7 +1221,7 @@ const refreshTeamInfo = async () => {
       availableTeamIds[currentIndex === 0 ? 1 : currentIndex - 1] ||
       availableTeamIds[0];
 
-    if (otherTeamId !== targetTeamId) {
+    if (otherTeamId !== targetTeamId && availableTeamIds.length > 1) {
       await tokenStore.sendMessageWithPromise(tokenId, "presetteam_saveteam", {
         teamId: otherTeamId,
       });
@@ -1122,12 +1235,12 @@ const refreshTeamInfo = async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    const presetTeamResult = await tokenStore.sendMessageWithPromise(
+    presetTeamResult = await tokenStore.sendMessageWithPromise(
       tokenId,
       "presetteam_getinfo",
       {},
     );
-    await new Promise((resolve) => setTimeout(resolve, 500));
+
     const roleInfo = await tokenStore.sendMessageWithPromise(
       tokenId,
       "role_getroleinfo",
@@ -1152,17 +1265,13 @@ const refreshTeamInfo = async () => {
     }
 
     if (presetTeamData.value) {
+      const updatedTeamsFromGame = presetTeamData.value.presetTeamInfo || {};
       currentTeamId.value = presetTeamData.value.useTeamId || 1;
-
-      const teams2 = presetTeamData.value.presetTeamInfo || {};
-      const teamIds2 = Object.keys(teams2)
-        .filter((k) => /^\d+$/.test(k))
-        .map(Number)
-        .sort((a, b) => a - b);
-      availableTeams.value = teamIds2.length ? teamIds2 : [1, 2, 3, 4, 5, 6];
+      availableTeams.value = availableTeamIds;
 
       const currentTeam =
-        teams2[currentTeamId.value] || teams2[String(currentTeamId.value)];
+        updatedTeamsFromGame[currentTeamId.value] ||
+        updatedTeamsFromGame[String(currentTeamId.value)];
       currentTeamInfo.value = currentTeam?.teamInfo || {};
       editingTeamHeroes.value = {};
     }
@@ -1205,6 +1314,9 @@ const saveCurrentLineup = async () => {
 
     const role = roleInfo?.role || roleInfo;
     const legionResearch = role?.legionResearch || {};
+    const currentArtifactBooks = role?.artifactBooks || {};
+    const currentHeroes = role?.heroes || {};
+    const pearlMap = role?.pearlMap || {};
 
     const presetTeamResult = await tokenStore.sendMessageWithPromise(
       tokenId,
@@ -1220,14 +1332,33 @@ const saveCurrentLineup = async () => {
       presetInfo[currentTeamId.value] ||
       presetInfo[String(currentTeamId.value)];
     const weaponId = teamData?.weapon?.weaponId || null;
+    const teamInfo = teamData?.teamInfo || {};
 
     const lineupName = `阵容${currentTeamId.value} - ${new Date().toLocaleTimeString()}`;
 
+    const fishAssignments = {};
+    for (const [fishId, book] of Object.entries(currentArtifactBooks)) {
+      if (book.artifactId && book.artifactId !== -1) {
+        fishAssignments[book.artifactId] = Number(fishId);
+      }
+    }
+
     const heroesData = editingHeroes.value.map((hero) => {
+      const heroData = currentHeroes[String(hero.heroId)];
+      const artifactId = heroData?.artifactId || hero.artifactId || null;
+      const teamHeroInfo = teamInfo[hero.position];
+      const fishId = artifactId ? fishAssignments[artifactId] : null;
+      const pearlId = teamHeroInfo?.pearlId || null;
+      const pearlData = pearlMap[pearlId];
+      const slotMap = pearlData?.slotMap || null;
       return {
         position: hero.position,
         heroId: hero.heroId,
         attachmentUid: hero.attachmentUid || null,
+        fishId: fishId || null,
+        pearlId: pearlId,
+        skillId: pearlData?.skillId || null,
+        slotMap: slotMap,
       };
     });
 
@@ -1522,6 +1653,90 @@ const applyLineup = async (lineup) => {
       message.success(`阵容 "${lineup.name}" 已应用`);
     }
 
+    const hasFishData = lineup.heroes.some((h) => h.pearlId);
+    if (hasFishData) {
+      const fishData = await fetchLatestData();
+      const currentHeroes = fishData.heroes;
+      const pearlMap = fishData.pearlMap || {};
+
+      const artifactToHero = {};
+      for (const [heroId, hero] of Object.entries(currentHeroes)) {
+        if (hero.artifactId && hero.artifactId !== -1) {
+          artifactToHero[hero.artifactId] = Number(heroId);
+        }
+      }
+
+      let fishApplied = 0;
+      for (const targetHero of targetHeroes) {
+        if (!targetHero.pearlId) continue;
+
+        const pearlData = pearlMap[targetHero.pearlId];
+        if (!pearlData) continue;
+
+        const artifactId = pearlData.artifactId;
+        if (!artifactId || artifactId === -1) continue;
+
+        const currentHolderId = artifactToHero[artifactId];
+
+        if (currentHolderId && currentHolderId !== targetHero.heroId) {
+          try {
+            await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "artifact_unload",
+              {
+                heroId: currentHolderId,
+              },
+            );
+            await delay(COMMAND_DELAY);
+          } catch (err) {
+            if (!isIgnorableError(err)) {
+              errors.push(`卸下鱼灵失败: ${err.message}`);
+            }
+          }
+        }
+
+        try {
+          await tokenStore.sendMessageWithPromise(tokenId, "artifact_load", {
+            heroId: targetHero.heroId,
+            itemId: artifactId,
+            pearlId: targetHero.pearlId,
+          });
+          await delay(COMMAND_DELAY);
+          fishApplied++;
+        } catch (err) {
+          if (!isIgnorableError(err)) {
+            errors.push(
+              `装备鱼灵到${getHeroName(targetHero.heroId)}失败: ${err.message}`,
+            );
+          }
+        }
+
+        if (targetHero.skillId) {
+          const currentPearlData = pearlMap[targetHero.pearlId];
+          if (
+            currentPearlData &&
+            currentPearlData.skillId !== targetHero.skillId
+          ) {
+            try {
+              await tokenStore.sendMessageWithPromise(
+                tokenId,
+                "pearl_replaceskill",
+                {
+                  pearlId: targetHero.pearlId,
+                  skillId: targetHero.skillId,
+                },
+              );
+              await delay(COMMAND_DELAY);
+            } catch (err) {}
+          }
+        }
+      }
+
+      if (fishApplied > 0) {
+        message.success(`已应用 ${fishApplied} 个鱼灵配置`);
+      }
+    }
+
     if (
       lineup.legionResearch &&
       Object.keys(lineup.legionResearch).length > 0
@@ -1763,7 +1978,7 @@ onMounted(() => {
   background: var(--bg-primary);
   border-radius: var(--border-radius-small);
   padding: var(--spacing-xs) var(--spacing-sm);
-  min-width: 100px;
+  width: 100%;
   transition: all 0.2s;
   cursor: grab;
   border: 2px solid transparent;
@@ -1783,6 +1998,14 @@ onMounted(() => {
     border-color: var(--primary-color);
     background: var(--primary-color-light);
   }
+}
+
+.hero-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-left: auto;
+  min-width: 100px;
+  justify-content: flex-end;
 }
 
 .hero-position {
@@ -1842,8 +2065,28 @@ onMounted(() => {
   background: rgba(var(--primary-color-rgb), 0.1);
   padding: 1px 4px;
   border-radius: var(--border-radius-small);
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
   align-self: flex-start;
+}
+
+.hero-fish-skill-inline {
+  color: var(--success-color);
+}
+
+.hero-fish-slots-inline {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.slot-dot-small {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .hero-artifact {
@@ -1909,6 +2152,76 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: var(--spacing-xs);
   margin-bottom: var(--spacing-sm);
+}
+
+.lineup-heroes-row {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.lineup-hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.hero-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--border-radius-small);
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+}
+
+.hero-avatar-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--border-radius-small);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-secondary);
+  border: 2px solid var(--border-color);
+}
+
+.hero-name-small {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-fish-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+  gap: 2px;
+}
+
+.hero-fish-name {
+  font-size: var(--font-size-xs);
+  color: var(--success-color);
+}
+
+.hero-fish-skill-name {
+  font-size: var(--font-size-xs);
+  color: var(--primary-color);
+}
+
+.hero-fish-slots {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
 }
 
 .lineup-actions {
@@ -2335,6 +2648,27 @@ onMounted(() => {
   padding: 1px 4px;
   border-radius: var(--border-radius-small);
   margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hero-fish-skill {
+  color: var(--primary-color);
+  font-weight: normal;
+}
+
+.hero-fish-slots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.slot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .tech-modal-content {

@@ -100,6 +100,9 @@
                 <div class="hero-name">
                   {{ getHeroName(hero.heroId) || `武将${hero.heroId}` }}
                 </div>
+                <div class="hero-level" v-if="hero.level">
+                  Lv.{{ hero.level }}
+                </div>
                 <div class="hero-fish" v-if="getFishInfo(hero.artifactId)">
                   {{ getFishInfo(hero.artifactId).name }}
                   <span
@@ -250,6 +253,9 @@
                     </div>
                     <div class="hero-name-small">
                       {{ getHeroName(hero.heroId) || `武将${hero.heroId}` }}
+                    </div>
+                    <div v-if="hero.level" class="hero-level-small">
+                      Lv.{{ formatLevel(hero.level) }}
                     </div>
                     <div v-if="hero.fishId" class="hero-fish-info">
                       <span class="hero-fish-name">
@@ -530,6 +536,9 @@ const artifactBooks = ref({});
 const pearlMap = ref({});
 let lastRefreshTime = 0;
 const REFRESH_DEBOUNCE = 3000;
+const COMMAND_DELAY = 500;
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const state = ref({
   isRunning: false,
@@ -559,7 +568,7 @@ const dragOverPosition = ref(null);
 
 const STORAGE_KEY = "saved_lineups";
 
-const syncLegionResearch = async (tokenId, targetResearch, delay) => {
+const syncLegionResearch = async (tokenId, targetResearch) => {
   if (!targetResearch || Object.keys(targetResearch).length === 0) {
     return { success: true, message: "无科技数据需要同步" };
   }
@@ -569,6 +578,7 @@ const syncLegionResearch = async (tokenId, targetResearch, delay) => {
     "role_getroleinfo",
     {},
   );
+  await delay(COMMAND_DELAY);
   const role = roleInfo?.role || roleInfo;
   const currentResearch = role?.legionResearch || {};
 
@@ -598,7 +608,7 @@ const syncLegionResearch = async (tokenId, targetResearch, delay) => {
         advanced: false,
         type: type,
       });
-      await delay(500);
+      await delay(COMMAND_DELAY);
     } catch (err) {}
   }
 
@@ -621,7 +631,7 @@ const syncLegionResearch = async (tokenId, targetResearch, delay) => {
                 researchId: techId,
               },
             );
-            await delay(500);
+            await delay(COMMAND_DELAY);
           } catch (err) {}
         } else {
           for (let i = 0; i < targetLevel; i++) {
@@ -634,7 +644,7 @@ const syncLegionResearch = async (tokenId, targetResearch, delay) => {
                   researchId: techId,
                 },
               );
-              await delay(500);
+              await delay(COMMAND_DELAY);
             } catch (err) {}
           }
         }
@@ -831,6 +841,7 @@ const currentTeamHeroes = computed(() => {
     .map(([key, hero]) => ({
       position: hero?.battleTeamSlot ?? Number(key),
       heroId: hero?.heroId || hero?.id,
+      level: hero?.level || null,
       artifactId: hero?.artifactId || null,
       attachmentUid: hero?.attachmentUid || null,
     }))
@@ -845,6 +856,7 @@ const editingHeroes = computed(() => {
       .map(([pos, hero]) => ({
         position: Number(pos),
         heroId: hero?.heroId,
+        level: hero?.level || null,
         artifactId: hero?.artifactId || null,
         attachmentUid: hero?.attachmentUid || null,
       }))
@@ -904,6 +916,11 @@ const formatTime = (timestamp) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+};
+
+const formatLevel = (level) => {
+  if (!level) return "";
+  return String(level);
 };
 
 const getAttrName = (attrId) => {
@@ -978,6 +995,7 @@ const showHeroRefineModal = async (hero) => {
         "role_getroleinfo",
         {},
       );
+      await delay(COMMAND_DELAY);
       const role = roleInfo?.role || roleInfo;
       const heroes = role?.heroes || {};
       allHeroesData.value = heroes;
@@ -1034,6 +1052,7 @@ const confirmHeroAction = () => {
     currentTeamHeroes.value.forEach((h) => {
       editingTeamHeroes.value[h.position] = {
         heroId: h.heroId,
+        level: h.level || null,
         artifactId: h.artifactId || null,
         attachmentUid: h.attachmentUid || null,
       };
@@ -1044,8 +1063,10 @@ const confirmHeroAction = () => {
     const slot = getFirstEmptySlot();
     const targetHeroData =
       roleHeroesData.value[String(exchangeTargetHeroId.value)];
+    const currentTeamHeroInfo = currentTeamInfo.value?.[slot];
     editingTeamHeroes.value[slot] = {
       heroId: exchangeTargetHeroId.value,
+      level: currentTeamHeroInfo?.level || targetHeroData?.level || null,
       artifactId: targetHeroData?.artifactId || null,
       attachmentUid: targetHeroData?.attachmentUid || null,
     };
@@ -1059,8 +1080,11 @@ const confirmHeroAction = () => {
     }
     const originalArtifactId = exchangeHero.value.artifactId;
     const originalAttachmentUid = exchangeHero.value.attachmentUid;
+    const targetHeroData =
+      roleHeroesData.value[String(exchangeTargetHeroId.value)];
     editingTeamHeroes.value[exchangeHero.value.position] = {
       heroId: exchangeTargetHeroId.value,
+      level: targetHeroData?.level || null,
       artifactId: originalArtifactId,
       attachmentUid: originalAttachmentUid,
     };
@@ -1077,6 +1101,7 @@ const removeHero = (hero) => {
     currentTeamHeroes.value.forEach((h) => {
       editingTeamHeroes.value[h.position] = {
         heroId: h.heroId,
+        level: h.level || null,
         artifactId: h.artifactId || null,
         attachmentUid: h.attachmentUid || null,
       };
@@ -1125,6 +1150,7 @@ const onDrop = (event, targetHero) => {
     currentTeamHeroes.value.forEach((h) => {
       editingTeamHeroes.value[h.position] = {
         heroId: h.heroId,
+        level: h.level || null,
         artifactId: h.artifactId || null,
         attachmentUid: h.attachmentUid || null,
       };
@@ -1229,13 +1255,13 @@ const refreshTeamInfo = async () => {
         teamId: otherTeamId,
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await delay(COMMAND_DELAY);
 
       await tokenStore.sendMessageWithPromise(tokenId, "presetteam_saveteam", {
         teamId: targetTeamId,
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await delay(COMMAND_DELAY);
     }
 
     presetTeamResult = await tokenStore.sendMessageWithPromise(
@@ -1243,13 +1269,14 @@ const refreshTeamInfo = async () => {
       "presetteam_getinfo",
       {},
     );
+    await delay(COMMAND_DELAY);
 
     const roleInfo = await tokenStore.sendMessageWithPromise(
       tokenId,
       "role_getroleinfo",
       {},
     );
-
+    await delay(COMMAND_DELAY);
     const role = roleInfo?.role || roleInfo;
     roleHeroesData.value = role?.heroes || {};
     allHeroesData.value = role?.heroes || {};
@@ -1314,6 +1341,7 @@ const saveCurrentLineup = async () => {
       "role_getroleinfo",
       {},
     );
+    await delay(COMMAND_DELAY);
 
     const role = roleInfo?.role || roleInfo;
     const legionResearch = role?.legionResearch || {};
@@ -1326,6 +1354,7 @@ const saveCurrentLineup = async () => {
       "presetteam_getinfo",
       {},
     );
+    await delay(COMMAND_DELAY);
 
     const presetInfo =
       presetTeamResult?.presetTeamInfo?.presetTeamInfo ||
@@ -1357,6 +1386,7 @@ const saveCurrentLineup = async () => {
       return {
         position: hero.position,
         heroId: hero.heroId,
+        level: teamHeroInfo?.level || null,
         attachmentUid: hero.attachmentUid || null,
         fishId: fishId || null,
         pearlId: pearlId,
@@ -1382,6 +1412,117 @@ const saveCurrentLineup = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const LEVEL_ORDER_THRESHOLDS = [
+  { level: 100, order: 1 },
+  { level: 200, order: 2 },
+  { level: 300, order: 3 },
+  { level: 500, order: 4 },
+  { level: 700, order: 5 },
+  { level: 900, order: 6 },
+  { level: 1100, order: 7 },
+  { level: 1300, order: 8 },
+  { level: 1500, order: 9 },
+  { level: 1800, order: 10 },
+  { level: 2100, order: 11 },
+  { level: 2400, order: 12 },
+  { level: 2800, order: 13 },
+  { level: 3200, order: 14 },
+  { level: 3600, order: 15 },
+  { level: 4000, order: 16 },
+  { level: 4500, order: 17 },
+  { level: 5000, order: 18 },
+  { level: 5500, order: 19 },
+];
+
+const UPGRADE_OPTIONS = [50, 10, 5, 1];
+
+const getNextOrderLevel = (currentLevel) => {
+  for (const threshold of LEVEL_ORDER_THRESHOLDS) {
+    if (currentLevel < threshold.level) {
+      return threshold.level;
+    }
+  }
+  return null;
+};
+
+const getOrder = (level) => {
+  let order = 0;
+  for (const threshold of LEVEL_ORDER_THRESHOLDS) {
+    if (level >= threshold.level) {
+      order = threshold.order;
+    } else {
+      break;
+    }
+  }
+  return order;
+};
+
+const applyHeroLevel = async (tokenId, heroId, targetLevel, currentLevel) => {
+  if (!targetLevel || targetLevel <= 0)
+    return { success: true, message: "无目标等级" };
+
+  let actualCurrentLevel = currentLevel;
+
+  if (actualCurrentLevel > targetLevel) {
+    try {
+      await tokenStore.sendMessageWithPromise(tokenId, "hero_rebirth", {
+        heroId,
+      });
+      await delay(COMMAND_DELAY);
+      actualCurrentLevel = 1;
+    } catch (err) {}
+  }
+
+  if (actualCurrentLevel >= targetLevel) {
+    return { success: true, message: "等级已达标" };
+  }
+
+  while (actualCurrentLevel < targetLevel) {
+    const nextOrderLevel = getNextOrderLevel(actualCurrentLevel);
+    const maxAllowed = nextOrderLevel
+      ? nextOrderLevel - actualCurrentLevel
+      : targetLevel - actualCurrentLevel;
+    const remaining = targetLevel - actualCurrentLevel;
+    const stepLimit = Math.min(maxAllowed, remaining);
+
+    let upgradeNum = 1;
+    for (const num of UPGRADE_OPTIONS) {
+      if (num <= stepLimit) {
+        upgradeNum = num;
+        break;
+      }
+    }
+
+    try {
+      await tokenStore.sendMessageWithPromise(
+        tokenId,
+        "hero_heroupgradelevel",
+        {
+          heroId,
+          upgradeNum,
+        },
+      );
+      await delay(COMMAND_DELAY);
+      actualCurrentLevel += upgradeNum;
+    } catch (err) {}
+
+    if (nextOrderLevel && actualCurrentLevel >= nextOrderLevel) {
+      try {
+        await tokenStore.sendMessageWithPromise(
+          tokenId,
+          "hero_heroupgradeorder",
+          {
+            heroId,
+          },
+        );
+        await delay(COMMAND_DELAY);
+      } catch (err) {}
+    }
+  }
+
+  return { success: true, message: `等级已升至 ${actualCurrentLevel}` };
 };
 
 const applyLineup = async (lineup) => {
@@ -1456,9 +1597,6 @@ const applyLineup = async (lineup) => {
     return msg.includes("200020");
   };
 
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const COMMAND_DELAY = 500;
-
   try {
     const targetHeroes = [...lineup.heroes];
 
@@ -1498,9 +1636,6 @@ const applyLineup = async (lineup) => {
             );
             await delay(COMMAND_DELAY);
           } catch (err) {
-            if (!isIgnorableError(err)) {
-              errors.push(`上阵装备持有者失败: ${err.message}`);
-            }
             continue;
           }
 
@@ -1514,11 +1649,7 @@ const applyLineup = async (lineup) => {
               },
             );
             await delay(COMMAND_DELAY);
-          } catch (err) {
-            if (!isIgnorableError(err)) {
-              errors.push(`上阵目标英雄失败: ${err.message}`);
-            }
-          }
+          } catch (err) {}
         }
 
         try {
@@ -1527,13 +1658,7 @@ const applyLineup = async (lineup) => {
             targetHeroId: targetHero.heroId,
           });
           await delay(COMMAND_DELAY);
-        } catch (err) {
-          if (!isIgnorableError(err)) {
-            errors.push(
-              `装备更换到${getHeroName(targetHero.heroId)}失败: ${err.message}`,
-            );
-          }
-        }
+        } catch (err) {}
       }
     }
 
@@ -1549,9 +1674,9 @@ const applyLineup = async (lineup) => {
     currentHeroIds.clear();
     currentHeroes.forEach((h) => currentHeroIds.add(h.heroId));
 
-    for (const hero of currentHeroes) {
+    for (const hero of [...currentHeroes]) {
       if (!targetHeroIds.has(hero.heroId)) {
-        if (currentHeroes.length <= 1) break;
+        if (currentHeroes.length <= targetHeroes.length) break;
         try {
           await tokenStore.sendMessageWithPromise(
             tokenId,
@@ -1562,11 +1687,7 @@ const applyLineup = async (lineup) => {
           );
           await delay(COMMAND_DELAY);
           currentHeroes = currentHeroes.filter((h) => h.heroId !== hero.heroId);
-        } catch (err) {
-          if (!isIgnorableError(err)) {
-            errors.push(`${getHeroName(hero.heroId)}下阵失败: ${err.message}`);
-          }
-        }
+        } catch (err) {}
       }
     }
 
@@ -1610,11 +1731,7 @@ const applyLineup = async (lineup) => {
             },
           );
           await delay(COMMAND_DELAY);
-        } catch (err) {
-          if (!isIgnorableError(err)) {
-            errors.push(`${getHeroName(hero.heroId)}下阵失败: ${err.message}`);
-          }
-        }
+        } catch (err) {}
       }
 
       const heroesToDeploy = targetHeroes.filter((t) => {
@@ -1640,13 +1757,39 @@ const applyLineup = async (lineup) => {
             },
           );
           await delay(COMMAND_DELAY);
-        } catch (err) {
-          if (!isIgnorableError(err)) {
-            errors.push(
-              `${getHeroName(targetHero.heroId)}上阵失败: ${err.message}`,
-            );
+        } catch (err) {}
+      }
+    }
+
+    const hasLevelData = lineup.heroes.some((h) => h.level && h.level > 0);
+    if (hasLevelData) {
+      const levelData = await fetchLatestData();
+      const currentHeroesData = levelData.heroes;
+
+      let levelApplied = 0;
+      for (const targetHero of targetHeroes) {
+        if (!targetHero.level || targetHero.level <= 0) continue;
+
+        const heroData = currentHeroesData[String(targetHero.heroId)];
+        const currentLevel = heroData?.level || 1;
+
+        if (currentLevel !== targetHero.level) {
+          const result = await applyHeroLevel(
+            tokenId,
+            targetHero.heroId,
+            targetHero.level,
+            currentLevel,
+          );
+
+          if (result.success) {
+            levelApplied++;
+          } else {
           }
         }
+      }
+
+      if (levelApplied > 0) {
+        message.success(`已应用 ${levelApplied} 个武将等级配置`);
       }
     }
 
@@ -1691,11 +1834,7 @@ const applyLineup = async (lineup) => {
               },
             );
             await delay(COMMAND_DELAY);
-          } catch (err) {
-            if (!isIgnorableError(err)) {
-              errors.push(`卸下鱼灵失败: ${err.message}`);
-            }
-          }
+          } catch (err) {}
         }
 
         try {
@@ -1706,13 +1845,7 @@ const applyLineup = async (lineup) => {
           });
           await delay(COMMAND_DELAY);
           fishApplied++;
-        } catch (err) {
-          if (!isIgnorableError(err)) {
-            errors.push(
-              `装备鱼灵到${getHeroName(targetHero.heroId)}失败: ${err.message}`,
-            );
-          }
-        }
+        } catch (err) {}
 
         if (targetHero.skillId) {
           const currentPearlData = pearlMap[targetHero.pearlId];
@@ -1747,7 +1880,6 @@ const applyLineup = async (lineup) => {
       const syncResult = await syncLegionResearch(
         tokenId,
         lineup.legionResearch,
-        delay,
       );
       if (syncResult.success) {
         if (syncResult.message !== "科技配置已匹配，无需调整") {
@@ -1781,7 +1913,7 @@ const applyLineup = async (lineup) => {
               weaponId: lineup.weaponId,
             },
           );
-          await delay(500);
+          await delay(COMMAND_DELAY);
           message.success(
             `玩具已切换为: ${weapon[lineup.weaponId] || lineup.weaponId}`,
           );
@@ -1867,7 +1999,7 @@ const switchTeam = async (teamId) => {
       teamId,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await delay(500);
 
     currentTeamId.value = teamId;
     message.success(`已切换到阵容 ${teamId}`);
@@ -2062,6 +2194,12 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
+.hero-level {
+  font-size: var(--font-size-xs);
+  color: var(--text-accent);
+  margin-top: 2px;
+}
+
 .hero-fish {
   font-size: var(--font-size-xs);
   color: var(--primary-color);
@@ -2201,6 +2339,12 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hero-level-small {
+  font-size: var(--font-size-xs);
+  color: var(--text-accent);
+  margin-top: 2px;
 }
 
 .hero-fish-info {

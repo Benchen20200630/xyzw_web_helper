@@ -1090,8 +1090,6 @@ export class XyzwWebSocketClient {
       league_getgroupopponentresp: "league_getgroupopponent",
       legion_signupresp: "legion_signup",
       legion_payloadsignupresp: "legion_payloadsignup",
-      legion_researchresp: "legion_research",
-      legion_resetresearchresp: "legion_resetresearch",
       pearl_replaceskillresp: "pearl_replaceskill",
       pearl_exchangeskillresp: "pearl_exchangeskill",
       pearl_unloadskillresp: "pearl_unloadskill",
@@ -1138,6 +1136,8 @@ export class XyzwWebSocketClient {
       task_claimweekrewardresp: "task_claimweekreward",
 
       // 同步响应映射（优先级低）
+
+      legion_researchresp: ["legion_research", "legion_resetresearch"],
       syncresp: [
         "system_mysharecallback",
         "task_claimdailypoint",

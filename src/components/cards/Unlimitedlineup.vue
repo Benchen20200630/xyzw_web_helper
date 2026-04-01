@@ -523,6 +523,7 @@ import {
   PearlMap,
   LEGION_TECH_MAX_LEVEL,
   LEGION_TECH_TYPE_MAP,
+  LEGION_TECH_RESET_TYPE_MAP,
   LEGION_TECH_TYPE_NAME,
   LEGION_TECH_NAME,
   getTechType,
@@ -604,26 +605,42 @@ const syncLegionResearch = async (tokenId, targetResearch) => {
   const currentResearch = role?.legionResearch || {};
 
   const typesToReset = new Set();
+  const typesToResetResearch = new Set();
 
   for (const type of [1, 2, 3, 4, 5, 6]) {
-    const techIds = LEGION_TECH_TYPE_MAP[type];
+    const techIds = LEGION_TECH_RESET_TYPE_MAP[type];
     for (const techId of techIds) {
       const currentLevel = currentResearch[techId] || 0;
       const targetLevel = targetResearch[techId] || 0;
-      if (currentLevel !== targetLevel) {
+      if (
+        currentLevel !== targetLevel &&
+        (currentLevel > 0 || targetLevel > 0)
+      ) {
+        typesToResetResearch.add(type);
+        break;
+      }
+    }
+    const techIds2 = LEGION_TECH_TYPE_MAP[type];
+    for (const techId of techIds2) {
+      const currentLevel = currentResearch[techId] || 0;
+      const targetLevel = targetResearch[techId] || 0;
+      if (
+        currentLevel !== targetLevel &&
+        (currentLevel > 0 || targetLevel > 0)
+      ) {
         typesToReset.add(type);
         break;
       }
     }
   }
 
-  if (typesToReset.size === 0) {
+  if (typesToResetResearch.size === 0 && typesToReset.size === 0) {
     return { success: true, message: "科技配置已匹配，无需调整" };
   }
 
   const errors = [];
 
-  for (const type of typesToReset) {
+  for (const type of typesToResetResearch) {
     try {
       await tokenStore.sendMessageWithPromise(tokenId, "legion_resetresearch", {
         advanced: false,
@@ -634,13 +651,14 @@ const syncLegionResearch = async (tokenId, targetResearch) => {
   }
 
   const sortedTypes = [...typesToReset].sort((a, b) => a - b);
+  console.log(sortedTypes);
 
   for (const type of sortedTypes) {
-    const techIds = LEGION_TECH_TYPE_MAP[type];
-    for (const techId of techIds) {
+    const techIds2 = LEGION_TECH_TYPE_MAP[type];
+    for (const techId of techIds2) {
       const targetLevel = targetResearch[techId] || 0;
       if (targetLevel > 0) {
-        const maxLevel = LEGION_TECH_MAX_LEVEL[techId] || 20;
+        const maxLevel = LEGION_TECH_MAX_LEVEL[techId];
         const isMax = targetLevel >= maxLevel;
         if (isMax) {
           try {
@@ -1797,11 +1815,12 @@ const applyLineup = async (lineup) => {
       message.success(`阵容 "${lineup.name}" 已应用`);
     }
 
-    const hasFishData = lineup.heroes.some((h) => h.pearlId);
+    const hasFishData = lineup.heroes.some((h) => h.pearlId || h.fishId);
     if (hasFishData) {
       const fishData = await fetchLatestData();
       const currentHeroes = fishData.heroes;
       const pearlMap = fishData.pearlMap || {};
+      const artifactBooks = fishData.artifactBooks || {};
 
       const artifactToHero = {};
       for (const [heroId, hero] of Object.entries(currentHeroes)) {
@@ -1810,19 +1829,40 @@ const applyLineup = async (lineup) => {
         }
       }
 
+      const fishToArtifact = {};
+      for (const [fishId, book] of Object.entries(artifactBooks)) {
+        if (book.artifactId && book.artifactId !== -1) {
+          fishToArtifact[Number(fishId)] = book.artifactId;
+        }
+      }
+
       let fishApplied = 0;
       for (const targetHero of targetHeroes) {
-        if (!targetHero.pearlId) continue;
+        if (!targetHero.fishId && !targetHero.pearlId) continue;
 
-        const pearlData = pearlMap[targetHero.pearlId];
-        if (!pearlData) continue;
+        let artifactId = null;
+        let pearlId = targetHero.pearlId || 0;
 
-        const artifactId = pearlData.artifactId;
-        if (!artifactId || artifactId === -1) continue;
+        if (targetHero.fishId) {
+          artifactId = fishToArtifact[targetHero.fishId];
+        }
+
+        if (!artifactId && targetHero.pearlId) {
+          const pearlData = pearlMap[targetHero.pearlId];
+          if (pearlData?.artifactId && pearlData.artifactId !== -1) {
+            artifactId = pearlData.artifactId;
+          }
+        }
+
+        if (!artifactId) continue;
 
         const currentHolderId = artifactToHero[artifactId];
 
-        if (currentHolderId && currentHolderId !== targetHero.heroId) {
+        if (currentHolderId === targetHero.heroId) {
+          continue;
+        }
+
+        if (currentHolderId) {
           try {
             await tokenStore.sendMessageWithPromise(
               tokenId,
@@ -1839,7 +1879,7 @@ const applyLineup = async (lineup) => {
           await tokenStore.sendMessageWithPromise(tokenId, "artifact_load", {
             heroId: targetHero.heroId,
             itemId: artifactId,
-            pearlId: targetHero.pearlId,
+            pearlId: pearlId,
           });
           fishApplied++;
         } catch (err) {}
@@ -1854,84 +1894,74 @@ const applyLineup = async (lineup) => {
       const skillData = await fetchLatestData();
       const latestPearlMap = skillData.pearlMap || {};
 
-      const heroesNeedSkillChange = targetHeroes.filter((targetHero) => {
-        if (!targetHero.pearlId) return false;
-        const currentPearlData = latestPearlMap[targetHero.pearlId];
-        const currentSkillId = currentPearlData?.skillId || null;
-        const targetSkillId = targetHero.skillId || null;
-        return currentSkillId !== targetSkillId;
-      });
-
       const processedPearlIds = new Set();
+      const pearlIdsToHandle = targetHeroes
+        .filter((h) => h.pearlId)
+        .map((h) => h.pearlId);
 
-      for (const targetHero of heroesNeedSkillChange) {
-        if (processedPearlIds.has(targetHero.pearlId)) continue;
+      for (const pearlId of pearlIdsToHandle) {
+        if (processedPearlIds.has(pearlId)) continue;
 
-        const currentPearlData = latestPearlMap[targetHero.pearlId];
+        const targetHero = targetHeroes.find((h) => h.pearlId === pearlId);
+        const currentPearlData = latestPearlMap[pearlId];
         const currentSkillId = currentPearlData?.skillId || null;
-        const targetSkillId = targetHero.skillId || null;
+        const targetSkillId = targetHero?.skillId || null;
 
-        if (!targetSkillId && currentSkillId) {
-          try {
-            await tokenStore.sendMessageWithPromise(
-              tokenId,
-              "pearl_unloadskill",
-              {
-                pearlId: targetHero.pearlId,
-              },
-            );
-            skillApplied++;
-            processedPearlIds.add(targetHero.pearlId);
-          } catch (err) {}
-          await delay(COMMAND_DELAY);
-          continue;
-        }
-
-        if (targetSkillId && currentSkillId) {
-          const exchangeTarget = heroesNeedSkillChange.find((h) => {
-            if (h.pearlId === targetHero.pearlId) return false;
-            if (!h.skillId) return false;
-            const hPearlData = latestPearlMap[h.pearlId];
-            const hCurrentSkillId = hPearlData?.skillId || null;
-            return (
-              hCurrentSkillId === targetSkillId && h.skillId === currentSkillId
-            );
-          });
-
-          if (
-            exchangeTarget &&
-            !processedPearlIds.has(exchangeTarget.pearlId)
-          ) {
+        if (!targetSkillId) {
+          if (currentSkillId) {
             try {
               await tokenStore.sendMessageWithPromise(
                 tokenId,
-                "pearl_exchangeskill",
+                "pearl_unloadskill",
                 {
-                  pearlId1: targetHero.pearlId,
-                  pearlId2: exchangeTarget.pearlId,
+                  pearlId: pearlId,
                 },
               );
-              skillApplied += 2;
-              processedPearlIds.add(targetHero.pearlId);
-              processedPearlIds.add(exchangeTarget.pearlId);
+              skillApplied++;
+              processedPearlIds.add(pearlId);
             } catch (err) {}
             await delay(COMMAND_DELAY);
-            continue;
           }
+          continue;
         }
 
-        if (targetSkillId && !processedPearlIds.has(targetHero.pearlId)) {
+        if (currentSkillId === targetSkillId) {
+          continue;
+        }
+
+        const holderPearlId = Object.keys(latestPearlMap).find((pid) => {
+          if (Number(pid) === pearlId) return false;
+          const data = latestPearlMap[pid];
+          return data?.skillId === targetSkillId;
+        });
+
+        if (holderPearlId && !processedPearlIds.has(Number(holderPearlId))) {
+          try {
+            await tokenStore.sendMessageWithPromise(
+              tokenId,
+              "pearl_exchangeskill",
+              {
+                pearlId1: pearlId,
+                pearlId2: Number(holderPearlId),
+              },
+            );
+            skillApplied += 2;
+            processedPearlIds.add(pearlId);
+            processedPearlIds.add(Number(holderPearlId));
+          } catch (err) {}
+          await delay(COMMAND_DELAY);
+        } else {
           try {
             await tokenStore.sendMessageWithPromise(
               tokenId,
               "pearl_replaceskill",
               {
-                pearlId: targetHero.pearlId,
-                skillId: targetHero.skillId,
+                pearlId: pearlId,
+                skillId: targetSkillId,
               },
             );
             skillApplied++;
-            processedPearlIds.add(targetHero.pearlId);
+            processedPearlIds.add(pearlId);
           } catch (err) {}
           await delay(COMMAND_DELAY);
         }

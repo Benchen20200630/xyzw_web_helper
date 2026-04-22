@@ -117,14 +117,14 @@ const server = http.createServer(async (req, res) => {
  res.writeHead(200); res.end(JSON.stringify(data));
 
  } else if (path === '/api/game/connect') {
- const tokenId = parseInt(url.searchParams.get('tokenId'));
+ const tokenId = url.searchParams.get('tokenId');
  if (!tokenId) { res.writeHead(400); res.end(JSON.stringify({ error: 'tokenId required' })); return; }
  const client = await getOrCreateClient(tokenId);
  await client.connect();
  res.writeHead(200); res.end(JSON.stringify({ success: true, tokenId }));
 
  } else if (path === '/api/game/send') {
- const tokenId = parseInt(url.searchParams.get('tokenId'));
+ const tokenId = url.searchParams.get('tokenId');
  const cmd = url.searchParams.get('cmd');
  if (!tokenId || !cmd) { res.writeHead(400); res.end(JSON.stringify({ error: 'tokenId and cmd required' })); return; }
  const client = await getOrCreateClient(tokenId);

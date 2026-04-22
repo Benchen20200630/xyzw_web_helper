@@ -1,13 +1,16 @@
 {
- "name": "xyzw-backend",
- "version": "1.0.0",
- "main": "server.js",
- "scripts": {
- "start": "node server.js"
- },
- "dependencies": {
- "@supabase/supabase-js": "^2.39.0",
- "node-cron": "^3.0.3",
- "ws": "^8.16.0"
- }
+  "name": "render-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "@supabase/supabase-js": "^2.39.0",
+    "ws": "^8.16.0",
+    "dotenv": "^16.3.1",
+    "lz4js": "^0.2.3"
+  }
 }

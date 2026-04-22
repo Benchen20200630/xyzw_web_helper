@@ -1,4 +1,4 @@
-import { bon, g_utils, getEnc } from './bonProtocol.js';
+import { bon, g_utils, getEnc, parse, encode } from './bonProtocol.js';
 import WebSocket from 'ws';
 
 /**

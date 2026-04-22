@@ -3,8 +3,8 @@ const cron = require('node-cron');
 const WebSocket = require('ws');
 
 // ===== 配置 =====
-const SUPABASE_URL = '你的Supabase URL';
-const SUPABASE_KEY = '你的Supabase anon key';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== WebSocket 连接管理 =====

@@ -743,17 +743,18 @@ const g_utils = {
   bon,
 };
 
-export = {
-  Int64,
-  DataReader,
-  DataWriter,
-  BonEncoder,
-  BonDecoder,
-  ProtoMsg,
-  bon,
-  getEnc,
-  encode,
-  parse,
-  g_utils,
+export {
+ Int64,
+ DataReader,
+ DataWriter,
+ BonEncoder,
+ BonDecoder,
+ ProtoMsg,
+ bon,
+ getEnc,
+ encode,
+ parse,
+ g_utils,
 };
+
 

@@ -28,7 +28,8 @@ async function getOrCreateClient(tokenId) {
 
  if (!tok) throw new Error(`Token ${tokenId} 不存在`);
 
- client = new GameClient(tokenId, tok.token, tok.ws_url || 'wss://xxz-xyzw.hortorgames.com/agent');
+ const tokenData = typeof tok.token === 'string' ? JSON.parse(tok.token) : tok.token;
+ client = new GameClient(tokenData, tok.ws_url || null);
  gameClients.set(tokenId, client);
  return client;
 }

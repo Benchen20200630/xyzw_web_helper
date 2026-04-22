@@ -1,4 +1,5 @@
-
+import { bon, g_utils, getEnc } from './bonProtocol.js';
+import WebSocket from 'ws';
 /**
  * XYZW 游戏客户端 - Node.js 简化版
  * 基于 xyzwWebSocket.js 改造，适配 ws + CommonJS
@@ -420,4 +421,4 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-module.exports = { GameClient };
+export { GameClient };

@@ -3,7 +3,7 @@
  * 基于 HuskyHappy/xyzw_web_helper 的 bonProtocol.js
  * 改动：import→require, export→module.exports
  */
-const lz4 = require("lz4js");
+const lz4 = require("lz4");
 
 // -----------------------------
 // BON 编解码器核心实现

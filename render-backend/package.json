@@ -13,7 +13,7 @@
     "@supabase/supabase-js": "^2.39.0",
     "ws": "^8.16.0",
     "dotenv": "^16.3.1",
-    "lz4": "^latest"
+    "lz4": "latest"
   }
 }
 

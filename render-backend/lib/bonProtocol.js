@@ -3,7 +3,7 @@
  * 基于 HuskyHappy/xyzw_web_helper 的 bonProtocol.js
  * 改动：import→require, export→module.exports
  */
-import lz4 from 'lz4';
+import lz4 from "lz4js"; 
 
 // -----------------------------
 // BON 编解码器核心实现

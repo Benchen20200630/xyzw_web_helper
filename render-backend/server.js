@@ -1,6 +1,5 @@
 /**
  * XYZW 游戏自动化后端 - Express + Supabase + Render
- * 支持定时任务执行，自动连接游戏服务器
  */
 import dotenv from "dotenv";
 import express from "express";
@@ -10,6 +9,11 @@ import { createClient } from "@supabase/supabase-js";
 import { GameClient } from "./lib/gameClient.js";
 
 dotenv.config();
+
+// ==================== 工具函数 ====================
+function sleep(ms) {
+ return new Promise((r) => setTimeout(r, ms));
+}
 
 const app = express();
 app.use(cors());
@@ -236,7 +240,7 @@ app.get("/api/tasks", async (req, res) => {
 app.post("/api/tasks", async (req, res) => {
  const { data, error } = await supabase.from("cron_tasks").insert(req.body).select();
  if (error) return res.status(400).json({ error: error.message });
- if (data?.[0]) registerCron(data[0]);
+ if (data && data[0]) registerCron(data[0]);
  res.json(data);
 });
 
@@ -278,4 +282,9 @@ app.get("/api/task-definitions", (req, res) => {
  res.json(list);
 });
 
-...(truncated)...
+const PORT = process.env.PORT || 3000;
+init().then(() => {
+ app.listen(PORT, () => {
+ addLog("INFO", "server", `监听端口 ${PORT}`);
+ });
+});

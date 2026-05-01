@@ -83,7 +83,8 @@ async function loadTokens() {
 async function executeTask(task) {
  addLog("INFO", "task", `开始执行任务: ${task.name}`, { taskId: task.id });
 
- let tokenIds = task.token_ids;
+ // 兼容旧字段 token_ids 和新字段 selected_tokens
+ let tokenIds = task.selected_tokens || task.token_ids;
  if (typeof tokenIds === "string") {
  try { tokenIds = JSON.parse(tokenIds); } catch { tokenIds = []; }
  }
@@ -92,9 +93,39 @@ async function executeTask(task) {
  return;
  }
 
- const taskDef = TASK_DEFINITIONS[task.task_type];
+ // 支持多任务：selected_tasks 是数组，每个元素是 TASK_DEFINITIONS 的 key
+ let taskKeys = task.selected_tasks;
+ if (typeof taskKeys === "string") {
+ try { taskKeys = JSON.parse(taskKeys); } catch { taskKeys = []; }
+ }
+ // 兼容旧字段 task_type（单个任务）
+ if ((!Array.isArray(taskKeys) || taskKeys.length === 0) && task.task_type) {
+ taskKeys = [task.task_type];
+ }
+ if (!Array.isArray(taskKeys) || taskKeys.length === 0) {
+ addLog("ERROR", "task", "没有选择任何任务类型", { taskId: task.id });
+ return;
+ }
+
+ // 收集所有需要执行的命令（去重）
+ const allCommands = [];
+ const seenCmds = new Set();
+ for (const key of taskKeys) {
+ const taskDef = TASK_DEFINITIONS[key];
  if (!taskDef) {
- addLog("ERROR", "task", `未知task_type: ${task.task_type}`, { taskId: task.id });
+ addLog("WARN", "task", `未知任务类型: ${key}，跳过`, { taskId: task.id });
+ continue;
+ }
+ for (const cmd of taskDef.commands) {
+ const cmdKey = cmd.cmd + JSON.stringify(cmd.params);
+ if (!seenCmds.has(cmdKey)) {
+ seenCmds.add(cmdKey);
+ allCommands.push(cmd);
+ }
+ }
+ }
+ if (allCommands.length === 0) {
+ addLog("ERROR", "task", "没有有效的命令可执行", { taskId: task.id });
  return;
  }
 
@@ -130,7 +161,7 @@ async function executeTask(task) {
  addLog("WARN", "task", `获取角色信息失败 (${token.name})`, { error: e.message });
  }
 
- const cmdResults = await client.executeBatch(taskDef.commands, 800);
+ const cmdResults = await client.executeBatch(allCommands, 800);
 
  for (const r of cmdResults) {
  const logLevel = r.success ? "INFO" : "ERROR";
@@ -139,7 +170,7 @@ async function executeTask(task) {
  }
  } catch (err) {
  addLog("ERROR", "task", `执行失败 (${token.name}): ${err.message}`, { taskId: task.id });
- await logToDb(task.id, token.name, taskDef.name, "error", err.message);
+ await logToDb(task.id, token.name, taskKeys.join(","), "error", err.message);
  } finally {
  client.disconnect();
  }
@@ -178,16 +209,18 @@ function registerCron(task) {
  if (cronJobs.has(task.id)) {
  cronJobs.get(task.id).stop();
  }
- if (!task.enabled || !task.cron_expression) return;
+ // 兼容旧字段 cron_expression 和新字段 cron_expr
+ const cronExpr = task.cron_expr || task.cron_expression;
+ if (!task.enabled || !cronExpr) return;
 
  try {
- const job = cron.schedule(task.cron_expression, () => {
+ const job = cron.schedule(cronExpr, () => {
  executeTask(task).catch((err) => {
  addLog("ERROR", "cron", `任务执行异常: ${task.name}`, { error: err.message });
  });
- });
+ }, { timezone: "Asia/Shanghai" });
  cronJobs.set(task.id, job);
- addLog("INFO", "cron", `注册定时任务: ${task.name} (${task.cron_expression})`);
+ addLog("INFO", "cron", `注册定时任务: ${task.name} (${cronExpr} Asia/Shanghai)`);
  } catch (err) {
  addLog("ERROR", "cron", `注册失败: ${task.name}`, { error: err.message });
  }
@@ -198,6 +231,27 @@ async function init() {
  addLog("INFO", "server", `Supabase: ${process.env.SUPABASE_URL}`);
 
  await registerAllCrons();
+
+ // 每天中午12点清理前一天的任务日志
+ cron.schedule("0 12 * * *", async () => {
+ addLog("INFO", "cron", "执行每日日志清理...");
+ try {
+ const yesterday = new Date();
+ yesterday.setDate(yesterday.getDate() - 1);
+ yesterday.setHours(0, 0, 0, 0);
+ const { error } = await supabase
+ .from("task_logs")
+ .delete()
+ .lt("created_at", yesterday.toISOString());
+ if (error) {
+ addLog("ERROR", "cron", "日志清理失败", { error: error.message });
+ } else {
+ addLog("INFO", "cron", "已清理前一天及更早的任务日志");
+ }
+ } catch (err) {
+ addLog("ERROR", "cron", "日志清理异常", { error: err.message });
+ }
+ }, { timezone: "Asia/Shanghai" });
 
  setInterval(async () => {
  addLog("INFO", "cron", "重新加载定时任务配置...");

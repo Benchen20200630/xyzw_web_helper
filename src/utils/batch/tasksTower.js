@@ -2,6 +2,7 @@
  * 爬塔类任务
  * 包含: climbTower, climbWeirdTower, batchClaimFreeEnergy
  */
+import { normalizeWeirdTowerMaxClimb } from "../towerClimbLimit.js";
 
 /**
  * 创建爬塔类任务执行器
@@ -25,6 +26,7 @@ export function createTasksTower(deps) {
     currentRunningTokenId,
     currentSettings,
     loadSettings,
+    weirdTowerMaxClimb,
   } = deps;
 
   /**
@@ -359,8 +361,16 @@ export function createTasksTower(deps) {
         });
 
         let count = 0;
-        const MAX_CLIMB = 100;
+        const MAX_CLIMB = normalizeWeirdTowerMaxClimb(
+          weirdTowerMaxClimb?.value ?? weirdTowerMaxClimb,
+        );
         let consecutiveFailures = 0;
+
+        addLog({
+          time: new Date().toLocaleTimeString(),
+          message: `${token.name} 本次最多爬怪异塔 ${MAX_CLIMB} 次`,
+          type: "info",
+        });
 
         while (currentEnergy > 0 && count < MAX_CLIMB && !shouldStop.value) {
           try {
